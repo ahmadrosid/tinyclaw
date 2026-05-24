@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="TinyClaw logo" src="tinyclaw.png" width="512">
+  <img alt="TinyClaw logo" src="tinyclaw.png" width="256">
 </p>
 
 # TinyClaw
