@@ -1,4 +1,4 @@
-import type { HealthResponse, ModelsResponse } from "@tinyclaw/core/contract";
+import type { ConfigureProviderResponse, HealthResponse, ModelsResponse } from "@tinyclaw/core/contract";
 import {
   createContext,
   useCallback,
@@ -17,6 +17,7 @@ interface AppContextValue {
   error: string | null;
   refresh: () => Promise<void>;
   setModel: (modelId: string) => Promise<void>;
+  configureProvider: (apiKey: string, model?: string) => Promise<ConfigureProviderResponse>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -54,13 +55,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const configureProvider = useCallback(
+    async (apiKey: string, model?: string) => {
+      const result = await client.configureProvider({ apiKey, model });
+      await refresh();
+      return result;
+    },
+    [refresh],
+  );
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ health, models, loading, error, refresh, setModel }),
-    [health, models, loading, error, refresh, setModel],
+    () => ({ health, models, loading, error, refresh, setModel, configureProvider }),
+    [health, models, loading, error, refresh, setModel, configureProvider],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

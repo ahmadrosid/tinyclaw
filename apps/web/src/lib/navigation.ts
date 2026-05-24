@@ -1,4 +1,4 @@
-export type PageId = "chat" | "history" | "profiles" | "tools" | "soul" | "automations";
+export type PageId = "chat" | "history" | "profiles" | "tools" | "soul" | "automations" | "settings";
 
 export interface NavItem {
   id: PageId;
@@ -36,5 +36,10 @@ export const NAV_ITEMS: NavItem[] = [
     id: "automations",
     label: "Automations",
     description: "Draft workflows from natural language",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    description: "Provider API key and model",
   },
 ];

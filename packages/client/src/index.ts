@@ -16,6 +16,8 @@ import type {
   SendMessageResponse,
   SessionMessagesResponse,
   SetModelResponse,
+  ConfigureProviderRequest,
+  ConfigureProviderResponse,
   SoulStackResponse,
   SoulStatusResponse,
   StreamEvent,
@@ -78,6 +80,15 @@ export class TinyClawClient {
     return this.request<SetModelResponse>("/v1/settings/model", {
       method: "PUT",
       body: JSON.stringify({ model }),
+    });
+  }
+
+  async configureProvider(
+    request: ConfigureProviderRequest,
+  ): Promise<ConfigureProviderResponse> {
+    return this.request<ConfigureProviderResponse>("/v1/settings/provider", {
+      method: "PUT",
+      body: JSON.stringify(request),
     });
   }
 

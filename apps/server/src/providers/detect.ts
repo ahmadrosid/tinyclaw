@@ -1,16 +1,20 @@
-import type { ProviderName, UserProviderConfig } from "@tinyclaw/core";
-import { inferProviderFromApiKey } from "@tinyclaw/core";
+import {
+  inferProviderFromApiKey,
+  readEnvValue,
+  type ProviderName,
+  type UserProviderConfig,
+} from "@tinyclaw/core";
 import { getModelById } from "./models";
 
 export function detectProvider(
   env: Record<string, string | undefined> = process.env,
   userConfig?: UserProviderConfig | null,
 ): ProviderName | null {
-  if (env.OPENAI_API_KEY?.trim()) {
+  if (readEnvValue(env, "OPENAI_API_KEY")) {
     return "openai";
   }
 
-  if (env.ANTHROPIC_API_KEY?.trim()) {
+  if (readEnvValue(env, "ANTHROPIC_API_KEY")) {
     return "anthropic";
   }
 

@@ -136,6 +136,47 @@
         }
       }
     },
+    "/v1/settings/provider": {
+      "put": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Configure the LLM provider and API key",
+        "operationId": "configureProvider",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureProviderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Provider configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigureProviderResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sessions": {
       "get": {
         "tags": [
@@ -1450,6 +1491,39 @@
         }
       },
       "SetModelResponse": {
+        "type": "object",
+        "required": [
+          "provider",
+          "currentModel"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "anthropic"
+            ]
+          },
+          "currentModel": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfigureProviderRequest": {
+        "type": "object",
+        "required": [
+          "apiKey"
+        ],
+        "properties": {
+          "apiKey": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfigureProviderResponse": {
         "type": "object",
         "required": [
           "provider",

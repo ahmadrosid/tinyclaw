@@ -1,6 +1,6 @@
 import { createAnthropicProvider } from "./anthropic";
 import { detectProvider } from "./detect";
-import type { ProviderClient, ProviderName } from "@tinyclaw/core";
+import { readEnvValue, type ProviderClient, type ProviderName } from "@tinyclaw/core";
 import { resolveModel } from "./models";
 import { createOpenAIProvider } from "./openai";
 import type { UserProviderConfig } from "@tinyclaw/core";
@@ -46,8 +46,8 @@ export function createProviderFromSources(
 
   const apiKey =
     provider === "openai"
-      ? env.OPENAI_API_KEY ?? userConfig?.apiKey
-      : env.ANTHROPIC_API_KEY ?? userConfig?.apiKey;
+      ? readEnvValue(env, "OPENAI_API_KEY") ?? userConfig?.apiKey
+      : readEnvValue(env, "ANTHROPIC_API_KEY") ?? userConfig?.apiKey;
 
   if (!apiKey?.trim()) {
     return null;
@@ -56,6 +56,6 @@ export function createProviderFromSources(
   return createProvider({
     provider,
     apiKey,
-    model: env.TINYCLAW_MODEL ?? userConfig?.model,
+    model: readEnvValue(env, "TINYCLAW_MODEL") ?? userConfig?.model,
   });
 }

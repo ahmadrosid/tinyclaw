@@ -117,6 +117,16 @@ export interface SetModelResponse {
   currentModel: string;
 }
 
+export interface ConfigureProviderRequest {
+  apiKey: string;
+  model?: string;
+}
+
+export interface ConfigureProviderResponse {
+  provider: "openai" | "anthropic";
+  currentModel: string;
+}
+
 export interface ProfileSummary {
   id: string;
   name: string;

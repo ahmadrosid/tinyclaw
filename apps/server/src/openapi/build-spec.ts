@@ -110,6 +110,18 @@ export function buildOpenApiSpec() {
           },
         },
       },
+      "/v1/settings/provider": {
+        put: {
+          tags: ["Models"],
+          summary: "Configure the LLM provider and API key",
+          operationId: "configureProvider",
+          requestBody: jsonBody("ConfigureProviderRequest"),
+          responses: {
+            "200": jsonResponse("ConfigureProviderResponse", "Provider configured"),
+            "500": errorResponse,
+          },
+        },
+      },
       "/v1/sessions": {
         get: {
           tags: ["Chat"],

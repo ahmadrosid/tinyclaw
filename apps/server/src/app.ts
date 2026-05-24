@@ -21,6 +21,8 @@ import {
   type SessionMessagesResponse,
   type SetModelRequest,
   type SetModelResponse,
+  type ConfigureProviderRequest,
+  type ConfigureProviderResponse,
   type SoulStackResponse,
   type SoulStatusResponse,
   type StreamEvent,
@@ -30,6 +32,7 @@ import {
 import type { AgentChatSession } from "@tinyclaw/agent";
 import { serializeOpenApiSpec } from "./openapi/build-spec";
 import type { AgentService } from "./services/agent-service";
+import { tryServeStaticWeb } from "./static-web";
 
 const DOCS_HTML = `<!doctype html>
 <html lang="en">
@@ -53,10 +56,11 @@ const DOCS_HTML = `<!doctype html>
 
 export interface ServerOptions {
   agent: AgentService;
+  webDistDir?: string | null;
 }
 
 export function createApp(options: ServerOptions) {
-  const { agent } = options;
+  const { agent, webDistDir = null } = options;
 
   return {
     async fetch(request: Request): Promise<Response> {
@@ -95,6 +99,13 @@ export function createApp(options: ServerOptions) {
           const result = await agent.setModel(body.model);
 
           return json<SetModelResponse>(result);
+        }
+
+        if (request.method === "PUT" && url.pathname === "/v1/settings/provider") {
+          const body = await readJson<ConfigureProviderRequest>(request);
+          const result = await agent.configureProvider(body.apiKey, body.model);
+
+          return json<ConfigureProviderResponse>(result);
         }
 
         if (request.method === "POST" && url.pathname === "/v1/sessions") {
@@ -308,6 +319,14 @@ export function createApp(options: ServerOptions) {
           );
 
           return json<DraftAutomationResponse>({ automation });
+        }
+
+        if (webDistDir) {
+          const staticResponse = tryServeStaticWeb(request, webDistDir);
+
+          if (staticResponse) {
+            return staticResponse;
+          }
         }
 
         return errorResponse("Not found", 404);

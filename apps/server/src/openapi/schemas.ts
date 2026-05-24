@@ -184,6 +184,22 @@ export const openApiSchemas = {
       currentModel: { type: "string" },
     },
   },
+  ConfigureProviderRequest: {
+    type: "object",
+    required: ["apiKey"],
+    properties: {
+      apiKey: { type: "string" },
+      model: { type: "string" },
+    },
+  },
+  ConfigureProviderResponse: {
+    type: "object",
+    required: ["provider", "currentModel"],
+    properties: {
+      provider: { type: "string", enum: ["openai", "anthropic"] },
+      currentModel: { type: "string" },
+    },
+  },
   ToolSummary: {
     type: "object",
     required: ["id", "name", "description", "handlerType"],

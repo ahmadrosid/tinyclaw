@@ -7,7 +7,7 @@
 | [Bun](https://bun.sh) | 1.3+ | Runtime, package manager, and local dev |
 | [Docker](https://docs.docker.com/get-docker/) | 20+ (optional) | Run the server or CLI in a container |
 
-For local development you only need Bun. The Docker image bundles Bun and supports both the HTTP server and the interactive CLI.
+For local development you only need Bun. The Docker image bundles Bun and supports the HTTP server, web dashboard, and interactive CLI.
 
 ## Local setup
 
@@ -21,7 +21,7 @@ See [README.md](./README.md) for first-run provider setup and CLI usage.
 
 ## Docker
 
-The [Dockerfile](./Dockerfile) builds an image with the server and CLI. SQLite uses Bun’s built-in driver (`bun:sqlite`); no extra native database packages are required.
+The [Dockerfile](./Dockerfile) builds an image with the server, web dashboard, and CLI. SQLite uses Bun’s built-in driver (`bun:sqlite`); no extra native database packages are required.
 
 The [docker-entrypoint.sh](./docker-entrypoint.sh) accepts `server` (default) or `cli`.
 
@@ -36,23 +36,35 @@ docker build -t tinyclaw .
 ```bash
 docker run -d --name tinyclaw \
   -p 4310:4310 \
-  -e OPENAI_API_KEY=sk-... \
-  -e TINYCLAW_MODEL=gpt-5.4 \
   -v tinyclaw-data:/app/data \
+  -v tinyclaw-config:/root/.tinyclaw \
   tinyclaw
 ```
 
-The server listens on `http://0.0.0.0:4310` inside the container. Map port `4310` to reach it from the host.
+API keys are optional at container start. Pass `-e OPENAI_API_KEY=sk-...` or `-e ANTHROPIC_API_KEY=sk-...` when you prefer env-based config; otherwise configure from the web dashboard (**Settings**) or the CLI (below).
+
+The server listens on `http://0.0.0.0:4310` inside the container. Map port `4310` to reach the API and web dashboard from the host (`http://localhost:4310`).
+
+### Web dashboard
+
+The built web UI is served from the same port as the API. Open `http://localhost:4310` after starting the container.
+
+On first run with no API key, go to **Settings** in the sidebar to enter your provider API key and model. Config persists on the `tinyclaw-config` volume.
+
+For local development without Docker, run the Vite dev server separately:
+
+```bash
+bun run dev:web   # http://127.0.0.1:5173 with API proxy to :4310
+```
 
 ### Run the CLI
 
-The CLI needs an interactive terminal (`-it`). It auto-starts the server in the same container when nothing is listening on `TINYCLAW_SERVER_URL` (default `http://127.0.0.1:4310`).
+The CLI needs an interactive terminal (`-it`). On first run with no API key configured, it prompts for a provider and API key, saves to `/root/.tinyclaw/config.ini`, and continues to chat. It auto-starts the server in the same container when nothing is listening on `TINYCLAW_SERVER_URL` (default `http://127.0.0.1:4310`).
 
 ```bash
 docker run -it --rm \
-  -e OPENAI_API_KEY=sk-... \
-  -e TINYCLAW_MODEL=gpt-5.4 \
   -v tinyclaw-data:/app/data \
+  -v tinyclaw-config:/root/.tinyclaw \
   tinyclaw cli
 ```
 
@@ -71,24 +83,35 @@ On Linux without `host.docker.internal`, use the host gateway IP or run both ser
 [docker-compose.yml](./docker-compose.yml) runs the server in the background and attaches an interactive CLI that connects over the internal network:
 
 ```bash
-export OPENAI_API_KEY=sk-...
 docker compose run --rm cli
 ```
 
-Start only the server:
+On first run, the CLI prompts for an API key and model. Config is saved to the `tinyclaw-config` volume and reused on later runs.
+
+Start only the server (includes the web dashboard):
 
 ```bash
 docker compose up -d server
 ```
 
-Provider credentials are read from environment variables in Docker (no interactive setup). The provider is chosen automatically: `OPENAI_API_KEY` takes precedence over `ANTHROPIC_API_KEY`. If neither is set, the server still starts and chat runs in offline mode.
+Open `http://localhost:4310` and use **Settings** to configure the provider, or run the CLI:
+
+```bash
+docker compose run --rm cli
+```
+
+Provider credentials can come from three places (highest priority first):
+
+1. Environment variables (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) when explicitly set at runtime
+2. `config.ini` on the `/root/.tinyclaw` volume (written from the web **Settings** page, CLI setup prompt, or server first-run setup)
+3. Offline mode if neither is configured — the server still starts; configure via the dashboard or CLI
 
 ### Volumes
 
 | Mount | Purpose |
 |-------|---------|
 | `/app/data` | SQLite database (`data/sqlite/tinyclaw.sqlite`), automations, logs |
-| `/root/.tinyclaw` | Optional user config (`config.ini`) if you prefer file-based settings over env vars |
+| `/root/.tinyclaw` | User config (`config.ini`) and runtime files; persists provider credentials from CLI setup |
 
 Persist at least `/app/data` so profiles, tools, and sessions survive container restarts.
 
@@ -118,8 +141,8 @@ Point a local CLI at a containerized server with `TINYCLAW_SERVER_URL=http://127
 | `TINYCLAW_PORT` | Server port (default `4310`) |
 | `TINYCLAW_SERVER_URL` | Client server URL override |
 | `TINYCLAW_MODEL` | Model ID override |
-| `OPENAI_API_KEY` | OpenAI API key |
-| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `OPENAI_API_KEY` | OpenAI API key (optional; overrides `config.ini` when set) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (optional; overrides `config.ini` when set) |
 | `DATABASE_URL` | SQLite path (default `file:data/sqlite/tinyclaw.sqlite`) |
 
 ## Available models

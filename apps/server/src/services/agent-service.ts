@@ -15,6 +15,7 @@ import type {
   ListSessionsResponse,
   ModelsResponse,
   ProfileResponse,
+  ConfigureProviderResponse,
   SetModelResponse,
   SoulStackResponse,
   SoulStatusResponse,
@@ -24,7 +25,7 @@ import type {
   UserProviderConfig,
   type ProviderClient,
 } from "@tinyclaw/core";
-import { createId, saveUserConfig } from "@tinyclaw/core";
+import { createId, inferProviderFromApiKey, readEnvValue, saveUserConfig } from "@tinyclaw/core";
 import {
   DEFAULT_PROFILE_ID,
   SUPER_BOT_PROFILE_ID,
@@ -250,8 +251,8 @@ export class AgentService {
     if (option.provider !== currentProvider) {
       const apiKey =
         option.provider === "openai"
-          ? process.env.OPENAI_API_KEY
-          : process.env.ANTHROPIC_API_KEY;
+          ? readEnvValue(process.env, "OPENAI_API_KEY")
+          : readEnvValue(process.env, "ANTHROPIC_API_KEY");
 
       if (!apiKey) {
         throw new Error(
@@ -280,6 +281,46 @@ export class AgentService {
     return {
       provider: option.provider,
       currentModel: option.id,
+    };
+  }
+
+  async configureProvider(
+    apiKey: string,
+    model?: string,
+  ): Promise<ConfigureProviderResponse> {
+    const trimmedKey = apiKey.trim();
+
+    if (!trimmedKey) {
+      throw new Error("API key is required.");
+    }
+
+    const provider = inferProviderFromApiKey(trimmedKey);
+    const selectedModel = model?.trim()
+      ? resolveModel(provider, model.trim())
+      : getDefaultModel(provider);
+    const option = getModelById(selectedModel);
+    const nextConfig: UserProviderConfig = {
+      provider: option?.provider ?? provider,
+      apiKey: trimmedKey,
+      model: selectedModel,
+    };
+
+    this.userConfig = nextConfig;
+    await saveUserConfig(this.userConfig);
+
+    const nextProvider = createProviderFromSources(process.env, this.userConfig);
+
+    if (!nextProvider) {
+      throw new Error(`Could not configure provider for ${provider}.`);
+    }
+
+    this._providerConfigured = true;
+    this.harness = this.createHarness(nextProvider);
+    this.sessions.clear();
+
+    return {
+      provider: nextConfig.provider,
+      currentModel: selectedModel,
     };
   }
 

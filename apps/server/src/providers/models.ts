@@ -8,7 +8,7 @@ export interface ProviderModelOption {
 }
 
 export const AVAILABLE_MODELS: ProviderModelOption[] = [
-  { id: "claude-sonnet-4-6", name: "Sonnet 4.6", provider: "anthropic" },
+  { id: "claude-sonnet-4-6", name: "Sonnet 4.6", provider: "anthropic", default: true },
   { id: "claude-opus-4-6", name: "Opus 4.6", provider: "anthropic" },
   { id: "gpt-5.5", name: "GPT-5.5", provider: "openai" },
   { id: "gpt-5.4", name: "GPT-5.4", provider: "openai", default: true },

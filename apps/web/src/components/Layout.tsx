@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/context/app-context";
 import { NAV_ITEMS, type PageId } from "@/lib/navigation";
+import { filterModelsByProvider, formatProviderLabel } from "@/lib/models";
 
 interface LayoutProps {
   page: PageId;
@@ -73,7 +74,7 @@ export function Layout({ page, onNavigate, children }: LayoutProps) {
               {health?.providerConfigured ? (
                 <>
                   <StatusPill
-                    label={models?.provider ?? "provider"}
+                    label={formatProviderLabel(models?.provider)}
                     tone="neutral"
                   />
                   <select
@@ -83,7 +84,7 @@ export function Layout({ page, onNavigate, children }: LayoutProps) {
                     onChange={(event) => void setModel(event.target.value)}
                   >
                     {!models?.currentModel ? <option value="">No model</option> : null}
-                    {models?.models.map((model) => (
+                    {filterModelsByProvider(models?.models ?? [], models?.provider).map((model) => (
                       <option key={model.id} value={model.id}>
                         {model.name}
                       </option>
@@ -91,7 +92,13 @@ export function Layout({ page, onNavigate, children }: LayoutProps) {
                   </select>
                 </>
               ) : (
-                <StatusPill label="No provider" tone="warn" />
+                <button
+                  type="button"
+                  onClick={() => onNavigate("settings")}
+                  className="rounded-full border border-amber-800/60 bg-amber-950/40 px-3 py-1 text-xs font-medium text-amber-200 transition hover:bg-amber-950/60"
+                >
+                  No provider — configure
+                </button>
               )}
 
               <Button type="button" variant="outline" size="sm" onClick={() => void refresh()}>

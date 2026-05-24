@@ -6,6 +6,7 @@ import { ChatPage } from "@/pages/ChatPage";
 import { HistoryPage } from "@/pages/HistoryPage";
 import type { RequestedChatSession } from "@/lib/chat-history";
 import { ProfilesPage } from "@/pages/ProfilesPage";
+import { SettingsPage } from "@/pages/SettingsPage";
 import { SoulPage } from "@/pages/SoulPage";
 import { ToolsPage } from "@/pages/ToolsPage";
 import type { PageId } from "@/lib/navigation";
@@ -22,6 +23,7 @@ export function App() {
           <ChatPage
             requestedSession={requestedChatSession}
             onRequestedSessionHandled={() => setRequestedChatSession(null)}
+            onNavigate={setPage}
           />
         ) : null}
         {page === "history" ? (
@@ -34,6 +36,7 @@ export function App() {
         {page === "tools" ? <ToolsPage onNavigate={setPage} /> : null}
         {page === "soul" ? <SoulPage /> : null}
         {page === "automations" ? <AutomationsPage /> : null}
+        {page === "settings" ? <SettingsPage onNavigate={setPage} /> : null}
       </Layout>
     </AppProvider>
   );

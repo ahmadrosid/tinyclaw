@@ -35,6 +35,7 @@ import { useAppContext } from "@/context/app-context";
 import { cn } from "@/lib/utils";
 import { ArrowUpIcon, ChevronRightIcon, EllipsisIcon } from "lucide-react";
 import { client, formatError } from "@/lib/client";
+import { filterModelsByProvider } from "@/lib/models";
 import {
   chatMessagesToListItems,
   sessionStorageKey,
@@ -44,9 +45,12 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import type { RemoteChatSession } from "@tinyclaw/client";
 
+import type { PageId } from "@/lib/navigation";
+
 interface ChatPageProps {
   requestedSession?: RequestedChatSession | null;
   onRequestedSessionHandled?: () => void;
+  onNavigate: (page: PageId) => void;
 }
 
 function formatBashToolResult(result: unknown): string | null {
@@ -169,6 +173,7 @@ function deriveChatStatus(
 export function ChatPage({
   requestedSession = null,
   onRequestedSessionHandled,
+  onNavigate,
 }: ChatPageProps) {
   const { health, models, loading, setModel } = useAppContext();
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
@@ -185,6 +190,11 @@ export function ChatPage({
   );
 
   const showOfflineHint = health != null && !health.providerConfigured;
+
+  const providerModels = useMemo(
+    () => filterModelsByProvider(models?.models ?? [], models?.provider),
+    [models?.models, models?.provider],
+  );
 
   const activeProfile = useMemo(
     () => profiles.find((profile) => profile.id === profileId),
@@ -483,8 +493,15 @@ export function ChatPage({
             {error ?? "\u00a0"}
           </p>
           {showOfflineHint ? (
-            <p className="text-xs text-amber-200/90 sm:hidden">
-              No provider configured — limited responses.
+            <p className="text-xs text-amber-200/90">
+              No provider configured — limited responses.{" "}
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-amber-100"
+                onClick={() => onNavigate("settings")}
+              >
+                Configure in Settings
+              </button>
             </p>
           ) : null}
           <PromptInput
@@ -532,7 +549,7 @@ export function ChatPage({
                 {health?.providerConfigured && models ? (
                   <PromptInputSelect
                     value={models.currentModel ?? ""}
-                    disabled={!models.models.length || busy}
+                    disabled={!providerModels.length || busy}
                     onValueChange={(value) =>
                       void setModel(value != null ? String(value) : "")
                     }
@@ -541,7 +558,7 @@ export function ChatPage({
                       <PromptInputSelectValue placeholder="Model" />
                     </PromptInputSelectTrigger>
                     <PromptInputSelectContent>
-                      {models.models.map((model) => (
+                      {providerModels.map((model) => (
                         <PromptInputSelectItem key={model.id} value={model.id}>
                           {model.name}
                         </PromptInputSelectItem>

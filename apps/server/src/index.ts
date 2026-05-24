@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { createApp } from "./app";
 import { AgentService } from "./services/agent-service";
 import { ensureProviderConfigured } from "./setup";
+import { resolveWebDistDir } from "./static-web";
 import { TINYCLAW_API_VERSION } from "@tinyclaw/core";
 import {
   DEFAULT_SERVER_HOST,
@@ -13,7 +14,7 @@ import {
 } from "@tinyclaw/core";
 import { createDatabase, seedDatabase, type Database } from "@tinyclaw/db";
 
-const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 const host = process.env.TINYCLAW_HOST ?? DEFAULT_SERVER_HOST;
 const requestedPort = parsePort(process.env.TINYCLAW_PORT);
@@ -34,7 +35,8 @@ const database = await createDatabase(config.databaseUrl, { baseDir: projectRoot
 await seedDatabase(database.adapter);
 
 const agent = new AgentService(userConfig, provider, database.adapter);
-const app = createApp({ agent });
+const webDistDir = resolveWebDistDir(projectRoot);
+const app = createApp({ agent, webDistDir });
 
 const server = startServer({
   host,
@@ -54,6 +56,10 @@ if (server.port !== requestedPort) {
 
 console.log(`TinyClaw server listening on ${serverUrl}`);
 console.log(`TinyClaw database ready at ${config.databaseUrl}`);
+
+if (webDistDir) {
+  console.log(`TinyClaw web dashboard ready at ${serverUrl}`);
+}
 
 if (!provider) {
   console.log("Provider not configured. Chat will run in offline mode.");
