@@ -100,32 +100,46 @@ export function formatSessionTimestamp(value: string): string {
 }
 
 export function formatSessionRelativeTime(value: string): string {
+  return formatRelativeTime(value, "past");
+}
+
+export function formatFutureRelativeTime(value: string): string {
+  return formatRelativeTime(value, "future");
+}
+
+function formatRelativeTime(value: string, tense: "past" | "future"): string {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  const deltaMs = Date.now() - date.getTime();
+  const deltaMs =
+    tense === "future" ? date.getTime() - Date.now() : Date.now() - date.getTime();
+
+  if (tense === "future" && deltaMs <= 0) {
+    return formatSessionTimestamp(value);
+  }
+
   const seconds = Math.max(0, Math.round(deltaMs / 1000));
 
   if (seconds < 60) {
-    return "just now";
+    return tense === "future" ? "in less than a minute" : "just now";
   }
 
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) {
-    return `${minutes}m ago`;
+    return tense === "future" ? `in ${minutes}m` : `${minutes}m ago`;
   }
 
   const hours = Math.round(minutes / 60);
   if (hours < 24) {
-    return `${hours}h ago`;
+    return tense === "future" ? `in ${hours}h` : `${hours}h ago`;
   }
 
   const days = Math.round(hours / 24);
   if (days < 7) {
-    return `${days}d ago`;
+    return tense === "future" ? `in ${days}d` : `${days}d ago`;
   }
 
   return formatSessionTimestamp(value);

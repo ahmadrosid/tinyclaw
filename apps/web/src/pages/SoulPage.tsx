@@ -232,7 +232,7 @@ export function SoulPage() {
 
   return (
     <>
-      <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
         <section className={sectionClass}>
           <div className="mb-4">
             <h2 className="type-section-title">Scope</h2>

@@ -159,7 +159,7 @@ export function HistoryPage({ onNavigate, onOpenSession }: HistoryPageProps) {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
       <Card className="h-fit">
         <CardHeader>
           <div className="flex items-start gap-3">

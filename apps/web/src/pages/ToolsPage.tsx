@@ -74,7 +74,7 @@ export function ToolsPage({ onNavigate }: ToolsPageProps) {
   }
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+    <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
       <section className={cn(sectionClass, "p-5")}>
         <h2 className="type-section-title">Create via agent</h2>
         <p className="type-body mt-2">
