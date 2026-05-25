@@ -10,6 +10,7 @@ For what works today, see [FEATURES.md](./FEATURES.md). For HTTP routes, see `ap
 flowchart TB
   subgraph clients ["Thin clients"]
     cli["apps/cli"]
+    telegram["apps/platform/telegram"]
   end
 
   subgraph sdk ["@tinyclaw/client"]
@@ -39,6 +40,7 @@ flowchart TB
   end
 
   cli --> httpSdk
+  telegram --> httpSdk
   httpSdk -->|"HTTP / SSE"| app
   app --> agentSvc
   app --> profileSvc
@@ -65,6 +67,8 @@ flowchart TB
 tinyclaw/
 ├── apps/
 │   ├── cli/                 # Terminal client (primary); auto-starts server
+│   ├── platform/
+│   │   └── telegram/        # Telegram bot bridge; auto-starts server
 │   └── server/              # HTTP API, agent runtime, LLM providers, openapi.json, scripts/
 ├── packages/
 │   ├── core/                # Config, API types, provider interfaces, builtin tools

@@ -166,6 +166,21 @@ export interface UpdateTimezoneRequest {
   timezone: string;
 }
 
+export interface TelegramSettingsResponse {
+  configured: boolean;
+  botTokenMasked: string | null;
+  handshakeCode: string | null;
+  pairedUserIds: number[];
+  allowedUserIds: number[];
+  profileId: string;
+}
+
+export interface UpdateTelegramSettingsRequest {
+  botToken?: string;
+  allowedUserIds?: string;
+  profileId?: string;
+}
+
 export interface TimezoneCatalogEntry {
   id: string;
   countryCode: string;

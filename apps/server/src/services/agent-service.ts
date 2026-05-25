@@ -19,13 +19,26 @@ import type {
   SetModelResponse,
   SoulStackResponse,
   SoulStatusResponse,
+  TelegramSettingsResponse,
   ToolDefinition,
   UpdateProfileRequest,
   UpdateSoulFileRequest,
+  UpdateTelegramSettingsRequest,
   UserProviderConfig,
   type ProviderClient,
 } from "@tinyclaw/core";
-import { createId, createSessionId, inferProviderFromApiKey, loadUserTimezone, readEnvValue, saveUserConfig, saveUserTimezone } from "@tinyclaw/core";
+import {
+  createId,
+  createSessionId,
+  inferProviderFromApiKey,
+  loadTelegramSettingsPublic,
+  loadUserTimezone,
+  readEnvValue,
+  regenerateTelegramHandshake,
+  saveTelegramConfig,
+  saveUserConfig,
+  saveUserTimezone,
+} from "@tinyclaw/core";
 import {
   DEFAULT_PROFILE_ID,
   SUPER_BOT_PROFILE_ID,
@@ -105,6 +118,38 @@ export class AgentService {
     }
 
     return timezone;
+  }
+
+  async getTelegramSettings(): Promise<TelegramSettingsResponse> {
+    return loadTelegramSettingsPublic();
+  }
+
+  async setTelegramSettings(
+    input: UpdateTelegramSettingsRequest,
+  ): Promise<TelegramSettingsResponse> {
+    const existing = await loadTelegramSettingsPublic();
+    const botToken =
+      input.botToken !== undefined && input.botToken.trim()
+        ? input.botToken.trim()
+        : undefined;
+
+    if (!botToken && !existing.configured) {
+      throw new Error("Bot token is required.");
+    }
+
+    return saveTelegramConfig({
+      ...(botToken ? { botToken } : {}),
+      ...(input.allowedUserIds !== undefined
+        ? { allowedUserIds: input.allowedUserIds }
+        : existing.allowedUserIds.length > 0
+          ? { allowedUserIds: existing.allowedUserIds.join(",") }
+          : {}),
+      ...(input.profileId !== undefined ? { profileId: input.profileId } : {}),
+    });
+  }
+
+  async regenerateTelegramHandshake(): Promise<TelegramSettingsResponse> {
+    return regenerateTelegramHandshake();
   }
 
   async runAutomationPrompt(profileId: string, prompt: string): Promise<string> {

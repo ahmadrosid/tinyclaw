@@ -164,6 +164,40 @@ export function buildOpenApiSpec() {
           },
         },
       },
+      "/v1/settings/telegram": {
+        get: {
+          tags: ["Models"],
+          summary: "Get Telegram bridge settings",
+          operationId: "getTelegramSettings",
+          responses: {
+            "200": jsonResponse("TelegramSettingsResponse", "Telegram settings"),
+            "500": errorResponse,
+          },
+        },
+        put: {
+          tags: ["Models"],
+          summary: "Update Telegram bridge settings",
+          operationId: "setTelegramSettings",
+          requestBody: jsonBody("UpdateTelegramSettingsRequest"),
+          responses: {
+            "200": jsonResponse("TelegramSettingsResponse", "Telegram settings updated"),
+            "400": errorResponse,
+            "500": errorResponse,
+          },
+        },
+      },
+      "/v1/settings/telegram/handshake": {
+        post: {
+          tags: ["Models"],
+          summary: "Regenerate Telegram pairing code",
+          operationId: "regenerateTelegramHandshake",
+          responses: {
+            "200": jsonResponse("TelegramSettingsResponse", "Pairing code regenerated"),
+            "400": errorResponse,
+            "500": errorResponse,
+          },
+        },
+      },
       "/v1/sessions": {
         get: {
           tags: ["Chat"],

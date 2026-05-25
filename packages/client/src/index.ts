@@ -32,8 +32,10 @@ import type {
   RunAutomationResponse,
   StoredAutomation,
   SystemStatusResponse,
+  TelegramSettingsResponse,
   TimezoneSettingsResponse,
   UpdateAutomationRequest,
+  UpdateTelegramSettingsRequest,
   UpdateTimezoneRequest,
   ListTimezonesResponse,
 } from "@tinyclaw/core/contract";
@@ -416,6 +418,25 @@ export class TinyClawClient {
       body: JSON.stringify({ timezone } satisfies UpdateTimezoneRequest),
     });
     return response.timezone;
+  }
+
+  async getTelegramSettings(): Promise<TelegramSettingsResponse> {
+    return this.request<TelegramSettingsResponse>("/v1/settings/telegram");
+  }
+
+  async setTelegramSettings(
+    request: UpdateTelegramSettingsRequest,
+  ): Promise<TelegramSettingsResponse> {
+    return this.request<TelegramSettingsResponse>("/v1/settings/telegram", {
+      method: "PUT",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async regenerateTelegramHandshake(): Promise<TelegramSettingsResponse> {
+    return this.request<TelegramSettingsResponse>("/v1/settings/telegram/handshake", {
+      method: "POST",
+    });
   }
 
   async listTimezones(): Promise<ListTimezonesResponse> {

@@ -31,6 +31,16 @@ Or run the server on its own:
 bun run dev:server
 ```
 
+### Telegram
+
+Configure in the web app under **Settings → Telegram**, or use env vars, then run:
+
+```bash
+bun run dev:telegram
+```
+
+See [apps/platform/telegram/README.md](./apps/platform/telegram/README.md) for setup details.
+
 On first run, the server prompts for a provider and API key if none is configured. Settings are saved to `~/.tinyclaw/config.ini`.
 
 The server listens on `http://127.0.0.1:4310` by default. See [FEATURES.md](./FEATURES.md#api) for interactive API docs.

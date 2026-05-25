@@ -9,6 +9,7 @@ import {
   EyeOffIcon,
   KeyRoundIcon,
 } from "lucide-react";
+import { TelegramSettingsCard } from "@/components/TelegramSettingsCard";
 import { TimezoneSelect } from "@/components/TimezoneSelect";
 import { Button } from "@/components/ui/button";
 import {
@@ -362,6 +363,8 @@ export function SettingsPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      <TelegramSettingsCard />
 
       <Card>
         {!isConfigured ? (

@@ -5,4 +5,5 @@ export * from "./env";
 export * from "./ids";
 export * from "./provider-setup-prompt";
 export * from "./soul";
+export * from "./telegram-config";
 export * from "./tools";

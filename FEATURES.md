@@ -92,9 +92,17 @@ Routes and schemas live in the OpenAPI spec:
 - **Live:** `GET /openapi.json` on the running server
 - **Browse:** [http://127.0.0.1:4310/docs](http://127.0.0.1:4310/docs) or `bun run dev:docs` → [http://127.0.0.1:4320](http://127.0.0.1:4320)
 
+## Telegram
+
+- Chat from Telegram via a thin bridge (`apps/platform/telegram`)
+- Uses the same server sessions and history as CLI/web (`channel: "telegram"`)
+- Link your account with a one-time **pairing code** from **Settings → Telegram** (no manual user ID required)
+- Optional pre-approved user IDs for power users
+- Configure token and profile from the web UI (saved to `~/.tinyclaw/telegram/config.ini`)
+- Start with `bun run dev:telegram` (see [apps/platform/telegram/README.md](./apps/platform/telegram/README.md))
+
 ## Not yet
 
-- Web / Telegram clients
 - Running automations on a schedule
 - User approval before Super Bot creates bots
 

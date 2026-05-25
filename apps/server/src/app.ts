@@ -15,10 +15,12 @@ import {
   type ListAutomationsResponse,
   type AutomationResponse,
   type RunAutomationResponse,
+  type TelegramSettingsResponse,
   type TimezoneSettingsResponse,
   type ListTimezonesResponse,
   type UpdateAutomationRequest,
   type UpdateTimezoneRequest,
+  type UpdateTelegramSettingsRequest,
   type HealthResponse,
   type InitSoulResponse,
   type ListProfilesResponse,
@@ -143,6 +145,30 @@ export function createApp(options: ServerOptions) {
           const timezone = await agent.setUserTimezone(body.timezone);
 
           return json<TimezoneSettingsResponse>({ timezone });
+        }
+
+        if (request.method === "GET" && url.pathname === "/v1/settings/telegram") {
+          return json<TelegramSettingsResponse>(await agent.getTelegramSettings());
+        }
+
+        if (request.method === "PUT" && url.pathname === "/v1/settings/telegram") {
+          const body = await readJson<UpdateTelegramSettingsRequest>(request);
+
+          try {
+            return json<TelegramSettingsResponse>(await agent.setTelegramSettings(body));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return errorResponse(message, 400);
+          }
+        }
+
+        if (request.method === "POST" && url.pathname === "/v1/settings/telegram/handshake") {
+          try {
+            return json<TelegramSettingsResponse>(await agent.regenerateTelegramHandshake());
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return errorResponse(message, 400);
+          }
         }
 
         if (request.method === "POST" && url.pathname === "/v1/sessions") {

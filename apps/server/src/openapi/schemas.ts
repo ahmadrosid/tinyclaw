@@ -584,6 +584,39 @@ export const openApiSchemas = {
       timezone: { type: "string" },
     },
   },
+  TelegramSettingsResponse: {
+    type: "object",
+    required: [
+      "configured",
+      "botTokenMasked",
+      "handshakeCode",
+      "pairedUserIds",
+      "allowedUserIds",
+      "profileId",
+    ],
+    properties: {
+      configured: { type: "boolean" },
+      botTokenMasked: { type: "string", nullable: true },
+      handshakeCode: { type: "string", nullable: true },
+      pairedUserIds: {
+        type: "array",
+        items: { type: "integer" },
+      },
+      allowedUserIds: {
+        type: "array",
+        items: { type: "integer" },
+      },
+      profileId: { type: "string" },
+    },
+  },
+  UpdateTelegramSettingsRequest: {
+    type: "object",
+    properties: {
+      botToken: { type: "string" },
+      allowedUserIds: { type: "string" },
+      profileId: { type: "string" },
+    },
+  },
   TimezoneCatalogEntry: {
     type: "object",
     required: [

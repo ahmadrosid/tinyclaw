@@ -299,6 +299,127 @@
         }
       }
     },
+    "/v1/settings/telegram": {
+      "get": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Get Telegram bridge settings",
+        "operationId": "getTelegramSettings",
+        "responses": {
+          "200": {
+            "description": "Telegram settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramSettingsResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Update Telegram bridge settings",
+        "operationId": "setTelegramSettings",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTelegramSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Telegram settings updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/settings/telegram/handshake": {
+      "post": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Regenerate Telegram pairing code",
+        "operationId": "regenerateTelegramHandshake",
+        "responses": {
+          "200": {
+            "description": "Pairing code regenerated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/sessions": {
       "get": {
         "tags": [
@@ -2728,6 +2849,59 @@
           }
         }
       },
+      "TelegramSettingsResponse": {
+        "type": "object",
+        "required": [
+          "configured",
+          "botTokenMasked",
+          "handshakeCode",
+          "pairedUserIds",
+          "allowedUserIds",
+          "profileId"
+        ],
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "botTokenMasked": {
+            "type": "string",
+            "nullable": true
+          },
+          "handshakeCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "pairedUserIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "allowedUserIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "profileId": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateTelegramSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "botToken": {
+            "type": "string"
+          },
+          "allowedUserIds": {
+            "type": "string"
+          },
+          "profileId": {
+            "type": "string"
+          }
+        }
+      },
       "TimezoneCatalogEntry": {
         "type": "object",
         "required": [
@@ -2764,6 +2938,12 @@
           },
           "tzName": {
             "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

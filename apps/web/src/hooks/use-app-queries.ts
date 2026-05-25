@@ -9,6 +9,7 @@ import { useCallback, useEffect } from "react";
 import { client } from "@/lib/client";
 import { queryKeys } from "@/lib/query-keys";
 import { prefetchTimezoneData } from "@/hooks/use-timezones";
+import { telegramSettingsQueryOptions } from "@/hooks/use-telegram-settings";
 
 const defaultStaleTime = 1000 * 30;
 
@@ -47,6 +48,7 @@ export function profileQueryOptions(profileId: string) {
 
 export function prefetchAppData(queryClient: QueryClient): void {
   prefetchTimezoneData(queryClient);
+  void queryClient.prefetchQuery(telegramSettingsQueryOptions);
   void queryClient.prefetchQuery(healthQueryOptions);
   void queryClient.prefetchQuery(modelsQueryOptions);
   void queryClient.prefetchQuery(profilesQueryOptions);
