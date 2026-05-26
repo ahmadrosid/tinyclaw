@@ -74,19 +74,9 @@ When creating a persistent tool:
 - Never describe a placeholder or partial setup as a working tool
 - Do not say the tool is ready until list_tools, write_file, create_tool, and assign_tool_to_profile all succeed`;
 
-export const BUILTIN_TOOL_IDS = {
-  write_file: "tool_write_file",
-  delete_file: "tool_delete_file",
-  web_search: "tool_web_search",
-} as const;
-
-export const BASH_TOOL_ID = "tool_bash";
-
-export const PROTECTED_TOOL_IDS = new Set<string>([
-  ...Object.values(BUILTIN_TOOL_IDS),
+export {
   BASH_TOOL_ID,
-]);
-
-export function isProtectedToolId(toolId: string): boolean {
-  return PROTECTED_TOOL_IDS.has(toolId);
-}
+  BUILTIN_TOOL_IDS,
+  PROTECTED_TOOL_IDS,
+  isProtectedToolId,
+} from "@tinyclaw/core/tools/protected";

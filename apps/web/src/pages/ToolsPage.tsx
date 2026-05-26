@@ -1,5 +1,5 @@
 import type { ToolSummary } from "@tinyclaw/core/contract";
-import { isProtectedToolId } from "@tinyclaw/core";
+import { isProtectedToolId } from "@tinyclaw/core/tools/protected";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
