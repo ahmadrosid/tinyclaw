@@ -49,6 +49,18 @@ describe("formatClientError", () => {
       "Could not reach the TinyClaw server. Make sure it is running.",
     );
   });
+
+  test("maps stream disconnects to a helpful message", () => {
+    expect(
+      formatClientError(
+        new Error(
+          "The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()",
+        ),
+      ),
+    ).toBe(
+      "The connection closed before the agent finished. Restart the TinyClaw server, then try again. Long automations can take a minute or more.",
+    );
+  });
 });
 
 describe("formatServerError", () => {

@@ -580,6 +580,7 @@ function errorResponse(message: string, status: number): Response {
 
 function streamMessage(session: AgentChatSession, input: SendMessageInput): Response {
   const encoder = new TextEncoder();
+  const keepaliveIntervalMs = 4_000;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -588,6 +589,14 @@ function streamMessage(session: AgentChatSession, input: SendMessageInput): Resp
           encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
         );
       };
+
+      const keepalive = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(": keepalive\n\n"));
+        } catch {
+          clearInterval(keepalive);
+        }
+      }, keepaliveIntervalMs);
 
       try {
         const reply = await session.sendStream(input, {
@@ -612,6 +621,7 @@ function streamMessage(session: AgentChatSession, input: SendMessageInput): Resp
       } catch (error) {
         send({ type: "error", error: formatServerError(error) });
       } finally {
+        clearInterval(keepalive);
         controller.close();
       }
     },

@@ -101,6 +101,40 @@ export function toResponsesInput(messages: ChatMessage[]): unknown[] {
     }
 
     if (message.role === "assistant") {
+      if (message.toolCalls?.length) {
+        if (message.content.trim()) {
+          input.push({
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text: message.content }],
+          });
+        }
+
+        if (message.providerContent?.length) {
+          for (const item of message.providerContent) {
+            if (
+              typeof item === "object" &&
+              item !== null &&
+              "type" in item &&
+              item.type !== "function_call"
+            ) {
+              input.push(item);
+            }
+          }
+        }
+
+        for (const call of message.toolCalls) {
+          input.push({
+            type: "function_call",
+            call_id: call.id,
+            name: call.name,
+            arguments: JSON.stringify(call.arguments),
+          });
+        }
+
+        continue;
+      }
+
       if (message.providerContent?.length) {
         input.push(...message.providerContent);
         continue;
@@ -114,14 +148,6 @@ export function toResponsesInput(messages: ChatMessage[]): unknown[] {
         });
       }
 
-      for (const call of message.toolCalls ?? []) {
-        input.push({
-          type: "function_call",
-          call_id: call.id,
-          name: call.name,
-          arguments: JSON.stringify(call.arguments),
-        });
-      }
       continue;
     }
 

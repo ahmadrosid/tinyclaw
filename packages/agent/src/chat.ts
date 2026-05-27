@@ -237,8 +237,30 @@ async function sendMessage(
 
     return reply;
   } catch (error) {
-    history.pop();
+    rollbackFailedSend(history);
     throw error;
+  }
+}
+
+function rollbackFailedSend(history: ChatMessage[]): void {
+  while (history.length > 0) {
+    const last = history.at(-1);
+
+    if (last?.role === "tool") {
+      history.pop();
+      continue;
+    }
+
+    if (last?.role === "assistant" && (last.toolCalls?.length ?? 0) > 0) {
+      history.pop();
+      continue;
+    }
+
+    if (last?.role === "user") {
+      history.pop();
+    }
+
+    break;
   }
 }
 

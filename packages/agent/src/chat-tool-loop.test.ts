@@ -152,4 +152,28 @@ describe("agent chat tool loop", () => {
 
     expect(events).toEqual(["start:sample", "end:sample", "chunk:done"]);
   });
+
+  test("rolls back incomplete tool turns when follow-up provider call fails", async () => {
+    const provider = createMockProvider([
+      {
+        content: "",
+        toolCalls: [
+          { id: "call_1", name: "sample", arguments: { message: "hi" } },
+        ],
+        assistantMessage: {
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            { id: "call_1", name: "sample", arguments: { message: "hi" } },
+          ],
+        },
+      },
+    ]);
+
+    const harness = createAgentHarness({ provider, tools: [sampleTool] });
+    const session = harness.createChatSession({ tools: [sampleTool] });
+
+    await expect(session.send("say hi")).rejects.toThrow("Unexpected provider call 2");
+    expect(session.getHistory()).toEqual([]);
+  });
 });

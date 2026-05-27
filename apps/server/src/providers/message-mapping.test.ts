@@ -63,4 +63,51 @@ describe("provider user content mapping", () => {
     expect(user.content[1]?.type).toBe("input_image");
     expect(user.content[1]?.image_url).toStartWith("data:image/png;base64,");
   });
+
+  test("toResponsesInput aligns function_call ids with tool outputs", () => {
+    const result = toResponsesInput([
+      { role: "user", content: "run my digest" },
+      {
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "call_tool_id",
+            name: "run_automation",
+            arguments: { automationId: "automation_1" },
+          },
+        ],
+        providerContent: [
+          {
+            type: "function_call",
+            id: "fc_internal_id",
+            call_id: "fc_internal_id",
+            name: "run_automation",
+            arguments: '{"automationId":"automation_1"}',
+          },
+        ],
+      },
+      {
+        role: "tool",
+        toolCallId: "call_tool_id",
+        name: "run_automation",
+        content: '{"status":"completed","output":"done"}',
+      },
+    ]) as Array<Record<string, unknown>>;
+
+    expect(result).toEqual([
+      { role: "user", content: "run my digest" },
+      {
+        type: "function_call",
+        call_id: "call_tool_id",
+        name: "run_automation",
+        arguments: '{"automationId":"automation_1"}',
+      },
+      {
+        type: "function_call_output",
+        call_id: "call_tool_id",
+        output: '{"status":"completed","output":"done"}',
+      },
+    ]);
+  });
 });

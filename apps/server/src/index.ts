@@ -50,7 +50,7 @@ const automationScheduler = new AutomationScheduler(
   () => agent.getUserTimezone(),
 );
 
-agent.setAutomationTools(createAutomationTools(automationService));
+agent.setAutomationTools(createAutomationTools(automationService, automationRunner));
 agent.setAutomationRunner(automationRunner);
 automationService.setOnChange(() => automationScheduler.reload());
 await automationScheduler.start();
@@ -118,6 +118,7 @@ function startServer(options: {
       return Bun.serve({
         hostname: options.host,
         port,
+        idleTimeout: 600,
         fetch: options.fetch,
       });
     } catch (error) {

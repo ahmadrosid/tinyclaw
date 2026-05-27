@@ -63,6 +63,7 @@ Super Bot is the **orchestrator**. It can manage other bots via meta-tools:
 | `create_automation` | Save a manual or scheduled automation |
 | `list_automations` | List saved automations |
 | `delete_automation` | Delete an automation |
+| `run_automation` | Trigger a saved automation from chat |
 | `bash` | Run a shell command (Super Bot only) |
 
 When the model needs a tool, the server sends **native tool definitions** to OpenAI or Anthropic. The model returns structured tool calls; the server executes them and continues the conversation. Streaming clients receive `tool_start` and `tool_end` SSE events while tools run.
@@ -70,6 +71,7 @@ When the model needs a tool, the server sends **native tool definitions** to Ope
 ## Automations
 
 - Create automations from chat using the `create_automation` tool
+- Trigger automations from chat using the `run_automation` tool
 - Draft automations from natural language (`/create` in CLI or Automations page)
 - Save, edit, enable/disable, and delete automations via API or web UI
 - Run automations manually or on a timezone-aware cron schedule

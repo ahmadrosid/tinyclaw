@@ -1,8 +1,10 @@
 import { emptyObjectSchema, type ToolDefinition } from "@tinyclaw/core";
+import type { AutomationRunner } from "../services/automation-runner";
 import type { AutomationService } from "../services/automation-service";
 
 export function createAutomationTools(
   automationService: AutomationService,
+  automationRunner: AutomationRunner,
 ): ToolDefinition[] {
   return [
     {
@@ -106,6 +108,59 @@ export function createAutomationTools(
         }
 
         return { deleted: true, automationId };
+      },
+    },
+    {
+      name: "run_automation",
+      description:
+        "Run a saved automation immediately when the user asks to trigger or test it from chat. Returns the run output or error.",
+      parameters: {
+        type: "object",
+        properties: {
+          automationId: {
+            type: "string",
+            description: "Automation id to run (use list_automations to find it).",
+          },
+        },
+        required: ["automationId"],
+        additionalProperties: false,
+      },
+      async run(input) {
+        const automationId = readString(input, "automationId");
+
+        if (!automationId) {
+          throw new Error("automationId is required.");
+        }
+
+        const automation = await automationService.get(automationId);
+
+        if (!automation) {
+          throw new Error("Automation not found.");
+        }
+
+        const result = await automationRunner.run(automationId);
+
+        if (result.skipped) {
+          throw new Error(result.error ?? "Automation run skipped.");
+        }
+
+        if (result.error) {
+          return {
+            automationId,
+            name: automation.name,
+            status: "failed" as const,
+            output: null,
+            error: result.error,
+          };
+        }
+
+        return {
+          automationId,
+          name: automation.name,
+          status: "completed" as const,
+          output: result.output ?? null,
+          error: null,
+        };
       },
     },
   ];

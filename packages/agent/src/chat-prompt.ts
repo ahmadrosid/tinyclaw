@@ -37,6 +37,7 @@ export function buildChatSystemPrompt(
     `The user's timezone is ${timezone}.`,
     "When the user wants something scheduled or automated, explain your plan clearly in their timezone.",
     "Use create_automation to save recurring or manual automations after confirming the schedule with the user.",
+    "When the user asks to run or test a saved automation, use list_automations to find it, then run_automation, and summarize the result.",
     "For scheduled automations, use 5-field cron syntax and include the timezone when it differs from the user's timezone.",
   );
 

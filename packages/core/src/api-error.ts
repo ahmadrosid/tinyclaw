@@ -80,9 +80,13 @@ export function formatClientError(error: unknown): string {
     return error.message;
   }
 
-  if (error instanceof Error) {
+    if (error instanceof Error) {
     if (isNetworkError(error)) {
       return "Could not reach the TinyClaw server. Make sure it is running.";
+    }
+
+    if (isStreamDisconnectError(error)) {
+      return "The connection closed before the agent finished. Restart the TinyClaw server, then try again. Long automations can take a minute or more.";
     }
 
     const message = error.message.trim();
@@ -134,10 +138,21 @@ function extractErrorText(value: unknown): string | null {
 }
 
 function isNetworkError(error: Error): boolean {
+  const message = error.message.trim();
+
   return (
-    error.message === "Failed to fetch" ||
-    error.message === "NetworkError when attempting to fetch resource." ||
-    error.message === "Load failed"
+    message === "Failed to fetch" ||
+    message === "NetworkError when attempting to fetch resource." ||
+    message === "Load failed"
+  );
+}
+
+function isStreamDisconnectError(error: Error): boolean {
+  const message = error.message.trim();
+
+  return (
+    message.includes("socket connection was closed unexpectedly") ||
+    message === "Stream ended without a response."
   );
 }
 
