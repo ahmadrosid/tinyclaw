@@ -31,9 +31,15 @@ Optional env vars:
 | Command | Description |
 |---------|-------------|
 | `/help` | List commands |
+| `/stop` | Stop the current reply while it is still generating |
 | `/clear` | Clear chat history |
+| `/compact` | Compact conversation history |
 | `/new` | Start a new conversation |
 | `/status` | Server and model status |
+
+Send plain text or a photo (optional caption) to chat with the agent.
+
+**Stopping a reply:** While the bot is working on an answer, send `/stop`. Any text already generated is sent first, then the bot replies `Stopped.`. If nothing is in progress, you get `Nothing to stop.`
 
 Private chats only. New users must paste a one-time pairing code from Settings → Telegram (unless pre-approved via allowed user IDs in Advanced settings).
 
