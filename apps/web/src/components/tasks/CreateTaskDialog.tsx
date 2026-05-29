@@ -44,6 +44,7 @@ export function CreateTaskDialog({
   const [description, setDescription] = useState("");
   const [prompt, setPrompt] = useState("");
   const [profileId, setProfileId] = useState(DEFAULT_PROFILE_ID);
+  const selectedProfileName = profiles.find((profile) => profile.id === profileId)?.name;
 
   async function handleSubmit() {
     await onCreate({ title, description, prompt, profileId });
@@ -116,7 +117,7 @@ export function CreateTaskDialog({
               }}
             >
               <SelectTrigger id="task-profile">
-                <SelectValue placeholder="Select profile" />
+                <SelectValue placeholder="Select profile">{selectedProfileName}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {profiles.map((profile) => (
