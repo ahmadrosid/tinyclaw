@@ -1,8 +1,13 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { readTextOrNull, writePrivateTextFile } from "./fs";
+import {
+  inferProviderFromApiKey,
+  type UserProviderName,
+} from "./provider-inference";
 
-export type UserProviderName = "openai" | "anthropic";
+export type { UserProviderName } from "./provider-inference";
+export { inferProviderFromApiKey } from "./provider-inference";
 
 export interface UserProviderConfig {
   provider: UserProviderName;
@@ -33,14 +38,6 @@ export function validateTimezone(
   }
 
   return value;
-}
-
-export function inferProviderFromApiKey(apiKey: string): UserProviderName {
-  if (apiKey.trim().startsWith("sk-ant-")) {
-    return "anthropic";
-  }
-
-  return "openai";
 }
 
 export function getUserConfigDir(): string {

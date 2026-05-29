@@ -18,7 +18,8 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@tinyclaw/core/runtime": ["src/shims/core-runtime.ts"]
     }
   },
   "include": ["src"]

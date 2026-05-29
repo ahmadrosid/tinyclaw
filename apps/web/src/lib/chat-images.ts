@@ -1,4 +1,4 @@
-import type { ImageAttachment } from "@tinyclaw/core/contract";
+import type { ImageAttachment, MessageContentPart } from "@tinyclaw/core/contract";
 import { parseDataUrl } from "@tinyclaw/core/message-content";
 import type { FileUIPart } from "ai";
 
@@ -21,7 +21,7 @@ export function filePartsToImageAttachments(files: FileUIPart[]): ImageAttachmen
 }
 
 export function userContentToDisplayImages(
-  content: string | import("@tinyclaw/core").MessageContentPart[],
+  content: string | MessageContentPart[],
 ): Array<{ url: string; mediaType: string }> {
   if (typeof content === "string") {
     return [];

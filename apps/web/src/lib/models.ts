@@ -2,7 +2,7 @@ import type { ProviderModelOption } from "@tinyclaw/core/contract";
 import {
   inferProviderFromApiKey,
   type UserProviderName,
-} from "@tinyclaw/core";
+} from "@tinyclaw/core/provider-inference";
 
 export type InferredProvider = UserProviderName;
 export { inferProviderFromApiKey };
