@@ -92,23 +92,22 @@ export function TaskCard({
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
-              className="size-8 text-primary hover:bg-primary/10 hover:text-primary"
+              size="icon-xs"
+              className="text-primary hover:bg-primary/10 hover:text-primary"
               aria-label={`Start ${task.title}`}
               onClick={() => onStart()}
             >
-              <PlayIcon className="size-4" aria-hidden />
+              <PlayIcon className="size-3" aria-hidden />
             </Button>
           ) : null}
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
-            className="size-8"
+            size="icon-xs"
             aria-label={`Edit ${task.title}`}
             onClick={() => onOpen()}
           >
-            <PencilIcon className="size-4" aria-hidden />
+            <PencilIcon className="size-3" aria-hidden />
           </Button>
         </div>
       </div>
