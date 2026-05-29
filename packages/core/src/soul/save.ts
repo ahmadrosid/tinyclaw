@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { writePrivateTextFile } from "../fs";
 import type { SoulStackFiles } from "./types";
 
 const WRITABLE_SOUL_FILES = {
@@ -20,10 +20,8 @@ export async function writeSoulFile(
   key: WritableSoulFileKey,
   content: string,
 ): Promise<void> {
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  await writeFile(join(directory, WRITABLE_SOUL_FILES[key]), content, {
-    encoding: "utf8",
-    mode: 0o600,
+  await writePrivateTextFile(join(directory, WRITABLE_SOUL_FILES[key]), content, {
+    ensureDir: directory,
   });
 }
 

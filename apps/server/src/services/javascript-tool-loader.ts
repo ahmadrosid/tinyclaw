@@ -1,8 +1,7 @@
-import { access } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { JsonSchema, ToolContext, ToolDefinition } from "@tinyclaw/core";
-import { getCustomToolsDir, permissiveObjectSchema } from "@tinyclaw/core";
+import { getCustomToolsDir, pathExists, permissiveObjectSchema } from "@tinyclaw/core";
 import type { StoredToolRecord } from "@tinyclaw/db";
 
 const moduleCache = new Map<string, JavascriptToolModule>();
@@ -40,9 +39,7 @@ export async function loadJavascriptTool(
     );
   }
 
-  try {
-    await access(modulePath);
-  } catch {
+  if (!(await pathExists(modulePath))) {
     return createErrorTool(
       record,
       `Tool module not found: ${config.modulePath}`,
@@ -73,9 +70,7 @@ export async function loadJavascriptTool(
 export async function validateJavascriptToolModule(modulePath: string): Promise<void> {
   const resolvedPath = resolveJavascriptModulePath(modulePath);
 
-  try {
-    await access(resolvedPath);
-  } catch {
+  if (!(await pathExists(resolvedPath))) {
     throw new Error(`Tool module not found: ${modulePath}`);
   }
 

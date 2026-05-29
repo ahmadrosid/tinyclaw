@@ -1,6 +1,9 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fileExists } from "../file-exists";
+import {
+  ensureDir,
+  writePrivateTextFile,
+  writePrivateTextFileIfMissing,
+} from "../fs";
 import {
   BAD_OUTPUTS_TEMPLATE,
   GOOD_OUTPUTS_TEMPLATE,
@@ -21,21 +24,18 @@ const INIT_FILES = [
 ] as const;
 
 export async function initSoulDirectory(directory: string): Promise<InitSoulResult> {
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  await mkdir(join(directory, "examples"), { recursive: true, mode: 0o700 });
-  await mkdir(join(directory, "data"), { recursive: true, mode: 0o700 });
+  await ensureDir(directory);
+  await ensureDir(join(directory, "examples"));
+  await ensureDir(join(directory, "data"));
 
   const created: string[] = [];
 
   for (const file of INIT_FILES) {
     const targetPath = join(directory, file.path);
 
-    if (await fileExists(targetPath)) {
-      continue;
+    if (await writePrivateTextFileIfMissing(targetPath, file.content)) {
+      created.push(file.path);
     }
-
-    await writeFile(targetPath, file.content, { encoding: "utf8", mode: 0o600 });
-    created.push(file.path);
   }
 
   return { directory, created };

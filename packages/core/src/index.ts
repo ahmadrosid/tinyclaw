@@ -1,6 +1,7 @@
 export * from "./api-error";
 export * from "./config";
 export * from "./contract";
+export * from "./fs";
 export * from "./message-content";
 export * from "./normalize-task-prompt";
 export * from "./ids";

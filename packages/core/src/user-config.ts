@@ -1,6 +1,6 @@
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { readTextOrNull, writePrivateTextFile } from "./fs";
 
 export type UserProviderName = "openai" | "anthropic";
 
@@ -45,42 +45,43 @@ export function getUserConfigPath(): string {
 }
 
 export async function loadUserConfig(): Promise<UserProviderConfig | null> {
-  try {
-    const raw = await readFile(getUserConfigPath(), "utf8");
-    const values = parseIni(raw);
-    const apiKey = values.api_key?.trim();
+  const raw = await readTextOrNull(getUserConfigPath());
 
-    if (!apiKey) {
-      return loadTimezoneOnlyConfig(values);
-    }
-
-    const model = values.model?.trim();
-    const configuredProvider = values.provider?.toLowerCase();
-    const provider =
-      configuredProvider === "openai" || configuredProvider === "anthropic"
-        ? configuredProvider
-        : inferProviderFromApiKey(apiKey);
-    const timezone = readTimezone(values);
-
-    return {
-      provider,
-      apiKey,
-      ...(model ? { model } : {}),
-      ...(timezone ? { timezone } : {}),
-    };
-  } catch {
+  if (raw === null) {
     return null;
   }
+
+  const values = parseIni(raw);
+  const apiKey = values.api_key?.trim();
+
+  if (!apiKey) {
+    return loadTimezoneOnlyConfig(values);
+  }
+
+  const model = values.model?.trim();
+  const configuredProvider = values.provider?.toLowerCase();
+  const provider =
+    configuredProvider === "openai" || configuredProvider === "anthropic"
+      ? configuredProvider
+      : inferProviderFromApiKey(apiKey);
+  const timezone = readTimezone(values);
+
+  return {
+    provider,
+    apiKey,
+    ...(model ? { model } : {}),
+    ...(timezone ? { timezone } : {}),
+  };
 }
 
 export async function loadUserTimezone(): Promise<string> {
-  try {
-    const raw = await readFile(getUserConfigPath(), "utf8");
-    const values = parseIni(raw);
-    return readTimezone(values) ?? DEFAULT_TIMEZONE;
-  } catch {
+  const raw = await readTextOrNull(getUserConfigPath());
+
+  if (raw === null) {
     return DEFAULT_TIMEZONE;
   }
+
+  return readTimezone(parseIni(raw)) ?? DEFAULT_TIMEZONE;
 }
 
 export async function saveUserTimezone(timezone: string): Promise<void> {
@@ -97,24 +98,18 @@ export async function saveUserTimezone(timezone: string): Promise<void> {
     return;
   }
 
-  const dir = getUserConfigDir();
-  await mkdir(dir, { recursive: true, mode: 0o700 });
-
   const lines = [
     "# TinyClaw user config",
     `timezone=${trimmed}`,
     "",
   ];
 
-  const path = getUserConfigPath();
-  await writeFile(path, lines.join("\n"), { encoding: "utf8", mode: 0o600 });
-  await chmod(path, 0o600);
+  await writePrivateTextFile(getUserConfigPath(), lines.join("\n"), {
+    ensureDir: getUserConfigDir(),
+  });
 }
 
 export async function saveUserConfig(config: UserProviderConfig): Promise<void> {
-  const dir = getUserConfigDir();
-  await mkdir(dir, { recursive: true, mode: 0o700 });
-
   const lines = [
     "# TinyClaw user config",
     `provider=${config.provider}`,
@@ -124,9 +119,9 @@ export async function saveUserConfig(config: UserProviderConfig): Promise<void> 
     "",
   ];
 
-  const path = getUserConfigPath();
-  await writeFile(path, lines.join("\n"), { encoding: "utf8", mode: 0o600 });
-  await chmod(path, 0o600);
+  await writePrivateTextFile(getUserConfigPath(), lines.join("\n"), {
+    ensureDir: getUserConfigDir(),
+  });
 }
 
 function loadTimezoneOnlyConfig(values: Record<string, string>): UserProviderConfig | null {

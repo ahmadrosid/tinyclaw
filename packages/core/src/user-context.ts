@@ -1,6 +1,10 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fileExists } from "./file-exists";
+import {
+  ensureDir,
+  readTextIfExists,
+  writePrivateTextFile,
+  writePrivateTextFileIfMissing,
+} from "./fs";
 import { getUserConfigDir } from "./user-config";
 
 const USER_TEMPLATE = `# About Me
@@ -42,14 +46,7 @@ export function getUserContextPath(): string {
 }
 
 export async function loadUserContext(): Promise<string | undefined> {
-  const path = getUserContextPath();
-
-  if (!(await fileExists(path))) {
-    return undefined;
-  }
-
-  const content = (await readFile(path, "utf8")).trim();
-  return content || undefined;
+  return readTextIfExists(getUserContextPath());
 }
 
 export async function getUserContextStatus(): Promise<{
@@ -68,11 +65,8 @@ export async function getUserContextStatus(): Promise<{
 }
 
 export async function writeUserContext(content: string): Promise<void> {
-  const dir = getUserConfigDir();
-  await mkdir(dir, { recursive: true, mode: 0o700 });
-  await writeFile(getUserContextPath(), content, {
-    encoding: "utf8",
-    mode: 0o600,
+  await writePrivateTextFile(getUserContextPath(), content, {
+    ensureDir: getUserConfigDir(),
   });
 }
 
@@ -83,13 +77,7 @@ export interface InitUserContextResult {
 
 export async function initUserContext(): Promise<InitUserContextResult> {
   const path = getUserContextPath();
-  const dir = getUserConfigDir();
-  await mkdir(dir, { recursive: true, mode: 0o700 });
-
-  if (await fileExists(path)) {
-    return { path, created: false };
-  }
-
-  await writeFile(path, USER_TEMPLATE, { encoding: "utf8", mode: 0o600 });
-  return { path, created: true };
+  await ensureDir(getUserConfigDir());
+  const created = await writePrivateTextFileIfMissing(path, USER_TEMPLATE);
+  return { path, created };
 }

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { readTextOrNull, writePrivateTextFile } from "./fs";
 
 export const DEFAULT_TELEGRAM_PROFILE_ID = "profile_default";
 
@@ -90,29 +90,30 @@ export function isTelegramUserAuthorized(
 }
 
 export async function loadTelegramConfigFile(): Promise<TelegramConfigFile | null> {
-  try {
-    const raw = await readFile(getTelegramConfigPath(), "utf8");
-    const values = parseIni(raw);
-    const botToken = values.bot_token?.trim() ?? "";
-    const profileId = values.profile_id?.trim() || DEFAULT_TELEGRAM_PROFILE_ID;
-    const handshakeCode = values.handshake_code?.trim() || null;
-    const pairedRaw = values.paired_user_ids?.trim() ?? "";
-    const allowlistRaw = values.allowed_user_ids?.trim() ?? "";
+  const raw = await readTextOrNull(getTelegramConfigPath());
 
-    if (!botToken) {
-      return null;
-    }
-
-    return {
-      botToken,
-      profileId,
-      handshakeCode,
-      pairedUserIds: pairedRaw ? parseAllowedUserIds(pairedRaw) : [],
-      allowedUserIds: allowlistRaw ? parseAllowedUserIds(allowlistRaw) : [],
-    };
-  } catch {
+  if (raw === null) {
     return null;
   }
+
+  const values = parseIni(raw);
+  const botToken = values.bot_token?.trim() ?? "";
+  const profileId = values.profile_id?.trim() || DEFAULT_TELEGRAM_PROFILE_ID;
+  const handshakeCode = values.handshake_code?.trim() || null;
+  const pairedRaw = values.paired_user_ids?.trim() ?? "";
+  const allowlistRaw = values.allowed_user_ids?.trim() ?? "";
+
+  if (!botToken) {
+    return null;
+  }
+
+  return {
+    botToken,
+    profileId,
+    handshakeCode,
+    pairedUserIds: pairedRaw ? parseAllowedUserIds(pairedRaw) : [],
+    allowedUserIds: allowlistRaw ? parseAllowedUserIds(allowlistRaw) : [],
+  };
 }
 
 export function toTelegramSettingsPublic(
@@ -144,9 +145,6 @@ export async function loadTelegramSettingsPublic(): Promise<TelegramSettingsPubl
 }
 
 async function writeTelegramConfigFile(config: TelegramConfigFile): Promise<void> {
-  const dir = getTelegramConfigDir();
-  await mkdir(dir, { recursive: true, mode: 0o700 });
-
   const lines = [
     "# TinyClaw Telegram bridge",
     `bot_token=${config.botToken}`,
@@ -161,9 +159,9 @@ async function writeTelegramConfigFile(config: TelegramConfigFile): Promise<void
     "",
   ];
 
-  const path = getTelegramConfigPath();
-  await writeFile(path, lines.join("\n"), { encoding: "utf8", mode: 0o600 });
-  await chmod(path, 0o600);
+  await writePrivateTextFile(getTelegramConfigPath(), lines.join("\n"), {
+    ensureDir: getTelegramConfigDir(),
+  });
 }
 
 export async function saveTelegramConfig(

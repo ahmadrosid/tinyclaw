@@ -1,6 +1,12 @@
-import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ImageAttachment } from "./contract";
+import {
+  ensureDir,
+  readBytes,
+  readDirectoryOrEmpty,
+  removeFile,
+  writePrivateBytesFile,
+} from "./fs";
 import { validateImageAttachments } from "./message-content";
 import { getProfileSoulDir } from "./soul/resolve";
 
@@ -53,7 +59,7 @@ export async function saveProfileAvatar(
   validateImageAttachments([attachment]);
 
   const directory = getProfileSoulDir(profileId);
-  await mkdir(directory, { recursive: true, mode: 0o700 });
+  await ensureDir(directory);
   await deleteProfileAvatar(profileId);
 
   const base64 = attachment.data.includes(",")
@@ -62,7 +68,7 @@ export async function saveProfileAvatar(
   const bytes = Buffer.from(base64, "base64");
   const filePath = getProfileAvatarPath(profileId, attachment.mediaType);
 
-  await writeFile(filePath, bytes, { mode: 0o600 });
+  await writePrivateBytesFile(filePath, bytes);
 }
 
 export async function readProfileAvatar(profileId: string): Promise<ProfileAvatarData | null> {
@@ -79,28 +85,23 @@ export async function readProfileAvatar(profileId: string): Promise<ProfileAvata
     return null;
   }
 
-  const bytes = await readFile(filePath);
+  const bytes = await readBytes(filePath);
 
   return { mediaType, bytes };
 }
 
 export async function deleteProfileAvatar(profileId: string): Promise<boolean> {
   const directory = getProfileSoulDir(profileId);
+  const entries = await readDirectoryOrEmpty(directory);
   let removed = false;
 
-  try {
-    const entries = await readdir(directory);
-
-    for (const entry of entries) {
-      if (!entry.startsWith(`${AVATAR_BASENAME}.`)) {
-        continue;
-      }
-
-      await unlink(join(directory, entry));
-      removed = true;
+  for (const entry of entries) {
+    if (!entry.startsWith(`${AVATAR_BASENAME}.`)) {
+      continue;
     }
-  } catch {
-    return false;
+
+    await removeFile(join(directory, entry));
+    removed = true;
   }
 
   return removed;
@@ -108,23 +109,18 @@ export async function deleteProfileAvatar(profileId: string): Promise<boolean> {
 
 async function findProfileAvatarFile(profileId: string): Promise<string | null> {
   const directory = getProfileSoulDir(profileId);
+  const entries = await readDirectoryOrEmpty(directory);
 
-  try {
-    const entries = await readdir(directory);
-
-    for (const entry of entries) {
-      if (!entry.startsWith(`${AVATAR_BASENAME}.`)) {
-        continue;
-      }
-
-      const extension = entry.slice(entry.lastIndexOf(".") + 1).toLowerCase();
-
-      if (EXTENSION_TO_MEDIA_TYPE[extension]) {
-        return join(directory, entry);
-      }
+  for (const entry of entries) {
+    if (!entry.startsWith(`${AVATAR_BASENAME}.`)) {
+      continue;
     }
-  } catch {
-    return null;
+
+    const extension = entry.slice(entry.lastIndexOf(".") + 1).toLowerCase();
+
+    if (EXTENSION_TO_MEDIA_TYPE[extension]) {
+      return join(directory, entry);
+    }
   }
 
   return null;

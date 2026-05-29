@@ -1,6 +1,10 @@
-import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fileExists } from "../file-exists";
+import {
+  pathExists,
+  readDirectoryEntries,
+  readText,
+  readTextIfExists,
+} from "../fs";
 import type { LoadedSoulStack, SoulFileStatus, SoulStatus } from "./types";
 
 const SOUL_FILES = {
@@ -10,23 +14,14 @@ const SOUL_FILES = {
   memory: "MEMORY.md",
 } as const;
 
-async function readOptionalFile(path: string): Promise<string | undefined> {
-  if (!(await fileExists(path))) {
-    return undefined;
-  }
-
-  const content = (await readFile(path, "utf8")).trim();
-  return content || undefined;
-}
-
 async function loadExamples(directory: string): Promise<string | undefined> {
   const examplesDir = join(directory, "examples");
 
-  if (!(await fileExists(examplesDir))) {
+  if (!(await pathExists(examplesDir))) {
     return undefined;
   }
 
-  const entries = await readdir(examplesDir, { withFileTypes: true });
+  const entries = await readDirectoryEntries(examplesDir);
   const markdownFiles = entries
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => entry.name)
@@ -39,7 +34,7 @@ async function loadExamples(directory: string): Promise<string | undefined> {
   const sections: string[] = [];
 
   for (const filename of markdownFiles) {
-    const content = (await readFile(join(examplesDir, filename), "utf8")).trim();
+    const content = (await readText(join(examplesDir, filename))).trim();
 
     if (content) {
       sections.push(`## ${filename}\n\n${content}`);
@@ -54,7 +49,7 @@ export async function loadSoulStack(directory: string): Promise<LoadedSoulStack>
   const loaded: string[] = [];
 
   for (const [key, filename] of Object.entries(SOUL_FILES)) {
-    const content = await readOptionalFile(join(directory, filename));
+    const content = await readTextIfExists(join(directory, filename));
 
     if (content) {
       files[key as keyof typeof SOUL_FILES] = content;
