@@ -3,8 +3,6 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/plus-jakarta-sans";
 @import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource-variable/source-serif-4";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -262,7 +260,7 @@
   }
 
   .chat-markdown {
-    font-family: var(--font-prose);
+    font-family: var(--font-sans);
     font-size: 1rem;
     line-height: 1.65;
     letter-spacing: 0.01em;
@@ -393,7 +391,7 @@
   .chat-markdown h2,
   .chat-markdown h3,
   .chat-markdown h4 {
-    font-family: var(--font-prose);
+    font-family: var(--font-sans);
     font-weight: 600;
     letter-spacing: -0.015em;
     line-height: 1.35;
@@ -489,7 +487,6 @@
 @theme inline {
   --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
-  --font-prose: "Source Serif 4 Variable", ui-serif, Georgia, serif;
   --font-heading: var(--font-sans);
   --text-xs: 0.75rem;
   --text-xs--line-height: 1.5;

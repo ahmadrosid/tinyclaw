@@ -74,7 +74,9 @@ function UserMessageContent({ message }: { message: ChatListItem }) {
           ))}
         </div>
       ) : null}
-      {message.content ? <p className="whitespace-pre-wrap">{message.content}</p> : null}
+      {message.content ? (
+        <p className="whitespace-pre-wrap text-foreground">{message.content}</p>
+      ) : null}
     </div>
   );
 }

@@ -79,7 +79,6 @@ export function TasksPage() {
     runMutation.isPending;
 
   const errorMessage = pageError ?? (error ? formatError(error) : null);
-  const swarmActive = metrics.inProgress > 0;
 
   useEffect(() => {
     if (focusedTaskId && !focusedTask) {
@@ -235,7 +234,6 @@ export function TasksPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <SwarmActivityIndicator active={swarmActive} count={metrics.inProgress} />
             <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
               <PlusIcon className="size-4" aria-hidden />
               New task
@@ -244,12 +242,13 @@ export function TasksPage() {
         </header>
 
         {!isLoading || tasks.length > 0 ? (
-          <div
-            className={cn(
-              "mt-5 grid min-w-0 grid-cols-2 gap-2 sm:gap-3",
-              showHistoryPanel ? "xl:grid-cols-4" : "lg:grid-cols-4",
-            )}
-          >
+          <div className="@container/metrics mt-5 min-w-0">
+            <div
+              className={cn(
+                "grid grid-cols-1 gap-2 sm:gap-3",
+                "@sm/metrics:grid-cols-2 @2xl/metrics:grid-cols-4",
+              )}
+            >
             <SwarmMetricTile
               label="Total tasks"
               value={metrics.total}
@@ -276,6 +275,7 @@ export function TasksPage() {
               warn={metrics.failed > 0}
               compact={showHistoryPanel}
             />
+            </div>
           </div>
         ) : null}
 
@@ -381,27 +381,6 @@ export function TasksPage() {
   );
 }
 
-function SwarmActivityIndicator({ active, count }: { active: boolean; count: number }) {
-  return (
-    <div
-      className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground"
-      aria-live="polite"
-    >
-      <span className="relative flex size-2">
-        {active ? (
-          <>
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-60 motion-reduce:animate-none" />
-            <span className="relative inline-flex size-2 rounded-full bg-amber-500" />
-          </>
-        ) : (
-          <span className="relative inline-flex size-2 rounded-full bg-muted-foreground/40" />
-        )}
-      </span>
-      {active ? `${count} agent${count === 1 ? "" : "s"} running` : "Swarm idle"}
-    </div>
-  );
-}
-
 function SwarmMetricTile({
   label,
   value,
@@ -420,22 +399,29 @@ function SwarmMetricTile({
   return (
     <Card
       className={cn(
-        "min-w-0",
+        "min-w-0 overflow-hidden",
         highlight && "border-amber-300/50 bg-amber-50/40 dark:border-amber-800/40 dark:bg-amber-950/20",
         warn && value > 0 && "border-red-300/50 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/20",
       )}
     >
-      <CardHeader className={cn("gap-1", compact ? "p-3 pb-1" : "pb-1")}>
-        <CardDescription className="truncate text-xs">{label}</CardDescription>
-        <CardTitle className={cn("tabular-nums", compact ? "text-xl" : "text-2xl")}>
+      <CardHeader className="flex flex-row items-start justify-between gap-2 p-3 pb-1">
+        <CardDescription className="min-w-0 truncate text-xs">{label}</CardDescription>
+        <CardTitle
+          className={cn(
+            "shrink-0 tabular-nums",
+            compact ? "text-lg @sm/metrics:text-xl" : "text-xl @sm/metrics:text-2xl",
+          )}
+        >
           {value}
         </CardTitle>
       </CardHeader>
-      <CardContent className={cn("pt-0", compact ? "px-3 pb-3" : undefined)}>
+      <CardContent className="px-3 pb-3 pt-0">
         <p
           className={cn(
             "text-muted-foreground",
-            compact ? "line-clamp-1 text-[11px]" : "text-xs",
+            compact
+              ? "line-clamp-2 text-[11px] @sm/metrics:line-clamp-1 @sm/metrics:text-xs"
+              : "line-clamp-2 text-xs @sm/metrics:line-clamp-1",
           )}
         >
           {hint}
