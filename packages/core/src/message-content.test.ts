@@ -7,6 +7,8 @@ import {
   normalizeUserContent,
   parseDataUrl,
   stripImagesForCompaction,
+  validateCombinedAttachmentCount,
+  validateDocumentAttachments,
   validateImageAttachments,
 } from "./message-content";
 
@@ -39,6 +41,45 @@ describe("normalizeUserContent", () => {
       { type: "image", mediaType: "image/png", data: tinyPngBase64 },
     ]);
   });
+
+  test("returns parts when documents present", () => {
+    const result = normalizeUserContent("summarize", undefined, [
+      {
+        filename: "notes.txt",
+        mediaType: "text/plain",
+        data: "SGVsbG8=",
+      },
+    ]);
+
+    expect(result).toEqual([
+      { type: "text", text: "summarize" },
+      {
+        type: "document",
+        filename: "notes.txt",
+        mediaType: "text/plain",
+        data: "SGVsbG8=",
+      },
+    ]);
+  });
+
+  test("allows document-only message", () => {
+    const result = normalizeUserContent("", undefined, [
+      {
+        filename: "notes.txt",
+        mediaType: "text/plain",
+        data: "SGVsbG8=",
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        type: "document",
+        filename: "notes.txt",
+        mediaType: "text/plain",
+        data: "SGVsbG8=",
+      },
+    ]);
+  });
 });
 
 describe("validateImageAttachments", () => {
@@ -53,6 +94,31 @@ describe("validateImageAttachments", () => {
     expect(() =>
       validateImageAttachments([{ mediaType: "image/png", data: huge }]),
     ).toThrow(TinyClawApiError);
+  });
+});
+
+describe("validateDocumentAttachments", () => {
+  test("rejects unsupported media type", () => {
+    expect(() =>
+      validateDocumentAttachments([
+        { filename: "bad.bin", mediaType: "application/octet-stream", data: "YWJj" },
+      ]),
+    ).toThrow(TinyClawApiError);
+  });
+
+  test("rejects oversized document", () => {
+    const huge = "A".repeat((6 * 1024 * 1024 * 4) / 3);
+    expect(() =>
+      validateDocumentAttachments([
+        { filename: "big.pdf", mediaType: "application/pdf", data: huge },
+      ]),
+    ).toThrow(TinyClawApiError);
+  });
+});
+
+describe("validateCombinedAttachmentCount", () => {
+  test("rejects more than five attachments total", () => {
+    expect(() => validateCombinedAttachmentCount(3, 3)).toThrow(TinyClawApiError);
   });
 });
 

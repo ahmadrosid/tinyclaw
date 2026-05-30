@@ -15,9 +15,22 @@ const multimodalUserMessage: ChatMessage = {
   ],
 };
 
+const documentUserMessage: ChatMessage = {
+  role: "user",
+  content: [
+    { type: "text", text: "Summarize this file" },
+    {
+      type: "document",
+      filename: "report.pdf",
+      mediaType: "application/pdf",
+      data: "JVBERi0=",
+    },
+  ],
+};
+
 describe("provider user content mapping", () => {
-  test("toAnthropicMessages maps image parts", () => {
-    const result = toAnthropicMessages([multimodalUserMessage]);
+  test("toAnthropicMessages maps image parts", async () => {
+    const result = await toAnthropicMessages([multimodalUserMessage]);
     const user = result[0];
 
     expect(user?.role).toBe("user");
@@ -35,8 +48,23 @@ describe("provider user content mapping", () => {
     });
   });
 
-  test("toOpenAIMessages maps image parts", () => {
-    const result = toOpenAIMessages("system", [multimodalUserMessage]);
+  test("toAnthropicMessages maps document parts", async () => {
+    const result = await toAnthropicMessages([documentUserMessage]);
+    const user = result[0];
+    const blocks = user?.content as Array<Record<string, unknown>>;
+
+    expect(blocks[1]).toEqual({
+      type: "document",
+      source: {
+        type: "base64",
+        media_type: "application/pdf",
+        data: "JVBERi0=",
+      },
+    });
+  });
+
+  test("toOpenAIMessages maps image parts", async () => {
+    const result = await toOpenAIMessages("system", [multimodalUserMessage]);
     const user = result.find((message) => message.role === "user");
 
     expect(Array.isArray(user?.content)).toBe(true);
@@ -49,8 +77,8 @@ describe("provider user content mapping", () => {
     );
   });
 
-  test("toResponsesInput maps image parts", () => {
-    const result = toResponsesInput([multimodalUserMessage]);
+  test("toResponsesInput maps image parts", async () => {
+    const result = await toResponsesInput([multimodalUserMessage]);
     const user = result[0] as {
       type?: string;
       role: string;
@@ -64,8 +92,23 @@ describe("provider user content mapping", () => {
     expect(user.content[1]?.image_url).toStartWith("data:image/png;base64,");
   });
 
-  test("toResponsesInput aligns function_call ids with tool outputs", () => {
-    const result = toResponsesInput([
+  test("toResponsesInput maps document parts", async () => {
+    const result = await toResponsesInput([documentUserMessage]);
+    const user = result[0] as {
+      type?: string;
+      role: string;
+      content: Array<Record<string, unknown>>;
+    };
+
+    expect(user.content[1]).toEqual({
+      type: "input_file",
+      filename: "report.pdf",
+      file_data: "data:application/pdf;base64,JVBERi0=",
+    });
+  });
+
+  test("toResponsesInput aligns function_call ids with tool outputs", async () => {
+    const result = (await toResponsesInput([
       { role: "user", content: "run my digest" },
       {
         role: "assistant",
@@ -93,7 +136,7 @@ describe("provider user content mapping", () => {
         name: "run_automation",
         content: '{"status":"completed","output":"done"}',
       },
-    ]) as Array<Record<string, unknown>>;
+    ])) as Array<Record<string, unknown>>;
 
     expect(result).toEqual([
       { role: "user", content: "run my digest" },

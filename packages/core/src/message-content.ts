@@ -1,9 +1,23 @@
-import type { ChatMessage, ImageAttachment, MessageContentPart } from "./contract";
+import type {
+  ChatMessage,
+  DocumentAttachment,
+  ImageAttachment,
+  MessageContentPart,
+  ProviderName,
+} from "./contract";
 import { TinyClawApiError } from "./api-error";
+import {
+  resolveUserContentForProvider,
+  toAnthropicDocumentBlock,
+  toOpenAIResponsesDocumentBlock,
+} from "./document-content";
 
-export const MAX_IMAGES_PER_MESSAGE = 5;
+export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+export const MAX_IMAGES_PER_MESSAGE = MAX_ATTACHMENTS_PER_MESSAGE;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
 export const TOKENS_PER_IMAGE_ESTIMATE = 1_500;
+export const TOKENS_PER_DOCUMENT_ESTIMATE = 2_000;
 
 const ALLOWED_IMAGE_MEDIA_TYPES = new Set([
   "image/jpeg",
@@ -11,6 +25,20 @@ const ALLOWED_IMAGE_MEDIA_TYPES = new Set([
   "image/gif",
   "image/webp",
 ]);
+
+const ALLOWED_DOCUMENT_MEDIA_TYPES = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "text/csv",
+]);
+
+const DOCUMENT_EXTENSION_MEDIA_TYPES: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".csv": "text/csv",
+  ".txt": "text/plain",
+};
 
 export function isMessageContentPartArray(
   content: string | MessageContentPart[],
@@ -21,12 +49,24 @@ export function isMessageContentPartArray(
 export function normalizeUserContent(
   message: string,
   images?: ImageAttachment[],
+  documents?: DocumentAttachment[],
 ): string | MessageContentPart[] {
-  if (!images?.length) {
+  const hasImages = Boolean(images?.length);
+  const hasDocuments = Boolean(documents?.length);
+
+  if (!hasImages && !hasDocuments) {
     return message;
   }
 
-  validateImageAttachments(images);
+  if (hasImages) {
+    validateImageAttachments(images!);
+  }
+
+  if (hasDocuments) {
+    validateDocumentAttachments(documents!);
+  }
+
+  validateCombinedAttachmentCount(images?.length ?? 0, documents?.length ?? 0);
 
   const parts: MessageContentPart[] = [];
 
@@ -34,7 +74,7 @@ export function normalizeUserContent(
     parts.push({ type: "text", text: message });
   }
 
-  for (const image of images) {
+  for (const image of images ?? []) {
     parts.push({
       type: "image",
       mediaType: image.mediaType,
@@ -42,17 +82,43 @@ export function normalizeUserContent(
     });
   }
 
+  for (const document of documents ?? []) {
+    parts.push({
+      type: "document",
+      filename: document.filename,
+      mediaType: document.mediaType,
+      data: document.data,
+    });
+  }
+
   if (parts.length === 0) {
-    throw new TinyClawApiError("Message must include text or at least one image.", 400);
+    throw new TinyClawApiError(
+      "Message must include text or at least one attachment.",
+      400,
+    );
   }
 
   return parts;
 }
 
-export function validateImageAttachments(images: ImageAttachment[]): void {
-  if (images.length > MAX_IMAGES_PER_MESSAGE) {
+export function validateCombinedAttachmentCount(
+  imageCount: number,
+  documentCount: number,
+): void {
+  const total = imageCount + documentCount;
+
+  if (total > MAX_ATTACHMENTS_PER_MESSAGE) {
     throw new TinyClawApiError(
-      `At most ${MAX_IMAGES_PER_MESSAGE} images per message.`,
+      `At most ${MAX_ATTACHMENTS_PER_MESSAGE} attachments per message.`,
+      400,
+    );
+  }
+}
+
+export function validateImageAttachments(images: ImageAttachment[]): void {
+  if (images.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+    throw new TinyClawApiError(
+      `At most ${MAX_ATTACHMENTS_PER_MESSAGE} images per message.`,
       400,
     );
   }
@@ -65,21 +131,64 @@ export function validateImageAttachments(images: ImageAttachment[]): void {
       );
     }
 
-    const raw = image.data.trim();
+    validateAttachmentBytes(image.data, MAX_IMAGE_BYTES, "image");
+  }
+}
 
-    if (!raw) {
-      throw new TinyClawApiError("Image data must not be empty.", 400);
+export function validateDocumentAttachments(documents: DocumentAttachment[]): void {
+  if (documents.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+    throw new TinyClawApiError(
+      `At most ${MAX_ATTACHMENTS_PER_MESSAGE} documents per message.`,
+      400,
+    );
+  }
+
+  for (const document of documents) {
+    const filename = document.filename.trim();
+
+    if (!filename) {
+      throw new TinyClawApiError("Document filename must not be empty.", 400);
     }
 
-    const base64 = raw.includes(",") ? (raw.split(",")[1] ?? "") : raw;
-    const byteLength = estimateBase64DecodedLength(base64);
+    const mediaType = normalizeDocumentMediaType(document.mediaType, filename);
 
-    if (byteLength > MAX_IMAGE_BYTES) {
+    if (!ALLOWED_DOCUMENT_MEDIA_TYPES.has(mediaType)) {
       throw new TinyClawApiError(
-        `Each image must be at most ${MAX_IMAGE_BYTES / (1024 * 1024)} MB.`,
+        `Unsupported document type: ${document.mediaType}. Allowed: pdf, docx, csv, txt.`,
         400,
       );
     }
+
+    validateAttachmentBytes(document.data, MAX_DOCUMENT_BYTES, "document");
+  }
+}
+
+export function normalizeDocumentMediaType(mediaType: string, filename: string): string {
+  const trimmed = mediaType.trim().toLowerCase();
+
+  if (ALLOWED_DOCUMENT_MEDIA_TYPES.has(trimmed)) {
+    return trimmed;
+  }
+
+  const extension = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+  return DOCUMENT_EXTENSION_MEDIA_TYPES[extension] ?? trimmed;
+}
+
+function validateAttachmentBytes(data: string, maxBytes: number, label: string): void {
+  const raw = data.trim();
+
+  if (!raw) {
+    throw new TinyClawApiError(`${label} data must not be empty.`, 400);
+  }
+
+  const base64 = raw.includes(",") ? (raw.split(",")[1] ?? "") : raw;
+  const byteLength = estimateBase64DecodedLength(base64);
+
+  if (byteLength > maxBytes) {
+    throw new TinyClawApiError(
+      `Each ${label} must be at most ${maxBytes / (1024 * 1024)} MB.`,
+      400,
+    );
   }
 }
 
@@ -108,8 +217,20 @@ export function countUserImages(content: string | MessageContentPart[]): number 
   return content.filter((part) => part.type === "image").length;
 }
 
+export function countUserDocuments(content: string | MessageContentPart[]): number {
+  if (typeof content === "string") {
+    return 0;
+  }
+
+  return content.filter((part) => part.type === "document").length;
+}
+
 export function messageContentHasImages(content: string | MessageContentPart[]): boolean {
   return countUserImages(content) > 0;
+}
+
+export function messageContentHasDocuments(content: string | MessageContentPart[]): boolean {
+  return countUserDocuments(content) > 0;
 }
 
 export function messagesIncludeUserImages(messages: readonly ChatMessage[]): boolean {
@@ -118,11 +239,18 @@ export function messagesIncludeUserImages(messages: readonly ChatMessage[]): boo
   );
 }
 
+export function messagesIncludeUserDocuments(messages: readonly ChatMessage[]): boolean {
+  return messages.some(
+    (message) => message.role === "user" && messageContentHasDocuments(message.content),
+  );
+}
+
 export function estimateUserContentTokens(content: string | MessageContentPart[]): number {
   const text = getUserMessageText(content);
   const textTokens = Math.ceil(text.length / 4);
   const imageTokens = countUserImages(content) * TOKENS_PER_IMAGE_ESTIMATE;
-  return textTokens + imageTokens;
+  const documentTokens = countUserDocuments(content) * TOKENS_PER_DOCUMENT_ESTIMATE;
+  return textTokens + imageTokens + documentTokens;
 }
 
 export function stripImagesForCompaction(messages: readonly ChatMessage[]): ChatMessage[] {
@@ -133,12 +261,26 @@ export function stripImagesForCompaction(messages: readonly ChatMessage[]): Chat
 
     const text = getUserMessageText(message.content);
     const imageCount = countUserImages(message.content);
-    const suffix =
-      imageCount > 0 ? `\n[${imageCount} image${imageCount === 1 ? "" : "s"} omitted from summary]` : "";
+    const documentCount = countUserDocuments(message.content);
+    const suffixParts: string[] = [];
+
+    if (imageCount > 0) {
+      suffixParts.push(
+        `[${imageCount} image${imageCount === 1 ? "" : "s"} omitted from summary]`,
+      );
+    }
+
+    if (documentCount > 0) {
+      suffixParts.push(
+        `[${documentCount} document${documentCount === 1 ? "" : "s"} omitted from summary]`,
+      );
+    }
+
+    const suffix = suffixParts.length > 0 ? `\n${suffixParts.join("\n")}` : "";
 
     return {
       role: "user",
-      content: `${text}${suffix}`.trim() || "[image]",
+      content: `${text}${suffix}`.trim() || "[attachment]",
     };
   });
 }
@@ -156,6 +298,25 @@ export function parseDataUrl(dataUrl: string): ImageAttachment | null {
   };
 }
 
+export function parseDocumentDataUrl(
+  dataUrl: string,
+  filename: string,
+): DocumentAttachment | null {
+  const match = /^data:([^;]+);base64,(.+)$/s.exec(dataUrl.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const mediaType = normalizeDocumentMediaType(match[1]!, filename);
+
+  return {
+    filename,
+    mediaType,
+    data: match[2]!,
+  };
+}
+
 export function toDataUrl(mediaType: string, base64: string): string {
   return `data:${mediaType};base64,${base64}`;
 }
@@ -168,16 +329,36 @@ export function imageAttachmentFromBase64(
   return { mediaType, data };
 }
 
-export function toAnthropicUserContent(
+export function documentAttachmentFromBase64(
+  filename: string,
+  mediaType: string,
+  base64: string,
+): DocumentAttachment {
+  const data = base64.includes(",") ? (base64.split(",")[1] ?? base64) : base64;
+  return {
+    filename,
+    mediaType: normalizeDocumentMediaType(mediaType, filename),
+    data,
+  };
+}
+
+export async function toAnthropicUserContent(
   content: string | MessageContentPart[],
-): string | Array<Record<string, unknown>> {
-  if (typeof content === "string") {
-    return content;
+  provider: ProviderName = "anthropic",
+): Promise<string | Array<Record<string, unknown>>> {
+  const resolved = await resolveUserContentForProvider(content, provider);
+
+  if (typeof resolved === "string") {
+    return resolved;
   }
 
-  return content.map((part) => {
+  return resolved.map((part) => {
     if (part.type === "text") {
       return { type: "text", text: part.text };
+    }
+
+    if (part.type === "document") {
+      return toAnthropicDocumentBlock(part);
     }
 
     return {
@@ -191,16 +372,23 @@ export function toAnthropicUserContent(
   });
 }
 
-export function toOpenAIChatUserContent(
+export async function toOpenAIChatUserContent(
   content: string | MessageContentPart[],
-): string | Array<Record<string, unknown>> {
-  if (typeof content === "string") {
-    return content;
+  provider: ProviderName = "openai",
+): Promise<string | Array<Record<string, unknown>>> {
+  const resolved = await resolveUserContentForProvider(content, provider);
+
+  if (typeof resolved === "string") {
+    return resolved;
   }
 
-  return content.map((part) => {
+  return resolved.map((part) => {
     if (part.type === "text") {
       return { type: "text", text: part.text };
+    }
+
+    if (part.type === "document") {
+      return toOpenAIResponsesDocumentBlock(part, toDataUrl);
     }
 
     return {
@@ -210,16 +398,23 @@ export function toOpenAIChatUserContent(
   });
 }
 
-export function toOpenAIResponsesUserContent(
+export async function toOpenAIResponsesUserContent(
   content: string | MessageContentPart[],
-): string | Array<Record<string, unknown>> {
-  if (typeof content === "string") {
-    return content;
+  provider: ProviderName = "openai",
+): Promise<string | Array<Record<string, unknown>>> {
+  const resolved = await resolveUserContentForProvider(content, provider);
+
+  if (typeof resolved === "string") {
+    return resolved;
   }
 
-  return content.map((part) => {
+  return resolved.map((part) => {
     if (part.type === "text") {
       return { type: "input_text", text: part.text };
+    }
+
+    if (part.type === "document") {
+      return toOpenAIResponsesDocumentBlock(part, toDataUrl);
     }
 
     return {

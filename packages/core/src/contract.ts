@@ -110,9 +110,16 @@ export interface CompactionResponse {
 
 export type MessageContentPart =
   | { type: "text"; text: string }
-  | { type: "image"; mediaType: string; data: string };
+  | { type: "image"; mediaType: string; data: string }
+  | { type: "document"; filename: string; mediaType: string; data: string };
 
 export interface ImageAttachment {
+  mediaType: string;
+  data: string;
+}
+
+export interface DocumentAttachment {
+  filename: string;
   mediaType: string;
   data: string;
 }
@@ -120,11 +127,13 @@ export interface ImageAttachment {
 export interface SendMessageInput {
   message: string;
   images?: ImageAttachment[];
+  documents?: DocumentAttachment[];
 }
 
 export interface SendMessageRequest {
   message: string;
   images?: ImageAttachment[];
+  documents?: DocumentAttachment[];
   stream?: boolean;
 }
 

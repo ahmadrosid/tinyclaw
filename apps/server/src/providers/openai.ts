@@ -8,7 +8,7 @@ import type {
   StreamChatHandlers,
   ToolCall,
 } from "@tinyclaw/core";
-import { messagesIncludeUserImages, toOpenAIChatUserContent } from "@tinyclaw/core";
+import { messagesIncludeUserDocuments, messagesIncludeUserImages, toOpenAIChatUserContent } from "@tinyclaw/core";
 import { generateOpenAIResponsesChat } from "./openai-responses";
 
 export interface OpenAIProviderOptions {
@@ -81,6 +81,10 @@ export function createOpenAIProvider(
 }
 
 function usesResponsesApi(input: GenerateChatInput): boolean {
+  if (messagesIncludeUserDocuments(input.messages)) {
+    return true;
+  }
+
   return Boolean(input.providerOptions?.webSearch) && !messagesIncludeUserImages(input.messages);
 }
 
@@ -98,17 +102,19 @@ type OpenAIMessage =
     }
   | { role: "tool"; tool_call_id: string; content: string };
 
-export function toOpenAIMessages(
+export async function toOpenAIMessages(
   system: string,
   messages: ChatMessage[],
-): OpenAIMessage[] {
+): Promise<OpenAIMessage[]> {
   const result: OpenAIMessage[] = [{ role: "system", content: system }];
 
   for (const message of messages) {
     if (message.role === "user") {
       result.push({
         role: "user",
-        content: toOpenAIChatUserContent(message.content) as string | Array<Record<string, unknown>>,
+        content: (await toOpenAIChatUserContent(message.content)) as
+          | string
+          | Array<Record<string, unknown>>,
       });
       continue;
     }
@@ -239,7 +245,7 @@ async function requestChatCompletion(options: {
     },
     body: JSON.stringify({
       model: options.model,
-      messages: toOpenAIMessages(options.system, options.messages),
+      messages: await toOpenAIMessages(options.system, options.messages),
       ...(options.tools?.length
         ? { tools: toOpenAITools(options.tools), tool_choice: "auto" }
         : {}),
@@ -292,7 +298,7 @@ async function streamChatCompletion(options: {
     body: JSON.stringify({
       model: options.model,
       stream: true,
-      messages: toOpenAIMessages(options.system, options.messages),
+      messages: await toOpenAIMessages(options.system, options.messages),
       ...(options.tools?.length
         ? { tools: toOpenAITools(options.tools), tool_choice: "auto" }
         : {}),

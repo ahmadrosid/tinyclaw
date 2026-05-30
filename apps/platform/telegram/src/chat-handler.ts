@@ -108,7 +108,11 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     text: string,
     userId: number,
   ): Promise<void> {
-    if (text === "/help") {
+    const command = parseTelegramCommand(text);
+    const fileConfig = authStore.getConfig();
+    const hasHandshake = Boolean(fileConfig?.handshakeCode);
+
+    if (command === "/help") {
       await replyChunks(
         ctx,
         `${PAIRING_PROMPT}\n\n${HELP_TEXT}`,
@@ -116,8 +120,10 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       return;
     }
 
-    const fileConfig = authStore.getConfig();
-    const hasHandshake = Boolean(fileConfig?.handshakeCode);
+    if (command === "/start") {
+      await ctx.reply(hasHandshake ? PAIRING_PROMPT : NO_CODE_PROMPT);
+      return;
+    }
 
     if (!hasHandshake) {
       await ctx.reply(NO_CODE_PROMPT);
@@ -135,9 +141,10 @@ export function createChatHandler(deps: ChatHandlerDeps) {
   }
 
   async function handleCommand(ctx: Context, text: string, chatId: string): Promise<void> {
-    const command = text.split(/\s+/)[0]?.toLowerCase() ?? text;
+    const command = parseTelegramCommand(text);
 
     switch (command) {
+      case "/start":
       case "/help":
         await replyChunks(ctx, HELP_TEXT);
         return;
@@ -309,8 +316,15 @@ function looksLikeHandshakeAttempt(text: string): boolean {
   return /^[0-9A-F]{8}$/.test(normalizeHandshakeInput(text));
 }
 
+function parseTelegramCommand(text: string): string {
+  const token = text.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+  const at = token.indexOf("@");
+
+  return at === -1 ? token : token.slice(0, at);
+}
+
 function isStopCommand(text: string): boolean {
-  return text.split(/\s+/)[0]?.toLowerCase() === "/stop";
+  return parseTelegramCommand(text) === "/stop";
 }
 
 async function withChatLock(chatId: string, fn: () => Promise<void>): Promise<void> {

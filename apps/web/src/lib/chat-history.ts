@@ -1,5 +1,5 @@
 import type { ChatMessage, MessageContentPart } from "@tinyclaw/core/contract";
-import { userContentToDisplayImages } from "@/lib/chat-images";
+import { userContentToDisplayDocuments, userContentToDisplayImages } from "@/lib/chat-images";
 
 export interface RequestedChatSession {
   profileId: string;
@@ -48,6 +48,7 @@ export interface ChatListItem {
   role: "user" | "assistant" | "tool";
   content: string;
   images?: Array<{ url: string; mediaType: string }>;
+  documents?: Array<{ filename: string; mediaType: string }>;
   streaming?: boolean;
   toolCallId?: string;
   tool?: string;
@@ -99,6 +100,7 @@ export function chatMessagesToListItems(messages: ChatMessage[]): ChatListItem[]
         role: "user",
         content: text,
         images: userContentToDisplayImages(content),
+        documents: userContentToDisplayDocuments(content),
       });
       continue;
     }

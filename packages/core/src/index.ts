@@ -4,6 +4,7 @@ export * from "./config";
 export * from "./contract";
 export * from "./fs";
 export * from "./message-content";
+export * from "./document-content";
 export * from "./normalize-task-prompt";
 export * from "./ids";
 export * from "./profile-avatar";

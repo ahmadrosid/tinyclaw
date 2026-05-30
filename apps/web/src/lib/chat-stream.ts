@@ -220,6 +220,7 @@ export function appendOutgoingMessages(
   setMessages: Dispatch<SetStateAction<ChatListItem[]>>,
   text: string,
   images: Array<{ mediaType: string; url: string }> = [],
+  documents: Array<{ filename: string; mediaType: string }> = [],
 ): void {
   setMessages((current) => [
     ...current,
@@ -228,6 +229,7 @@ export function appendOutgoingMessages(
       role: "user",
       content: text,
       images: images.length > 0 ? images : undefined,
+      documents: documents.length > 0 ? documents : undefined,
     },
     { id: crypto.randomUUID(), role: "assistant", content: "", streaming: true },
   ]);

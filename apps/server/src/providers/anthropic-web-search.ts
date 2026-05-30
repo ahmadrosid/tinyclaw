@@ -38,14 +38,16 @@ export function buildAnthropicTools(
   return combined.length > 0 ? combined : undefined;
 }
 
-export function toAnthropicMessages(messages: ChatMessage[]): AnthropicMessage[] {
+export async function toAnthropicMessages(messages: ChatMessage[]): Promise<AnthropicMessage[]> {
   const result: AnthropicMessage[] = [];
 
   for (const message of messages) {
     if (message.role === "user") {
       result.push({
         role: "user",
-        content: toAnthropicUserContent(message.content) as string | AnthropicContentBlock[],
+        content: (await toAnthropicUserContent(message.content)) as
+          | string
+          | AnthropicContentBlock[],
       });
       continue;
     }
@@ -148,7 +150,7 @@ export async function continueAnthropicUntilDone(options: {
   stream: boolean;
   handlers?: StreamChatHandlers;
 }): Promise<ChatCompletionResult> {
-  let apiMessages = toAnthropicMessages(options.messages);
+  let apiMessages = await toAnthropicMessages(options.messages);
   let combinedContent: AnthropicContentBlock[] = [];
 
   for (let attempt = 0; attempt < MAX_PAUSE_CONTINUATIONS; attempt += 1) {

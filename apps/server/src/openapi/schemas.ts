@@ -88,6 +88,15 @@ export const openApiSchemas = {
       data: { type: "string", description: "Base64-encoded image bytes" },
     },
   },
+  DocumentAttachment: {
+    type: "object",
+    required: ["filename", "mediaType", "data"],
+    properties: {
+      filename: { type: "string" },
+      mediaType: { type: "string" },
+      data: { type: "string", description: "Base64-encoded document bytes" },
+    },
+  },
   MessageContentPartText: {
     type: "object",
     required: ["type", "text"],
@@ -105,6 +114,16 @@ export const openApiSchemas = {
       data: { type: "string" },
     },
   },
+  MessageContentPartDocument: {
+    type: "object",
+    required: ["type", "filename", "mediaType", "data"],
+    properties: {
+      type: { type: "string", const: "document" },
+      filename: { type: "string" },
+      mediaType: { type: "string" },
+      data: { type: "string" },
+    },
+  },
   SendMessageRequest: {
     type: "object",
     required: ["message"],
@@ -113,6 +132,10 @@ export const openApiSchemas = {
       images: {
         type: "array",
         items: { $ref: "#/components/schemas/ImageAttachment" },
+      },
+      documents: {
+        type: "array",
+        items: { $ref: "#/components/schemas/DocumentAttachment" },
       },
       stream: { type: "boolean" },
     },

@@ -21,7 +21,7 @@ export async function generateOpenAIResponsesChat(options: {
   stream: boolean;
   handlers?: StreamChatHandlers;
 }): Promise<ChatCompletionResult> {
-  const body = buildResponsesRequestBody(options.model, options.input, options.stream);
+  const body = await buildResponsesRequestBody(options.model, options.input, options.stream);
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -49,7 +49,7 @@ export async function generateOpenAIResponsesChat(options: {
   return parseResponsesOutput(payload.output ?? [], options.handlers);
 }
 
-function buildResponsesRequestBody(
+async function buildResponsesRequestBody(
   model: string,
   input: GenerateChatInput,
   stream: boolean,
@@ -59,7 +59,7 @@ function buildResponsesRequestBody(
   return {
     model,
     instructions: input.system,
-    input: toResponsesInput(input.messages),
+    input: await toResponsesInput(input.messages),
     ...(tools.length > 0 ? { tools } : {}),
     ...(stream ? { stream: true } : {}),
   };
@@ -77,12 +77,12 @@ function buildResponsesTools(tools: LlmToolDefinition[] | undefined, webSearch: 
   return [...hostedTools, ...functionTools];
 }
 
-export function toResponsesInput(messages: ChatMessage[]): unknown[] {
+export async function toResponsesInput(messages: ChatMessage[]): Promise<unknown[]> {
   const input: unknown[] = [];
 
   for (const message of messages) {
     if (message.role === "user") {
-      const content = toOpenAIResponsesUserContent(message.content);
+      const content = await toOpenAIResponsesUserContent(message.content);
 
       if (isMessageContentPartArray(message.content)) {
         input.push({

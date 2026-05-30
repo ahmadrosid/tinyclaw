@@ -20,7 +20,9 @@ export interface AgentDependencies {
 }
 import {
   getUserMessageText,
+  messageContentHasDocuments,
   messageContentHasImages,
+  messagesIncludeUserDocuments,
   messagesIncludeUserImages,
   normalizeUserContent,
   partitionTools,
@@ -198,15 +200,22 @@ async function sendMessage(
     runCompaction?: (force: boolean) => Promise<CompactionResponse>;
   },
 ): Promise<string> {
-  const userContent = normalizeUserContent(input.message, input.images);
+  const userContent = normalizeUserContent(
+    input.message,
+    input.images,
+    input.documents,
+  );
   history.push({ role: "user", content: userContent });
-  const visionTurn =
-    messageContentHasImages(userContent) || messagesIncludeUserImages(history);
+  const multimodalTurn =
+    messageContentHasImages(userContent) ||
+    messageContentHasDocuments(userContent) ||
+    messagesIncludeUserImages(history) ||
+    messagesIncludeUserDocuments(history);
 
   if (!dependencies.provider) {
-    const hasImages = visionTurn;
-    const reply = hasImages
-      ? "Images require a configured provider. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in Settings."
+    const hasAttachments = multimodalTurn;
+    const reply = hasAttachments
+      ? "Attachments require a configured provider. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in Settings."
       : "I'm running in offline mode. Set OPENAI_API_KEY or ANTHROPIC_API_KEY to chat with me. You can still use /create to draft automations locally.";
 
     if (mode === "stream" && options.handlers) {
@@ -222,7 +231,7 @@ async function sendMessage(
   const llmTools =
     enableTools && localTools.length > 0 ? toLlmToolDefinitions(localTools) : undefined;
   const providerOptions =
-    enableTools && hasWebSearch && dependencies.provider && !visionTurn
+    enableTools && hasWebSearch && dependencies.provider && !multimodalTurn
       ? { webSearch: true }
       : undefined;
 

@@ -30,6 +30,7 @@ Optional env vars:
 
 | Command | Description |
 |---------|-------------|
+| `/start` | Welcome message (also used when opening the bot) |
 | `/help` | List commands |
 | `/stop` | Stop the current reply while it is still generating |
 | `/clear` | Clear chat history |

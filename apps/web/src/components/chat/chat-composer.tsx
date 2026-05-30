@@ -1,7 +1,7 @@
 import type { ProfileSummary } from "@tinyclaw/core/contract";
 import type { ChatStatus } from "ai";
 import type { FileUIPart } from "ai";
-import { ArrowUpIcon, ImageIcon, WifiOffIcon, XIcon } from "lucide-react";
+import { ArrowUpIcon, FileTextIcon, PlusIcon, WifiOffIcon, XIcon } from "lucide-react";
 import { ProfileAvatar } from "@/components/ProfileAvatar";
 import {
   PromptInput,
@@ -30,6 +30,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ALL_ATTACHMENT_ACCEPT,
+  DOCUMENT_ACCEPT,
+  IMAGE_ACCEPT,
+  isImageFilePart,
+} from "@/lib/chat-images";
 import {
   composerIconButtonClass,
   composerShellClass,
@@ -117,7 +123,7 @@ export function ChatComposer(props: ChatComposerProps) {
         </p>
       ) : null}
       <PromptInput
-        accept={isMinimal ? undefined : "image/*"}
+        accept={isMinimal ? undefined : ALL_ATTACHMENT_ACCEPT}
         multiple={!isMinimal}
         maxFiles={isMinimal ? undefined : 5}
         className={shellClass}
@@ -291,16 +297,33 @@ function ChatAttachmentHeader() {
         {attachments.files.map((file) => (
           <div
             key={file.id}
-            className="relative size-[4.5rem] shrink-0 overflow-hidden rounded-lg border border-border bg-muted"
+            className={cn(
+              "relative shrink-0 overflow-hidden rounded-lg border border-border bg-muted",
+              isImageFilePart(file) ? "size-[4.5rem]" : "flex max-w-full items-center gap-2 px-3 py-2",
+            )}
           >
-            <img
-              src={file.url}
-              alt={file.filename ?? "attachment preview"}
-              className="size-full object-cover"
-            />
+            {isImageFilePart(file) ? (
+              <img
+                src={file.url}
+                alt={file.filename ?? "attachment preview"}
+                className="size-full object-cover"
+              />
+            ) : (
+              <>
+                <FileTextIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="truncate text-xs font-medium text-foreground">
+                  {file.filename ?? "Document"}
+                </span>
+              </>
+            )}
             <button
               type="button"
-              className="absolute top-1 right-1 flex size-7 items-center justify-center rounded-full border border-border/60 bg-background/90 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
+              className={cn(
+                "absolute flex items-center justify-center rounded-full border border-border/60 bg-background/90 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background",
+                isImageFilePart(file)
+                  ? "top-1 right-1 size-7"
+                  : "top-1 right-1 size-6",
+              )}
               aria-label={`Remove ${file.filename ?? "attachment"}`}
               onClick={() => attachments.remove(file.id)}
             >
@@ -316,25 +339,56 @@ function ChatAttachmentHeader() {
 function ChatAttachmentButton({ disabled }: { disabled: boolean }) {
   const attachments = usePromptInputAttachments();
 
+  const openPicker = (accept: string) => {
+    const input = attachments.fileInputRef.current;
+
+    if (!input) {
+      attachments.openFileDialog();
+      return;
+    }
+
+    input.accept = accept;
+    input.click();
+  };
+
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            disabled={disabled}
-            aria-label="Add image"
-            className={composerIconButtonClass}
-            onClick={() => attachments.openFileDialog()}
-          >
-            <ImageIcon className="size-3.5" />
-          </Button>
-        }
-      />
-      <TooltipContent side="top">Add image</TooltipContent>
-    </Tooltip>
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={disabled}
+                  aria-label="Add attachment"
+                  className={composerIconButtonClass}
+                >
+                  <PlusIcon className="size-3.5" />
+                </Button>
+              }
+            />
+          }
+        />
+        <TooltipContent side="top">Add attachment</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="start" className="min-w-40">
+        <DropdownMenuItem
+          disabled={disabled}
+          onClick={() => openPicker(IMAGE_ACCEPT)}
+        >
+          Image
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={disabled}
+          onClick={() => openPicker(DOCUMENT_ACCEPT)}
+        >
+          Document
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

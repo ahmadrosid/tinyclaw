@@ -447,7 +447,11 @@ export function createApp(options: ServerOptions) {
           }
 
           const body = await readJson<SendMessageRequest>(request);
-          const input = { message: body.message ?? "", images: body.images };
+          const input = {
+            message: body.message ?? "",
+            images: body.images,
+            documents: body.documents,
+          };
           const wantsStream =
             body.stream === true ||
             url.searchParams.get("stream") === "true" ||

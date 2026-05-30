@@ -363,6 +363,72 @@ describe("createChatHandler security", () => {
     });
   });
 
+  test("/start shows pairing prompt before authorization", async () => {
+    await withTempHome(async (homeDir) => {
+      await writeTelegramConfigIni(homeDir, {
+        botToken: "1234567890:TEST",
+        handshakeCode: "ABCD1234",
+      });
+
+      const authStore = new TelegramAuthStore();
+      await authStore.reload();
+      const { client, calls } = createMockClient();
+      const sessionStore = new SessionStore(
+        path.join(homeDir, ".tinyclaw", "telegram", "chat-sessions.json"),
+      );
+      const handleMessage = createChatHandler({
+        client,
+        config: { botToken: "1234567890:TEST", profileId: "profile_default" },
+        authStore,
+        sessionStore,
+      });
+
+      const { ctx, replies } = createMessageContext({
+        userId: 1001,
+        text: "/start",
+      });
+
+      await handleMessage(ctx);
+
+      expect(replies).toHaveLength(1);
+      expect(replies[0]).toContain("Paste your pairing code");
+      expect(calls.sendStream).toBe(0);
+    });
+  });
+
+  test("/start@botname shows help for authorized users", async () => {
+    await withTempHome(async (homeDir) => {
+      await writeTelegramConfigIni(homeDir, {
+        botToken: "1234567890:TEST",
+        allowedUserIds: [4242],
+      });
+
+      const authStore = new TelegramAuthStore();
+      await authStore.reload();
+      const { client, calls } = createMockClient();
+      const sessionStore = new SessionStore(
+        path.join(homeDir, ".tinyclaw", "telegram", "chat-sessions.json"),
+      );
+      const handleMessage = createChatHandler({
+        client,
+        config: { botToken: "1234567890:TEST", profileId: "profile_default" },
+        authStore,
+        sessionStore,
+      });
+
+      const { ctx, replies } = createMessageContext({
+        userId: 4242,
+        text: "/start@TinyClawBot",
+      });
+
+      await handleMessage(ctx);
+
+      expect(calls.sendStream).toBe(0);
+      expect(replies.join("\n")).toContain("/help");
+      expect(replies.join("\n")).toContain("/start");
+    });
+  });
+
   test("prompts for dashboard setup when no pairing code is active", async () => {
     await withTempHome(async (homeDir) => {
       await writeTelegramConfigIni(homeDir, {

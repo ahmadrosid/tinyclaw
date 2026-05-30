@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon, FileTextIcon } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -71,6 +71,19 @@ function UserMessageContent({ message }: { message: ChatListItem }) {
               alt=""
               className="max-h-40 max-w-full rounded-md border border-border object-contain"
             />
+          ))}
+        </div>
+      ) : null}
+      {message.documents?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {message.documents.map((document) => (
+            <div
+              key={`${document.filename}-${document.mediaType}`}
+              className="inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-muted px-3 py-2"
+            >
+              <FileTextIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="truncate text-sm text-foreground">{document.filename}</span>
+            </div>
           ))}
         </div>
       ) : null}

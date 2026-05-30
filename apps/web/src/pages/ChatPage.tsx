@@ -9,7 +9,7 @@ import { ChatComposer } from "@/components/chat/chat-composer";
 import { ChatMessageList } from "@/components/chat/chat-message-list";
 import { useAppContext } from "@/context/app-context";
 import { useAppNavigation } from "@/hooks/use-app-navigation";
-import { filePartsToImageAttachments } from "@/lib/chat-images";
+import { filePartsToDocumentAttachments, filePartsToImageAttachments } from "@/lib/chat-images";
 import {
   buildChatBasePath,
   buildChatPath,
@@ -241,8 +241,9 @@ export function ChatPage() {
   const sendMessage = useCallback(
     async (text: string, files: FileUIPart[] = []) => {
       const images = filePartsToImageAttachments(files);
+      const documents = filePartsToDocumentAttachments(files);
 
-      if ((!text.trim() && images.length === 0) || !profileId || busy) {
+      if ((!text.trim() && images.length === 0 && documents.length === 0) || !profileId || busy) {
         return;
       }
 
@@ -271,6 +272,10 @@ export function ChatPage() {
           mediaType: image.mediaType,
           url: `data:${image.mediaType};base64,${image.data}`,
         })),
+        documents.map((document) => ({
+          filename: document.filename,
+          mediaType: document.mediaType,
+        })),
       );
 
       const abortController = new AbortController();
@@ -279,7 +284,11 @@ export function ChatPage() {
 
       try {
         await activeSession.sendStream(
-          { message: text, images: images.length > 0 ? images : undefined },
+          {
+            message: text,
+            images: images.length > 0 ? images : undefined,
+            documents: documents.length > 0 ? documents : undefined,
+          },
           buildStreamHandlers(setMessages),
           { signal: abortController.signal },
         );

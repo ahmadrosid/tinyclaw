@@ -491,6 +491,7 @@ export type PromptInputProps = Omit<
   maxFiles?: number;
   // bytes
   maxFileSize?: number;
+  prepareFiles?: (files: File[]) => File[] | Promise<File[]>;
   onError?: (err: {
     code: "max_files" | "max_file_size" | "accept";
     message: string;
@@ -509,6 +510,7 @@ export const PromptInput = ({
   syncHiddenInput,
   maxFiles,
   maxFileSize,
+  prepareFiles,
   onError,
   onSubmit,
   children,
@@ -567,53 +569,69 @@ export const PromptInput = ({
 
   const addLocal = useCallback(
     (fileList: File[] | FileList) => {
-      const incoming = [...fileList];
-      const accepted = incoming.filter((f) => matchesAccept(f));
-      if (incoming.length && accepted.length === 0) {
-        onError?.({
-          code: "accept",
-          message: "No files match the accepted types.",
-        });
-        return;
-      }
-      const withinSize = (f: File) =>
-        maxFileSize ? f.size <= maxFileSize : true;
-      const sized = accepted.filter(withinSize);
-      if (accepted.length > 0 && sized.length === 0) {
-        onError?.({
-          code: "max_file_size",
-          message: "All files exceed the maximum size.",
-        });
-        return;
-      }
+      void (async () => {
+        let incoming = [...fileList];
 
-      setItems((prev) => {
-        const capacity =
-          typeof maxFiles === "number"
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined;
-        const capped =
-          typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-        if (typeof capacity === "number" && sized.length > capacity) {
+        if (prepareFiles) {
+          try {
+            incoming = await prepareFiles(incoming);
+          } catch (error) {
+            onError?.({
+              code: "max_file_size",
+              message:
+                error instanceof Error ? error.message : "Could not process the selected files.",
+            });
+            return;
+          }
+        }
+
+        const accepted = incoming.filter((f) => matchesAccept(f));
+        if (incoming.length && accepted.length === 0) {
           onError?.({
-            code: "max_files",
-            message: "Too many files. Some were not added.",
+            code: "accept",
+            message: "No files match the accepted types.",
           });
+          return;
         }
-        const next: (FileUIPart & { id: string })[] = [];
-        for (const file of capped) {
-          next.push({
-            filename: file.name,
-            id: nanoid(),
-            mediaType: file.type,
-            type: "file",
-            url: URL.createObjectURL(file),
+        const withinSize = (f: File) =>
+          maxFileSize ? f.size <= maxFileSize : true;
+        const sized = accepted.filter(withinSize);
+        if (accepted.length > 0 && sized.length === 0) {
+          onError?.({
+            code: "max_file_size",
+            message: "All files exceed the maximum size.",
           });
+          return;
         }
-        return [...prev, ...next];
-      });
+
+        setItems((prev) => {
+          const capacity =
+            typeof maxFiles === "number"
+              ? Math.max(0, maxFiles - prev.length)
+              : undefined;
+          const capped =
+            typeof capacity === "number" ? sized.slice(0, capacity) : sized;
+          if (typeof capacity === "number" && sized.length > capacity) {
+            onError?.({
+              code: "max_files",
+              message: "Too many files. Some were not added.",
+            });
+          }
+          const next: (FileUIPart & { id: string })[] = [];
+          for (const file of capped) {
+            next.push({
+              filename: file.name,
+              id: nanoid(),
+              mediaType: file.type,
+              type: "file",
+              url: URL.createObjectURL(file),
+            });
+          }
+          return [...prev, ...next];
+        });
+      })();
     },
-    [matchesAccept, maxFiles, maxFileSize, onError]
+    [matchesAccept, maxFiles, maxFileSize, onError, prepareFiles]
   );
 
   const removeLocal = useCallback(
