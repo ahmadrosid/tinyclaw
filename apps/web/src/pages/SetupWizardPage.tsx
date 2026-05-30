@@ -1,37 +1,31 @@
-import { ArrowRightIcon, CheckCircle2Icon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ChevronRightIcon } from "lucide-react";
+import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProviderSetupForm } from "@/components/ProviderSetupForm";
 import { SetupLayout } from "@/components/SetupLayout";
 import { TelegramSettingsCard } from "@/components/TelegramSettingsCard";
-import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAppContext } from "@/context/app-context";
 import { useModelsQuery } from "@/hooks/use-app-queries";
 import { pathForPage } from "@/lib/navigation";
-
-type WizardStep = "provider" | "telegram" | "done";
 
 export function SetupWizardPage() {
   const navigate = useNavigate();
   const { health } = useAppContext();
   const { isLoading: catalogLoading } = useModelsQuery();
   const providerConfigured = health?.providerConfigured === true;
-  const [step, setStep] = useState<WizardStep>(() =>
-    providerConfigured ? "telegram" : "provider",
-  );
-
-  useEffect(() => {
-    if (providerConfigured && step === "provider") {
-      setStep("telegram");
-    }
-  }, [providerConfigured, step]);
 
   const goToChat = useCallback(() => {
     navigate(pathForPage("chat"), { replace: true });
   }, [navigate]);
 
-  if (catalogLoading) {
+  useEffect(() => {
+    if (providerConfigured) {
+      goToChat();
+    }
+  }, [providerConfigured, goToChat]);
+
+  if (catalogLoading || providerConfigured) {
     return (
       <SetupLayout>
         <div className="flex justify-center py-16">
@@ -41,59 +35,9 @@ export function SetupWizardPage() {
     );
   }
 
-  if (step === "done") {
-    return (
-      <SetupLayout step="done">
-        <div className="space-y-6 text-center">
-          <div className="flex justify-center">
-            <CheckCircle2Icon className="size-12 text-emerald-400" aria-hidden />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-xl font-semibold text-foreground">You&apos;re all set</h1>
-            <p className="text-sm text-muted-foreground">
-              TinyClaw is ready. Start a chat or explore the app.
-            </p>
-          </div>
-          <Button type="button" onClick={goToChat}>
-            Go to Chat
-            <ArrowRightIcon className="size-4" />
-          </Button>
-        </div>
-      </SetupLayout>
-    );
-  }
-
-  if (step === "telegram") {
-    return (
-      <SetupLayout step="telegram">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-xl font-semibold text-foreground">Connect Telegram</h1>
-            <p className="text-sm text-muted-foreground">
-              Optional — link your bot to chat from Telegram. You can set this up later in
-              Settings.
-            </p>
-          </div>
-
-          <TelegramSettingsCard
-            embedded
-            submitLabel="Save & finish"
-            onSaveSuccess={() => setStep("done")}
-          />
-
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => setStep("done")}>
-              Skip for now
-            </Button>
-          </div>
-        </div>
-      </SetupLayout>
-    );
-  }
-
   return (
-    <SetupLayout step="provider">
-      <div className="space-y-6">
+    <SetupLayout>
+      <div className="space-y-8">
         <div className="space-y-2">
           <h1 className="text-xl font-semibold text-foreground">Welcome to TinyClaw</h1>
           <p className="text-sm text-muted-foreground">
@@ -104,8 +48,24 @@ export function SetupWizardPage() {
         <ProviderSetupForm
           submitLabel="Continue"
           showHeading={false}
-          onSuccess={() => setStep("telegram")}
+          onSuccess={goToChat}
         />
+
+        <details className="group border-t border-border pt-6">
+          <summary className="flex cursor-pointer list-none items-center gap-2 py-1 font-medium text-foreground transition-colors marker:content-none hover:text-primary [&::-webkit-details-marker]:hidden">
+            <ChevronRightIcon
+              className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 group-open:text-foreground"
+              aria-hidden="true"
+            />
+            <span>Telegram</span>
+            <span className="text-sm font-normal text-muted-foreground group-open:hidden">
+              Optional — set up later in Settings
+            </span>
+          </summary>
+          <div className="mt-4">
+            <TelegramSettingsCard embedded />
+          </div>
+        </details>
       </div>
     </SetupLayout>
   );
