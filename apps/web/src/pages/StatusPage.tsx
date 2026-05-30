@@ -1,5 +1,4 @@
 import {
-  ActivityIcon,
   AlertTriangleIcon,
   BotIcon,
   CheckCircle2Icon,
@@ -127,16 +126,6 @@ export function StatusPage() {
               hint="Agent swarm in progress"
               highlight={status.taskWorker.activeRuns > 0}
             />
-            <MetricTile
-              label="API version"
-              value={status.server.apiVersion}
-              hint="Server contract version"
-            />
-            <MetricTile
-              label="Auto refresh"
-              value="10s"
-              hint="Background polling interval"
-            />
           </div>
 
           <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -191,7 +180,6 @@ export function StatusPage() {
                   tone: status.automationWorker.providerConfigured ? "ok" : "warn",
                 },
               ]}
-              footer={describeWorkerHint(status)}
             />
 
             <ServiceStatusCard
@@ -302,7 +290,6 @@ function ServiceStatusCard({
   healthy,
   statusLabel,
   rows,
-  footer,
 }: {
   icon: typeof ServerIcon;
   title: string;
@@ -310,7 +297,6 @@ function ServiceStatusCard({
   healthy: boolean;
   statusLabel: string;
   rows: Array<{ label: string; value: string; tone?: StatusTone }>;
-  footer?: string;
 }) {
   return (
     <Card className="min-w-0">
@@ -351,13 +337,6 @@ function ServiceStatusCard({
             </div>
           ))}
         </dl>
-
-        {footer ? (
-          <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
-            <ActivityIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-            <p>{footer}</p>
-          </div>
-        ) : null}
       </CardContent>
     </Card>
   );
@@ -409,7 +388,7 @@ function StatusPageSkeleton() {
     <div className="space-y-4" aria-busy="true" aria-label="Loading system status">
       <div className="h-24 animate-pulse rounded-md border border-border bg-muted/40" />
       <div className={METRICS_GRID_CLASS}>
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({ length: 3 }).map((_, index) => (
           <div
             key={index}
             className="h-24 animate-pulse rounded-md border border-border bg-muted/40 sm:h-28"
@@ -473,28 +452,6 @@ function deriveOverallHealth(status: import("@tinyclaw/core/contract").SystemSta
       ? "Automations may fail until an LLM provider is configured in Settings."
       : "Configure an LLM provider in Settings before chat or automation runs can succeed.",
   };
-}
-
-function describeWorkerHint(status: import("@tinyclaw/core/contract").SystemStatusResponse): string {
-  const worker = status.automationWorker;
-
-  if (!worker.running) {
-    return "The automation scheduler is not running. Restart the TinyClaw server.";
-  }
-
-  if (worker.activeRuns > 0) {
-    return `${worker.activeRuns} automation${worker.activeRuns === 1 ? "" : "s"} executing right now.`;
-  }
-
-  if (worker.scheduledJobs === 0) {
-    return "No enabled scheduled automations. Manual runs still work from the Automations page or chat.";
-  }
-
-  if (!worker.providerConfigured) {
-    return `${worker.scheduledJobs} scheduled job${worker.scheduledJobs === 1 ? "" : "s"} are queued, but runs will fail until a provider is configured in Settings.`;
-  }
-
-  return `Watching ${worker.scheduledJobs} scheduled automation${worker.scheduledJobs === 1 ? "" : "s"}.`;
 }
 
 function formatDate(value: string): string {
