@@ -157,7 +157,7 @@ export function TelegramSettingsCard({
           </p>
         ) : null}
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <label htmlFor="telegram-bot-token" className="block text-sm font-medium text-foreground">
             Bot token
           </label>
@@ -242,7 +242,7 @@ export function TelegramSettingsCard({
           </p>
         ) : null}
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <label htmlFor="telegram-profile" className="block text-sm font-medium text-foreground">
             Bot profile
           </label>

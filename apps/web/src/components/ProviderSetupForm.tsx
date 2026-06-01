@@ -54,8 +54,8 @@ export function ProviderSetupForm({
         onSelect={form.handleProviderSelect}
       />
 
-      <div className="space-y-2">
-        <label htmlFor="api-key" className="text-sm font-medium text-foreground">
+      <div className="space-y-3">
+        <label htmlFor="api-key" className="block text-sm font-medium text-foreground">
           API key
         </label>
         <InputGroup>
@@ -92,8 +92,8 @@ export function ProviderSetupForm({
         )}
       </div>
 
-      <div className="space-y-2">
-        <label htmlFor="model" className="text-sm font-medium text-foreground">
+      <div className="space-y-3">
+        <label htmlFor="model" className="block text-sm font-medium text-foreground">
           Model
         </label>
         <Select
