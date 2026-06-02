@@ -1,4 +1,4 @@
-import type { HealthResponse, SystemStatusResponse } from "@tinyclaw/core";
+import type { HealthResponse, LlmUsageStatus, SystemStatusResponse } from "@tinyclaw/core";
 import { TINYCLAW_API_VERSION } from "@tinyclaw/core";
 import type { AgentService } from "./agent-service";
 import type { AutomationRunner } from "./automation-runner";
@@ -16,6 +16,7 @@ export class SystemStatusService {
   getStatus(): SystemStatusResponse {
     const scheduler = this.scheduler.getStatus();
     const providerConfigured = this.agent.providerConfigured;
+    const models = this.agent.getModels();
 
     return {
       server: this.getServerStatus(),
@@ -31,7 +32,21 @@ export class SystemStatusService {
         activeRuns: this.taskRunner.getActiveRunCount(),
         providerConfigured,
       },
+      llmUsage: this.getLlmUsage(models.provider, models.currentModel, providerConfigured),
       checkedAt: new Date().toISOString(),
+    };
+  }
+
+  private getLlmUsage(
+    provider: LlmUsageStatus["provider"],
+    currentModel: string | null,
+    providerConfigured: boolean,
+  ): LlmUsageStatus {
+    return {
+      ...this.agent.getLlmUsageStats(),
+      provider,
+      currentModel,
+      providerConfigured,
     };
   }
 

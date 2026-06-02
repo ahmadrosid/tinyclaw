@@ -86,11 +86,17 @@ import {
 } from "../providers";
 import { createSuperBotTools } from "../tools/super-bot-tools";
 import type { AutomationRunner } from "./automation-runner";
+import {
+  loadSessionHistory,
+  replaceSessionHistory,
+  wrapPersistedSession,
+} from "./session-persistence";
 import type { TaskRunner } from "./task-runner";
 import { ProfileService } from "./profile-service";
 import { SuperBotSessionState } from "./super-bot-session-state";
 import { resolveToolsFromStorage } from "./tool-resolver";
-import { loadSessionHistory, replaceSessionHistory, wrapPersistedSession } from "./session-persistence";
+import { wrapProviderWithUsageTracking } from "../providers/usage-tracking";
+import type { LlmUsageTracker } from "./llm-usage-tracker";
 
 interface StoredSession {
   channel: AgentChannel;
@@ -115,6 +121,7 @@ export class AgentService {
     userConfig: UserProviderConfig | null,
     provider: ProviderClient | null,
     db: DatabaseAdapter,
+    private readonly llmUsageTracker?: LlmUsageTracker,
   ) {
     this.userConfig = userConfig;
     this.db = db;
@@ -569,6 +576,19 @@ export class AgentService {
     };
   }
 
+  getLlmUsageStats() {
+    return (
+      this.llmUsageTracker?.getStats() ?? {
+        requestCount: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        estimatedCostUsd: 0,
+        trackedSince: new Date().toISOString(),
+      }
+    );
+  }
+
   async setModel(model: string): Promise<SetModelResponse> {
     if (!this.userConfig) {
       throw new Error("Provider is not configured.");
@@ -817,8 +837,19 @@ export class AgentService {
   }
 
   private createHarness(provider: ProviderClient | null): AgentHarness {
+    const providerName = detectProvider(process.env, this.userConfig);
+    const modelId =
+      provider && providerName && this.userConfig
+        ? resolveModel(providerName, this.userConfig.model)
+        : null;
+
+    const trackedProvider =
+      provider && this.llmUsageTracker && modelId
+        ? wrapProviderWithUsageTracking(provider, this.llmUsageTracker, modelId)
+        : provider;
+
     return createAgentHarness({
-      provider: provider ?? undefined,
+      provider: trackedProvider ?? undefined,
       chatOptions: this.resolveChatProviderOptions(),
     });
   }

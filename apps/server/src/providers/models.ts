@@ -9,6 +9,10 @@ export interface ProviderModelOption {
   default?: boolean;
   /** OpenRouter only: whether extended thinking (`reasoning`) is sent for this model. */
   supportsThinking?: boolean;
+  /** Catalog estimate: USD per 1M input tokens */
+  inputPerMillionUsd?: number;
+  /** Catalog estimate: USD per 1M output tokens */
+  outputPerMillionUsd?: number;
 }
 
 export const AVAILABLE_MODELS: ProviderModelOption[] = [
@@ -19,6 +23,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     contextWindow: 200_000,
     maxOutputTokens: 8_192,
     default: true,
+    inputPerMillionUsd: 3,
+    outputPerMillionUsd: 15,
   },
   {
     id: "claude-opus-4-6",
@@ -26,6 +32,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     provider: "anthropic",
     contextWindow: 200_000,
     maxOutputTokens: 8_192,
+    inputPerMillionUsd: 15,
+    outputPerMillionUsd: 75,
   },
   {
     id: "gpt-5.5",
@@ -33,6 +41,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     provider: "openai",
     contextWindow: 128_000,
     maxOutputTokens: 8_192,
+    inputPerMillionUsd: 2.5,
+    outputPerMillionUsd: 10,
   },
   {
     id: "gpt-5.4",
@@ -41,6 +51,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     contextWindow: 128_000,
     maxOutputTokens: 8_192,
     default: true,
+    inputPerMillionUsd: 2,
+    outputPerMillionUsd: 8,
   },
   {
     id: "gpt-5.3-codex",
@@ -48,6 +60,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     provider: "openai",
     contextWindow: 128_000,
     maxOutputTokens: 8_192,
+    inputPerMillionUsd: 1.5,
+    outputPerMillionUsd: 6,
   },
   {
     id: "anthropic/claude-sonnet-4-6",
@@ -57,6 +71,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     maxOutputTokens: 8_192,
     default: true,
     supportsThinking: true,
+    inputPerMillionUsd: 3.5,
+    outputPerMillionUsd: 17,
   },
   {
     id: "anthropic/claude-opus-4-6",
@@ -65,6 +81,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     contextWindow: 200_000,
     maxOutputTokens: 8_192,
     supportsThinking: true,
+    inputPerMillionUsd: 17,
+    outputPerMillionUsd: 85,
   },
   {
     id: "openai/gpt-5.4",
@@ -73,6 +91,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     contextWindow: 128_000,
     maxOutputTokens: 8_192,
     supportsThinking: true,
+    inputPerMillionUsd: 2.5,
+    outputPerMillionUsd: 10,
   },
   {
     id: "google/gemini-2.5-pro-preview",
@@ -81,6 +101,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     contextWindow: 1_000_000,
     maxOutputTokens: 8_192,
     supportsThinking: true,
+    inputPerMillionUsd: 1.5,
+    outputPerMillionUsd: 6,
   },
   {
     id: "meta-llama/llama-4-maverick",
@@ -89,6 +111,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     contextWindow: 128_000,
     maxOutputTokens: 8_192,
     supportsThinking: false,
+    inputPerMillionUsd: 0.2,
+    outputPerMillionUsd: 0.6,
   },
   {
     id: "gemini-2.5-flash",
@@ -97,6 +121,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     contextWindow: 1_000_000,
     maxOutputTokens: 8_192,
     default: true,
+    inputPerMillionUsd: 0.15,
+    outputPerMillionUsd: 0.6,
   },
   {
     id: "gemini-2.5-pro",
@@ -104,6 +130,8 @@ export const AVAILABLE_MODELS: ProviderModelOption[] = [
     provider: "gemini",
     contextWindow: 1_000_000,
     maxOutputTokens: 8_192,
+    inputPerMillionUsd: 1.25,
+    outputPerMillionUsd: 5,
   },
 ];
 

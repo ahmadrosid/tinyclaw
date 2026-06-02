@@ -8,6 +8,7 @@ import { AutomationService } from "./services/automation-service";
 import { TaskRunner } from "./services/task-runner";
 import { TaskService } from "./services/task-service";
 import { SystemStatusService } from "./services/system-status-service";
+import { LlmUsageTracker } from "./services/llm-usage-tracker";
 import { ensureProviderConfigured } from "./setup";
 import { resolveWebDistDir } from "./static-web";
 import { createAutomationTools } from "./tools/automation-tools";
@@ -42,7 +43,8 @@ const database = await createDatabase(config.databaseUrl, { baseDir: projectRoot
 
 await seedDatabase(database.adapter);
 
-const agent = new AgentService(userConfig, provider, database.adapter);
+const llmUsageTracker = new LlmUsageTracker();
+const agent = new AgentService(userConfig, provider, database.adapter, llmUsageTracker);
 
 try {
   await agent.ensureSoulScaffolded();

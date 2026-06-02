@@ -63,10 +63,26 @@ export interface TaskWorkerStatus {
   providerConfigured: boolean;
 }
 
+export interface LlmUsageStats {
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  trackedSince: string;
+}
+
+export interface LlmUsageStatus extends LlmUsageStats {
+  provider: "openai" | "anthropic" | "openrouter" | "gemini" | null;
+  currentModel: string | null;
+  providerConfigured: boolean;
+}
+
 export interface SystemStatusResponse {
   server: HealthResponse;
   automationWorker: AutomationWorkerStatus;
   taskWorker: TaskWorkerStatus;
+  llmUsage: LlmUsageStatus;
   checkedAt: string;
 }
 

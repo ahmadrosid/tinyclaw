@@ -595,13 +595,50 @@ export const openApiSchemas = {
       providerConfigured: { type: "boolean" },
     },
   },
+  LlmUsageStats: {
+    type: "object",
+    required: [
+      "requestCount",
+      "inputTokens",
+      "outputTokens",
+      "totalTokens",
+      "estimatedCostUsd",
+      "trackedSince",
+    ],
+    properties: {
+      requestCount: { type: "integer" },
+      inputTokens: { type: "integer" },
+      outputTokens: { type: "integer" },
+      totalTokens: { type: "integer" },
+      estimatedCostUsd: { type: "number" },
+      trackedSince: { type: "string" },
+    },
+  },
+  LlmUsageStatus: {
+    allOf: [
+      { $ref: "#/components/schemas/LlmUsageStats" },
+      {
+        type: "object",
+        required: ["provider", "currentModel", "providerConfigured"],
+        properties: {
+          provider: {
+            type: ["string", "null"],
+            enum: ["openai", "anthropic", "openrouter", "gemini", null],
+          },
+          currentModel: { type: ["string", "null"] },
+          providerConfigured: { type: "boolean" },
+        },
+      },
+    ],
+  },
   SystemStatusResponse: {
     type: "object",
-    required: ["server", "automationWorker", "taskWorker", "checkedAt"],
+    required: ["server", "automationWorker", "taskWorker", "llmUsage", "checkedAt"],
     properties: {
       server: { $ref: "#/components/schemas/HealthResponse" },
       automationWorker: { $ref: "#/components/schemas/AutomationWorkerStatus" },
       taskWorker: { $ref: "#/components/schemas/TaskWorkerStatus" },
+      llmUsage: { $ref: "#/components/schemas/LlmUsageStatus" },
       checkedAt: { type: "string" },
     },
   },
