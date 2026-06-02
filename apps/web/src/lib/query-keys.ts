@@ -21,7 +21,6 @@ export const queryKeys = {
   },
   sessions: (profileId: string, channel: string) => ["sessions", profileId, channel] as const,
   soul: {
-    global: ["soul", "global"] as const,
     profile: (profileId: string) => ["soul", "profile", profileId] as const,
   },
   timezones: {

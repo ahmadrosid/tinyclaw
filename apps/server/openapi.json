@@ -1515,129 +1515,6 @@
         }
       }
     },
-    "/v1/soul": {
-      "get": {
-        "tags": [
-          "Soul"
-        ],
-        "summary": "Get global soul status",
-        "operationId": "getSoulStatus",
-        "responses": {
-          "200": {
-            "description": "Soul status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SoulStatusResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/soul/stack": {
-      "get": {
-        "tags": [
-          "Soul"
-        ],
-        "summary": "Get global soul stack contents",
-        "operationId": "getSoulStack",
-        "responses": {
-          "200": {
-            "description": "Soul stack",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SoulStackResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/soul/files/{fileKey}": {
-      "put": {
-        "tags": [
-          "Soul"
-        ],
-        "summary": "Write a global soul file",
-        "operationId": "writeSoulFile",
-        "parameters": [
-          {
-            "name": "fileKey",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "soul",
-                "style",
-                "skill",
-                "memory"
-              ]
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSoulFileRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "File saved"
-          },
-          "500": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/soul/init": {
-      "post": {
-        "tags": [
-          "Soul"
-        ],
-        "summary": "Initialize global soul templates",
-        "operationId": "initSoul",
-        "responses": {
-          "201": {
-            "description": "Soul initialized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InitSoulResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/profiles/{profileId}/soul": {
       "get": {
         "tags": [
@@ -3009,7 +2886,8 @@
             "enum": [
               "openai",
               "anthropic",
-              "openrouter"
+              "openrouter",
+              "gemini"
             ]
           },
           "default": {
@@ -3035,6 +2913,7 @@
               "openai",
               "anthropic",
               "openrouter",
+              "gemini",
               null
             ]
           },
@@ -3081,7 +2960,8 @@
             "enum": [
               "openai",
               "anthropic",
-              "openrouter"
+              "openrouter",
+              "gemini"
             ]
           },
           "currentModel": {
@@ -3092,7 +2972,8 @@
       "ConfigureProviderRequest": {
         "type": "object",
         "required": [
-          "apiKey"
+          "apiKey",
+          "provider"
         ],
         "properties": {
           "apiKey": {
@@ -3106,7 +2987,8 @@
             "enum": [
               "openai",
               "anthropic",
-              "openrouter"
+              "openrouter",
+              "gemini"
             ]
           }
         }
@@ -3123,7 +3005,8 @@
             "enum": [
               "openai",
               "anthropic",
-              "openrouter"
+              "openrouter",
+              "gemini"
             ]
           },
           "currentModel": {

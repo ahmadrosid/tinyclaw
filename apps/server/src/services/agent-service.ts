@@ -45,7 +45,6 @@ import {
   composeSoulSystemPrompt,
   createId,
   createSessionId,
-  getGlobalSoulDir,
   getProfileSoulDir,
   getResolvedSoulStatus,
   getUserContextStatus,
@@ -665,6 +664,7 @@ export class AgentService {
     this._providerConfigured = true;
     this.harness = this.createHarness(nextProvider);
     this.sessions.clear();
+    await this.ensureSoulScaffolded();
 
     return {
       provider: nextConfig.provider,
@@ -748,17 +748,6 @@ export class AgentService {
     return this.profileService.deleteProfileAvatar(profileId);
   }
 
-  async getGlobalSoulStatus(includeContents = false): Promise<SoulStatusResponse> {
-    const status = await getResolvedSoulStatus();
-
-    if (!includeContents) {
-      return status;
-    }
-
-    const stack = await loadSoulStack(getGlobalSoulDir());
-    return { ...status, contents: stack.files };
-  }
-
   async getProfileSoulStatus(
     profileId: string,
     includeContents = false,
@@ -774,8 +763,12 @@ export class AgentService {
     return { ...status, profileId, contents: stack.files };
   }
 
-  async initGlobalSoul(): Promise<InitSoulResponse> {
-    return initSoulDirectory(getGlobalSoulDir());
+  async ensureSoulScaffolded(): Promise<void> {
+    const profiles = await this.db.listProfiles();
+
+    for (const profile of profiles) {
+      await initSoulDirectory(getProfileSoulDir(profile.id));
+    }
   }
 
   async initProfileSoul(profileId: string): Promise<InitSoulResponse> {
@@ -784,22 +777,10 @@ export class AgentService {
     return { ...result, profileId };
   }
 
-  async getGlobalSoulStack(): Promise<SoulStackResponse> {
-    return loadSoulStack(getGlobalSoulDir());
-  }
-
   async getProfileSoulStack(profileId: string): Promise<SoulStackResponse> {
     await this.requireProfile(profileId);
     const stack = await loadSoulStack(getProfileSoulDir(profileId));
     return { ...stack, profileId };
-  }
-
-  async writeGlobalSoulFile(key: string, request: UpdateSoulFileRequest): Promise<void> {
-    if (!isWritableSoulFileKey(key)) {
-      throw new Error(`Invalid soul file key: ${key}`);
-    }
-
-    await writeSoulFile(getGlobalSoulDir(), key, request.content);
   }
 
   async writeProfileSoulFile(

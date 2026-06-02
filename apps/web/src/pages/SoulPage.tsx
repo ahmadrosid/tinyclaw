@@ -6,7 +6,6 @@ import {
   FileTextIcon,
   FolderIcon,
   RefreshCwIcon,
-  SparklesIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -31,12 +30,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useProfilesQuery } from "@/hooks/use-app-queries";
 import {
-  useInitProfileSoulMutation,
-  useInitSoulMutation,
   useSoulFileQuery,
   useSoulStatusQuery,
   useWriteSoulFileMutation,
 } from "@/hooks/use-resource-mutations";
+import { DEFAULT_PROFILE_ID } from "@/lib/profiles";
 import { cn } from "@/lib/utils";
 import { formatError } from "@/lib/client";
 
@@ -80,7 +78,20 @@ const SOUL_FILES = [
   writable: boolean;
 }>;
 
-type SoulScope = "global" | string;
+function resolveDefaultProfileId(
+  profiles: Array<{ id: string }>,
+  fromUrl: string | null,
+): string | null {
+  if (profiles.length === 0) {
+    return null;
+  }
+
+  if (fromUrl && profiles.some((profile) => profile.id === fromUrl)) {
+    return fromUrl;
+  }
+
+  return profiles.find((profile) => profile.id === DEFAULT_PROFILE_ID)?.id ?? profiles[0]!.id;
+}
 
 export function SoulPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -90,37 +101,32 @@ export function SoulPage() {
     isFetching: profilesFetching,
     refetch: refetchProfiles,
   } = useProfilesQuery();
-  const [scope, setScopeState] = useState<SoulScope>("global");
-  const scopeInitializedRef = useRef(false);
+  const [profileId, setProfileIdState] = useState<string | null>(null);
+  const profileInitializedRef = useRef(false);
   const {
     data: status = null,
     isLoading: statusLoading,
     isFetching: statusFetching,
     error: statusError,
     refetch: refetchStatus,
-  } = useSoulStatusQuery(scope);
+  } = useSoulStatusQuery(profileId);
   const [openFile, setOpenFile] = useState<keyof SoulStackFiles | null>(null);
   const {
     data: fileContent = "",
     isLoading: dialogLoading,
     error: fileError,
-  } = useSoulFileQuery(scope, openFile, openFile !== null);
-  const initSoulMutation = useInitSoulMutation();
-  const initProfileSoulMutation = useInitProfileSoulMutation();
+  } = useSoulFileQuery(profileId, openFile, openFile !== null);
   const writeSoulMutation = useWriteSoulFileMutation();
   const [editContent, setEditContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [initResult, setInitResult] = useState<string[] | null>(null);
 
-  const busy =
-    initSoulMutation.isPending ||
-    initProfileSoulMutation.isPending ||
-    writeSoulMutation.isPending;
+  const busy = writeSoulMutation.isPending;
   const loading = statusLoading && !status;
   const refreshing = profilesFetching || statusFetching;
 
+  const selectedProfile = profiles.find((profile) => profile.id === profileId) ?? null;
   const openFileMeta = openFile ? SOUL_FILES.find((file) => file.key === openFile) : null;
   const isDirty = editContent !== savedContent;
   const isWritable = openFileMeta?.writable ?? false;
@@ -133,18 +139,17 @@ export function SoulPage() {
     return SOUL_FILES.filter((file) => status.files[file.key]).length;
   }, [status]);
 
-  const setScope = useCallback(
-    (nextScope: SoulScope) => {
-      setScopeState(nextScope);
+  const setProfileId = useCallback(
+    (nextProfileId: string) => {
+      setProfileIdState(nextProfileId);
       setOpenFile(null);
-      setInitResult(null);
       setSearchParams(
         (current) => {
           const next = new URLSearchParams(current);
-          if (nextScope === "global") {
-            next.delete("scope");
+          if (nextProfileId === DEFAULT_PROFILE_ID) {
+            next.delete("profile");
           } else {
-            next.set("scope", nextScope);
+            next.set("profile", nextProfileId);
           }
           return next;
         },
@@ -155,25 +160,20 @@ export function SoulPage() {
   );
 
   useEffect(() => {
-    if (scopeInitializedRef.current) {
-      if (scope !== "global" && !profiles.some((profile) => profile.id === scope)) {
-        setScope("global");
-      }
+    const nextProfileId = resolveDefaultProfileId(profiles, searchParams.get("profile"));
+
+    if (!profileInitializedRef.current) {
+      profileInitializedRef.current = true;
+      setProfileIdState(nextProfileId);
       return;
     }
 
-    scopeInitializedRef.current = true;
-    const fromUrl = searchParams.get("scope");
-    if (fromUrl === "global" || fromUrl === null) {
-      setScopeState("global");
+    if (profileId && profiles.some((profile) => profile.id === profileId)) {
       return;
     }
 
-    const matchedProfile = profiles.find((profile) => profile.id === fromUrl);
-    if (matchedProfile) {
-      setScopeState(matchedProfile.id);
-    }
-  }, [profiles, scope, searchParams, setScope]);
+    setProfileIdState(nextProfileId);
+  }, [profiles, profileId, searchParams]);
 
   useEffect(() => {
     const queryError = profilesError ?? statusError;
@@ -211,23 +211,8 @@ export function SoulPage() {
     }
   }
 
-  async function handleInit() {
-    setError(null);
-    setInitResult(null);
-
-    try {
-      const result =
-        scope === "global"
-          ? await initSoulMutation.mutateAsync()
-          : await initProfileSoulMutation.mutateAsync(scope);
-      setInitResult(result.created);
-    } catch (err) {
-      setError(formatError(err));
-    }
-  }
-
   async function handleSave() {
-    if (!openFile || !isWritable || !isDirty) {
+    if (!profileId || !openFile || !isWritable || !isDirty) {
       return;
     }
 
@@ -235,7 +220,7 @@ export function SoulPage() {
 
     try {
       await writeSoulMutation.mutateAsync({
-        scope,
+        profileId,
         fileKey: openFile,
         content: editContent,
       });
@@ -250,18 +235,13 @@ export function SoulPage() {
     await Promise.all([refetchProfiles(), refetchStatus()]);
   }
 
-  const scopeLabel =
-    scope === "global"
-      ? "Global soul"
-      : (profiles.find((profile) => profile.id === scope)?.name ?? "Profile soul");
-
-  const scopeSubtitle =
-    scope === "global" ? "~/.tinyclaw/" : "Profile override · merges on top of global";
-
-  const stackActive =
-    scope === "global"
-      ? (status?.active ?? false)
-      : (profiles.find((profile) => profile.id === scope)?.soulActive ?? false);
+  if (profiles.length === 0 && !profilesFetching) {
+    return (
+      <div className={cn(sectionClass, "p-8 text-sm text-muted-foreground")}>
+        Create a profile first to configure soul files.
+      </div>
+    );
+  }
 
   if (loading && !status) {
     return <PageState message="Loading soul stack…" />;
@@ -276,31 +256,21 @@ export function SoulPage() {
           </p>
         ) : null}
 
-        {initResult ? (
-          <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:text-emerald-200">
-            {initResult.length === 0
-              ? "Templates already exist — nothing created."
-              : `Created: ${initResult.join(", ")}`}
-          </p>
-        ) : null}
-
         <section className={cn(sectionClass, "overflow-hidden")}>
           <div className="flex flex-wrap items-center gap-3 border-b border-border p-4 lg:hidden">
             <Select
-              value={scope}
-              disabled={busy || refreshing}
-              onValueChange={(value) => setScope(value != null ? String(value) : "global")}
+              value={profileId ?? undefined}
+              disabled={busy || refreshing || !profileId}
+              onValueChange={(value) => {
+                if (value) {
+                  setProfileId(String(value));
+                }
+              }}
             >
-              <SelectTrigger className="min-w-0 flex-1" aria-label="Soul scope">
-                <SelectValue placeholder="Select scope" />
+              <SelectTrigger className="min-w-0 flex-1" aria-label="Profile">
+                <SelectValue placeholder="Select profile" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="global">
-                  <span className="flex items-center gap-2">
-                    <SparklesIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                    <span>Global soul</span>
-                  </span>
-                </SelectItem>
                 {profiles.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
                     <span className="flex items-center gap-2">
@@ -327,49 +297,28 @@ export function SoulPage() {
                   <RefreshCwIcon className="size-4" aria-hidden />
                 )}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy}
-                onClick={() => void handleInit()}
-              >
-                Init
-              </Button>
             </div>
           </div>
 
           <div className="grid gap-0 lg:grid-cols-[240px_minmax(0,1fr)]">
             <aside className="hidden border-b border-border p-4 lg:block lg:border-r lg:border-b-0">
               <div className="mb-4">
-                <h2 className="type-section-title">Scope</h2>
+                <h2 className="type-section-title">Profiles</h2>
                 <p className="type-body mt-1 text-xs">
-                  Global files apply to every profile. Profile overrides merge on top.
+                  Each profile has its own soul stack under ~/.tinyclaw/profiles/.
                 </p>
               </div>
 
               <div className="max-h-[min(40vh,320px)] space-y-2 overflow-y-auto pr-1 lg:max-h-none">
-                <ScopeButton
-                  active={scope === "global"}
-                  title="Global soul"
-                  subtitle="~/.tinyclaw/"
-                  activeLabel={status?.active && scope === "global" ? "active" : undefined}
-                  leading={
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                      <SparklesIcon className="size-4 text-muted-foreground" aria-hidden />
-                    </span>
-                  }
-                  onClick={() => setScope("global")}
-                />
-
                 {profiles.map((profile) => (
                   <ScopeButton
                     key={profile.id}
-                    active={scope === profile.id}
+                    active={profile.id === profileId}
                     title={profile.name}
                     subtitle={profile.soulActive ? "soul active" : "soul inactive"}
                     activeLabel={profile.soulActive ? "active" : undefined}
                     leading={<ProfileAvatar profile={profile} size="sm" />}
-                    onClick={() => setScope(profile.id)}
+                    onClick={() => setProfileId(profile.id)}
                   />
                 ))}
               </div>
@@ -387,12 +336,12 @@ export function SoulPage() {
               <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="type-section-title">{scopeLabel}</h2>
-                    {stackActive ? (
+                    <h2 className="type-section-title">{selectedProfile?.name ?? "Profile soul"}</h2>
+                    {selectedProfile?.soulActive ? (
                       <span className="scope-badge scope-badge-active">active</span>
                     ) : null}
                   </div>
-                  <p className="type-body mt-1 text-xs">{scopeSubtitle}</p>
+                  <p className="type-body mt-1 text-xs">Profile soul · one stack per bot</p>
                   {status ? (
                     <p
                       className="type-code mt-2 truncate text-muted-foreground"
@@ -417,9 +366,6 @@ export function SoulPage() {
                       <RefreshCwIcon className="size-4" aria-hidden />
                     )}
                     Refresh
-                  </Button>
-                  <Button type="button" size="sm" disabled={busy} onClick={() => void handleInit()}>
-                    Init templates
                   </Button>
                 </div>
               </div>
@@ -461,7 +407,7 @@ export function SoulPage() {
       </div>
 
       <Dialog open={openFile !== null} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="flex max-h-[min(90dvh,85vh)] w-[calc(100%-1.5rem)] flex-col gap-4 p-4 sm:max-w-3xl sm:gap-6 sm:p-6">
+        <DialogContent className="flex min-h-[min(82dvh,38rem)] max-h-[min(90dvh,85vh)] w-[calc(100%-1.5rem)] flex-col gap-4 p-4 sm:max-w-3xl sm:gap-6 sm:p-6">
           <DialogHeader className="gap-2 pr-8 sm:gap-3">
             <DialogTitle className="flex items-center gap-2 font-mono text-base">
               {openFileMeta?.writable ? (
@@ -477,30 +423,28 @@ export function SoulPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
             {dialogError ? (
-              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <p className="shrink-0 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {dialogError}
               </p>
             ) : null}
 
             {dialogLoading ? (
-              <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+              <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Spinner className="size-4" />
                 Loading file content…
               </div>
             ) : (
               <>
                 {openFile && status && !status.files[openFile] && !editContent ? (
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    This file is missing. Run{" "}
-                    <strong className="text-foreground">Init templates</strong> or start writing to
-                    create it on save.
+                  <p className="shrink-0 text-sm leading-relaxed text-muted-foreground">
+                    This file is missing. Start writing — it will be created when you save.
                   </p>
                 ) : null}
 
                 <Textarea
-                  className="min-h-48 font-mono text-xs leading-relaxed sm:min-h-80"
+                  className="field-sizing-fixed min-h-[min(52dvh,22rem)] flex-1 resize-none overflow-y-auto font-mono text-xs leading-relaxed sm:min-h-[min(58dvh,26rem)]"
                   value={editContent}
                   readOnly={!isWritable || dialogLoading}
                   disabled={busy || dialogLoading}
@@ -513,7 +457,7 @@ export function SoulPage() {
                 />
 
                 {isWritable && isDirty ? (
-                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                  <p className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-300">
                     Unsaved changes
                   </p>
                 ) : null}
@@ -521,7 +465,7 @@ export function SoulPage() {
             )}
           </div>
 
-          <DialogFooter className="flex-col-reverse gap-2 border-t-0 bg-transparent p-0 pt-2 sm:flex-row sm:justify-end sm:gap-3">
+          <DialogFooter className="mx-0 mb-0 shrink-0 flex-col-reverse gap-3 border-t border-border bg-transparent p-0 pt-4 sm:flex-row sm:justify-end sm:pt-5">
             <Button
               type="button"
               variant="outline"

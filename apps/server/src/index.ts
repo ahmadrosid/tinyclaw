@@ -43,6 +43,13 @@ const database = await createDatabase(config.databaseUrl, { baseDir: projectRoot
 await seedDatabase(database.adapter);
 
 const agent = new AgentService(userConfig, provider, database.adapter);
+
+try {
+  await agent.ensureSoulScaffolded();
+} catch (error) {
+  console.warn("Could not scaffold soul templates:", error);
+}
+
 const automationService = new AutomationService(database.adapter, {
   getUserTimezone: () => agent.getUserTimezone(),
 });

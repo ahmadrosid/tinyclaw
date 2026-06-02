@@ -17,7 +17,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: "/clear", description: "clear history" },
   { name: "/compact", description: "compact conversation history" },
   { name: "/create", description: "draft an automation" },
-  { name: "/soul", description: "show or initialize agent identity" },
+  { name: "/soul", description: "show or initialize profile soul files" },
   { name: "/user", description: "show or initialize USER.md" },
   { name: "/models", description: "list available models" },
   { name: "/model", description: "show or switch model" },
@@ -127,7 +127,7 @@ export function resolveSuggestions(
 
   if (soulMatch) {
     const query = (soulMatch[1] ?? "").trim().toLowerCase();
-    const subcommands = [{ name: "init", description: "scaffold soul templates" }];
+    const subcommands = [{ name: "init", description: "scaffold soul templates for current profile" }];
 
     return subcommands
       .filter((command) => !query || command.name.startsWith(query))

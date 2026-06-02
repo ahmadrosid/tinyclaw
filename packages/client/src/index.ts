@@ -274,17 +274,6 @@ export class TinyClawClient {
     );
   }
 
-  async getSoulStatus(options: { includeContents?: boolean } = {}): Promise<SoulStatusResponse> {
-    const query = options.includeContents ? "?contents=true" : "";
-    return this.request<SoulStatusResponse>(`/v1/soul${query}`);
-  }
-
-  async initSoul(): Promise<InitSoulResponse> {
-    return this.request<InitSoulResponse>("/v1/soul/init", {
-      method: "POST",
-    });
-  }
-
   async getProfileSoulStatus(
     profileId: string,
     options: { includeContents?: boolean } = {},
@@ -304,21 +293,10 @@ export class TinyClawClient {
     );
   }
 
-  async getSoulStack(): Promise<SoulStackResponse> {
-    return this.request<SoulStackResponse>("/v1/soul/stack");
-  }
-
   async getProfileSoulStack(profileId: string): Promise<SoulStackResponse> {
     return this.request<SoulStackResponse>(
       `/v1/profiles/${encodeURIComponent(profileId)}/soul/stack`,
     );
-  }
-
-  async writeSoulFile(fileKey: string, content: string): Promise<void> {
-    await this.request(`/v1/soul/files/${encodeURIComponent(fileKey)}`, {
-      method: "PUT",
-      body: JSON.stringify({ content } satisfies UpdateSoulFileRequest),
-    });
   }
 
   async writeProfileSoulFile(

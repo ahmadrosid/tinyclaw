@@ -589,57 +589,6 @@ export function buildOpenApiSpec() {
           },
         },
       },
-      "/v1/soul": {
-        get: {
-          tags: ["Soul"],
-          summary: "Get global soul status",
-          operationId: "getSoulStatus",
-          responses: {
-            "200": jsonResponse("SoulStatusResponse", "Soul status"),
-          },
-        },
-      },
-      "/v1/soul/stack": {
-        get: {
-          tags: ["Soul"],
-          summary: "Get global soul stack contents",
-          operationId: "getSoulStack",
-          responses: {
-            "200": jsonResponse("SoulStackResponse", "Soul stack"),
-          },
-        },
-      },
-      "/v1/soul/files/{fileKey}": {
-        put: {
-          tags: ["Soul"],
-          summary: "Write a global soul file",
-          operationId: "writeSoulFile",
-          parameters: [
-            {
-              name: "fileKey",
-              in: "path",
-              required: true,
-              schema: { type: "string", enum: ["soul", "style", "skill", "memory"] },
-            },
-          ],
-          requestBody: jsonBody("UpdateSoulFileRequest"),
-          responses: {
-            "204": { description: "File saved" },
-            "500": errorResponse,
-          },
-        },
-      },
-      "/v1/soul/init": {
-        post: {
-          tags: ["Soul"],
-          summary: "Initialize global soul templates",
-          operationId: "initSoul",
-          responses: {
-            "201": jsonResponse("InitSoulResponse", "Soul initialized"),
-            "500": errorResponse,
-          },
-        },
-      },
       "/v1/profiles/{profileId}/soul": {
         get: {
           tags: ["Soul", "Profiles"],

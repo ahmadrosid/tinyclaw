@@ -50,8 +50,13 @@ export function useCreateProfileMutation() {
 
   return useMutation({
     mutationFn: (input: CreateProfileRequest) => client.createProfile(input),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all });
+    onSuccess: async (data) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.soul.profile(data.profile.id),
+        }),
+      ]);
     },
   });
 }
@@ -161,21 +166,6 @@ export function useUnassignToolMutation() {
   });
 }
 
-export function useInitProfileSoulMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (profileId: string) => client.initProfileSoul(profileId),
-    onSuccess: async (_data, profileId) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(profileId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.soul.profile(profileId) }),
-      ]);
-    },
-  });
-}
-
 export function useSessionsQuery(profileId: string, channel: AgentChannel = "web") {
   return useQuery({
     queryKey: queryKeys.sessions(profileId, channel),
@@ -184,34 +174,26 @@ export function useSessionsQuery(profileId: string, channel: AgentChannel = "web
   });
 }
 
-export function useSoulStatusQuery(scope: "global" | string) {
+export function useSoulStatusQuery(profileId: string | null) {
   return useQuery({
-    queryKey: scope === "global" ? queryKeys.soul.global : queryKeys.soul.profile(scope),
-    queryFn: () =>
-      scope === "global" ? client.getSoulStatus() : client.getProfileSoulStatus(scope),
-    enabled: scope === "global" || Boolean(scope),
+    queryKey: queryKeys.soul.profile(profileId ?? ""),
+    queryFn: () => client.getProfileSoulStatus(profileId!),
+    enabled: Boolean(profileId),
   });
 }
 
 export function useSoulFileQuery(
-  scope: "global" | string,
+  profileId: string | null,
   fileKey: string | null,
   enabled: boolean,
 ) {
   return useQuery({
-    queryKey:
-      scope === "global"
-        ? [...queryKeys.soul.global, "file", fileKey ?? ""]
-        : [...queryKeys.soul.profile(scope), "file", fileKey ?? ""],
+    queryKey: [...queryKeys.soul.profile(profileId ?? ""), "file", fileKey ?? ""] as const,
     queryFn: async () => {
-      const response =
-        scope === "global"
-          ? await client.getSoulStatus({ includeContents: true })
-          : await client.getProfileSoulStatus(scope, { includeContents: true });
-
+      const response = await client.getProfileSoulStatus(profileId!, { includeContents: true });
       return response.contents?.[fileKey as keyof SoulStackFiles] ?? "";
     },
-    enabled: enabled && Boolean(fileKey),
+    enabled: enabled && Boolean(profileId) && Boolean(fileKey),
   });
 }
 
@@ -235,41 +217,21 @@ export function usePurgeSessionMutation() {
   });
 }
 
-export function useInitSoulMutation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => client.initSoul(),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.soul.global }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }),
-      ]);
-    },
-  });
-}
-
 export function useWriteSoulFileMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
-      scope,
+      profileId,
       fileKey,
       content,
     }: {
-      scope: "global" | string;
+      profileId: string;
       fileKey: keyof SoulStackFiles;
       content: string;
-    }) =>
-      scope === "global"
-        ? client.writeSoulFile(fileKey, content)
-        : client.writeProfileSoulFile(scope, fileKey, content),
+    }) => client.writeProfileSoulFile(profileId, fileKey, content),
     onSuccess: async (_data, variables) => {
-      const soulKey =
-        variables.scope === "global"
-          ? queryKeys.soul.global
-          : queryKeys.soul.profile(variables.scope);
+      const soulKey = queryKeys.soul.profile(variables.profileId);
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: soulKey }),

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
@@ -98,5 +98,33 @@ describe("profile service avatar", () => {
 
     const afterDelete = await service.getProfile(profileId);
     expect(afterDelete.profile.hasAvatar).toBe(false);
+  });
+});
+
+describe("profile service createProfile", () => {
+  let tempConfigDir = "";
+
+  afterEach(async () => {
+    process.env.TINYCLAW_CONFIG_DIR = originalConfigDir;
+
+    if (tempConfigDir) {
+      await rm(tempConfigDir, { recursive: true, force: true });
+      tempConfigDir = "";
+    }
+  });
+
+  test("scaffolds soul templates for new profiles", async () => {
+    tempConfigDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-profile-soul-"));
+    process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
+
+    const service = new ProfileService(createInMemoryDatabaseAdapter());
+    const created = await service.createProfile({ name: "Soul Bot" });
+    const soulDir = path.join(tempConfigDir, "profiles", created.profile.id);
+    const soulContent = await readFile(path.join(soulDir, "SOUL.md"), "utf8");
+
+    expect(soulContent).toContain("# Your Name");
+    await expect(readFile(path.join(soulDir, "STYLE.md"), "utf8")).resolves.toContain(
+      "# Voice & Style",
+    );
   });
 });

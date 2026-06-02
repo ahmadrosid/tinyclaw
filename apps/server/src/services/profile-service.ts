@@ -17,7 +17,9 @@ import type {
 import {
   createId,
   deleteProfileAvatar,
+  getProfileSoulDir,
   hasProfileAvatar,
+  initSoulDirectory,
   readProfileAvatar,
   resolveSoulStackForProfile,
   saveProfileAvatar,
@@ -71,6 +73,7 @@ export class ProfileService {
     }
 
     await this.db.upsertProfile(profile);
+    await initSoulDirectory(getProfileSoulDir(profile.id));
 
     return this.getProfile(profile.id);
   }

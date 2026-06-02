@@ -28,7 +28,6 @@ import {
   useCreateProfileMutation,
   useDeleteProfileAvatarMutation,
   useDeleteProfileMutation,
-  useInitProfileSoulMutation,
   useUnassignToolMutation,
   useUpdateProfileMutation,
   useUploadProfileAvatarMutation,
@@ -69,7 +68,6 @@ export function ProfilesPage() {
   const deleteAvatarMutation = useDeleteProfileAvatarMutation();
   const assignMutation = useAssignToolMutation();
   const unassignMutation = useUnassignToolMutation();
-  const initSoulMutation = useInitProfileSoulMutation();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const createAvatarInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -115,8 +113,7 @@ export function ProfilesPage() {
     uploadAvatarMutation.isPending ||
     deleteAvatarMutation.isPending ||
     assignMutation.isPending ||
-    unassignMutation.isPending ||
-    initSoulMutation.isPending;
+    unassignMutation.isPending;
 
   const trimmedSearch = searchQuery.trim();
   const isSearching = trimmedSearch.length > 0;
@@ -500,20 +497,6 @@ export function ProfilesPage() {
     }
   }
 
-  async function handleInitSoul() {
-    if (!selectedId) {
-      return;
-    }
-
-    setError(null);
-
-    try {
-      await initSoulMutation.mutateAsync(selectedId);
-    } catch (err) {
-      setError(formatError(err));
-    }
-  }
-
   async function handleAvatarSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
 
@@ -814,19 +797,6 @@ export function ProfilesPage() {
                         )}
                         Refresh
                       </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={busy || initSoulMutation.isPending}
-                        onClick={() => void handleInitSoul()}
-                      >
-                        {initSoulMutation.isPending ? (
-                          <Spinner className="size-4" />
-                        ) : (
-                          "Init soul"
-                        )}
-                      </Button>
                       {!detail.isSuper ? (
                         <Button
                           type="button"
@@ -843,15 +813,6 @@ export function ProfilesPage() {
                   </div>
 
                   <div className="mb-4 flex flex-wrap gap-2 lg:hidden">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || initSoulMutation.isPending}
-                      onClick={() => void handleInitSoul()}
-                    >
-                      {initSoulMutation.isPending ? <Spinner className="size-4" /> : "Init soul"}
-                    </Button>
                     {!detail.isSuper ? (
                       <Button
                         type="button"

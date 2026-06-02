@@ -536,12 +536,12 @@ async function runStickyChat(
 
     try {
       if (subcommand === "init") {
-        const result = await options.client.initSoul();
+        const result = await options.client.initProfileSoul(currentProfileId);
         for (const outputLine of formatSoulInitLines(result)) {
           writeOutput(outputLine);
         }
       } else {
-        const status = await options.client.getSoulStatus();
+        const status = await options.client.getProfileSoulStatus(currentProfileId);
         for (const outputLine of formatSoulStatusLines(status)) {
           writeOutput(outputLine);
         }
@@ -889,7 +889,7 @@ function formatSoulStatusLines(status: SoulStatusResponse): string[] {
   );
 
   if (!status.active) {
-    lines.push("Run /soul init to scaffold templates in ~/.tinyclaw/");
+    lines.push("Soul files are missing. Run /soul init to scaffold templates for this profile.");
   } else {
     lines.push("Edit the files above to shape agent identity. Start a new session to reload.");
   }

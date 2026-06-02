@@ -283,28 +283,6 @@ export function createApp(options: ServerOptions) {
           return new Response(null, { status: 204 });
         }
 
-        if (request.method === "GET" && url.pathname === "/v1/soul") {
-          const includeContents = url.searchParams.get("contents") === "true";
-          return json<SoulStatusResponse>(await agent.getGlobalSoulStatus(includeContents));
-        }
-
-        if (request.method === "GET" && url.pathname === "/v1/soul/stack") {
-          return json<SoulStackResponse>(await agent.getGlobalSoulStack());
-        }
-
-        if (request.method === "POST" && url.pathname === "/v1/soul/init") {
-          return json<InitSoulResponse>(await agent.initGlobalSoul(), 201);
-        }
-
-        const globalSoulFileMatch = url.pathname.match(/^\/v1\/soul\/files\/([^/]+)$/);
-
-        if (globalSoulFileMatch && request.method === "PUT") {
-          const fileKey = decodeURIComponent(globalSoulFileMatch[1]!);
-          const body = await readJson<UpdateSoulFileRequest>(request);
-          await agent.writeGlobalSoulFile(fileKey, body);
-          return new Response(null, { status: 204 });
-        }
-
         const profileToolsMatch = url.pathname.match(
           /^\/v1\/profiles\/([^/]+)\/tools(?:\/([^/]+))?$/,
         );
