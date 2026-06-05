@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BlocksIcon,
   BotIcon,
   CircleGaugeIcon,
   BrainIcon,
@@ -16,7 +15,6 @@ export type PageId =
   | "chat"
   | "history"
   | "profiles"
-  | "tools"
   | "soul"
   | "automations"
   | "tasks"
@@ -62,13 +60,8 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: "soul",
-        label: "Soul",
-        description: "Identity stack files and templates",
-      },
-      {
-        id: "tools",
-        label: "Tools",
-        description: "Browse tools created by the agent",
+        label: "Soul & Tools",
+        description: "Identity stack files and registered agent tools",
       },
     ],
   },
@@ -108,7 +101,6 @@ export const NAV_ITEM_ICONS: Record<PageId, LucideIcon> = {
   chat: MessageCircleIcon,
   history: ClockIcon,
   profiles: BotIcon,
-  tools: BlocksIcon,
   soul: BrainIcon,
   automations: WorkflowIcon,
   tasks: KanbanIcon,
@@ -122,7 +114,6 @@ export const PAGE_PATHS: Record<PageId, string> = {
   chat: "/chat",
   history: "/history",
   profiles: "/profiles",
-  tools: "/tools",
   soul: "/soul",
   automations: "/automations",
   tasks: "/tasks",
@@ -144,6 +135,10 @@ export function findNavItem(pageId: PageId): NavItem | undefined {
 export function pageIdFromPath(pathname: string): PageId | null {
   if (pathname === "/chat" || pathname.startsWith("/chat/")) {
     return "chat";
+  }
+
+  if (pathname === "/tools") {
+    return "soul";
   }
 
   for (const [pageId, path] of Object.entries(PAGE_PATHS) as [PageId, string][]) {

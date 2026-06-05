@@ -1,6 +1,6 @@
 import type { ToolDetail } from "@tinyclaw/core/contract";
 import { isProtectedToolId } from "@tinyclaw/core/tools/protected";
-import { PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
+import { BlocksIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ToolDetailDialog } from "@/components/tools/ToolDetailDialog";
@@ -10,20 +10,17 @@ import { useToolsQuery } from "@/hooks/use-app-queries";
 import { useAppNavigation } from "@/hooks/use-app-navigation";
 import { useDeleteToolMutation } from "@/hooks/use-resource-mutations";
 import { formatError } from "@/lib/client";
-import { NAV_ITEM_ICONS } from "@/lib/navigation";
 import { SUPER_BOT_PROFILE_ID } from "@/lib/profiles";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 const sectionClass = "rounded-md border border-border bg-card";
 
-const ToolsIcon = NAV_ITEM_ICONS.tools;
-
 function isDeletableTool(tool: ToolDetail): boolean {
   return !isProtectedToolId(tool.id);
 }
 
-export function ToolsPage() {
+export function ToolsTab() {
   const { navigateToNewChat } = useAppNavigation();
   const queryClient = useQueryClient();
   const { data: tools = [], isLoading, error, isFetching } = useToolsQuery();
@@ -74,7 +71,7 @@ export function ToolsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <>
       {errorMessage ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {errorMessage}
@@ -231,7 +228,7 @@ export function ToolsPage() {
         }}
         onDelete={(toolId, toolName) => void handleDeleteTool(toolId, toolName)}
       />
-    </div>
+    </>
   );
 }
 
@@ -263,7 +260,7 @@ function ToolListItem({
             deletable ? "text-muted-foreground" : "text-emerald-700 dark:text-emerald-300",
           )}
         >
-          <ToolsIcon className="size-4" aria-hidden />
+          <BlocksIcon className="size-4" aria-hidden />
         </span>
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{tool.name}</p>

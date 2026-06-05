@@ -13,7 +13,6 @@ import { SettingsPage } from "@/pages/SettingsPage";
 import { SetupWizardPage } from "@/pages/SetupWizardPage";
 import { SoulPage } from "@/pages/SoulPage";
 import { StatusPage } from "@/pages/StatusPage";
-import { ToolsPage } from "@/pages/ToolsPage";
 import { TasksPage } from "@/pages/TasksPage";
 
 function AppShell() {
@@ -31,7 +30,7 @@ function AppShell() {
               <Route path="/chat/:profileId/:sessionId" element={<ChatPage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/profiles" element={<ProfilesPage />} />
-              <Route path="/tools" element={<ToolsPage />} />
+              <Route path="/tools" element={<Navigate to="/soul?tab=tools" replace />} />
               <Route path="/soul" element={<SoulPage />} />
               <Route path="/automations" element={<AutomationsPage />} />
               <Route path="/tasks" element={<TasksPage />} />
