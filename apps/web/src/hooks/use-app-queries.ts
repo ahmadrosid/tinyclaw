@@ -37,6 +37,12 @@ export const toolsQueryOptions = queryOptions({
   staleTime: defaultStaleTime,
 });
 
+export const mcpServersQueryOptions = queryOptions({
+  queryKey: queryKeys.mcp.all,
+  queryFn: async () => (await client.listMcpServers()).servers,
+  staleTime: defaultStaleTime,
+});
+
 export function profileQueryOptions(profileId: string) {
   return queryOptions({
     queryKey: queryKeys.profiles.detail(profileId),
@@ -89,6 +95,10 @@ export function useProfileQuery(profileId: string | null) {
 
 export function useToolsQuery() {
   return useQuery(toolsQueryOptions);
+}
+
+export function useMcpServersQuery() {
+  return useQuery(mcpServersQueryOptions);
 }
 
 export function toolQueryOptions(toolId: string) {

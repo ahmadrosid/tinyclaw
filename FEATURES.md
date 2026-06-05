@@ -52,6 +52,18 @@ Each profile has its own **tool allowlist**. Super Bot and Default Bot start wit
 
 You can also register JavaScript tools. Metadata is stored in the DB, and the module is loaded from `~/.tinyclaw/tools/` at runtime.
 
+## MCP servers
+
+TinyClaw can connect to [Model Context Protocol](https://modelcontextprotocol.io/) servers and expose their tools to assigned profiles.
+
+- **No built-in MCP** — profiles start with zero MCP servers assigned
+- **Register servers** in the web UI under **Soul → MCP** (stdio or HTTP transports)
+- **Assign per profile** on the **Profiles** page under **Allowed MCP servers**
+- Tools from an assigned server are namespaced as `{serverName}__{toolName}` during chat
+- Only profiles with an assigned server can call that server's tools
+
+Workflow: register a server → connect/sync to cache its tools → assign the server to a profile → chat with that profile.
+
 ## Super Bot
 
 Super Bot is the **orchestrator**. It can manage other bots via meta-tools:
@@ -95,7 +107,9 @@ Data is saved in **SQLite** (default: `data/sqlite/tinyclaw.sqlite`).
 |--------|
 | Profiles |
 | Tools |
+| MCP servers |
 | Profile ↔ tool links |
+| Profile ↔ MCP server links |
 | Session metadata |
 | Chat message history |
 | Automations |

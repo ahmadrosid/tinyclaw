@@ -108,6 +108,28 @@ export interface LlmUsageStatsDelta {
   estimatedCostUsd: number;
 }
 
+export type McpServerStatus = "connected" | "disconnected" | "error";
+export type McpTransport = "http";
+
+export interface CachedMcpTool {
+  name: string;
+  description: string;
+  inputSchema?: unknown;
+}
+
+export interface StoredMcpServerRecord {
+  id: string;
+  name: string;
+  transport: McpTransport;
+  config: unknown;
+  enabled: boolean;
+  status: McpServerStatus;
+  lastError: string | null;
+  cachedTools: CachedMcpTool[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DatabaseAdapter {
   listAutomations(): Promise<StoredAutomationRecord[]>;
   getAutomation(id: string): Promise<StoredAutomationRecord | null>;
@@ -169,4 +191,15 @@ export interface DatabaseAdapter {
     delta: LlmUsageStatsDelta,
     trackedSince: string,
   ): Promise<void>;
+
+  listMcpServers(): Promise<StoredMcpServerRecord[]>;
+  getMcpServer(id: string): Promise<StoredMcpServerRecord | null>;
+  getMcpServerByName(name: string): Promise<StoredMcpServerRecord | null>;
+  upsertMcpServer(record: StoredMcpServerRecord): Promise<void>;
+  deleteMcpServer(id: string): Promise<boolean>;
+
+  listMcpServersForProfile(profileId: string): Promise<StoredMcpServerRecord[]>;
+  assignMcpServerToProfile(profileId: string, serverId: string): Promise<void>;
+  unassignMcpServerFromProfile(profileId: string, serverId: string): Promise<boolean>;
+  countProfileMcpAssignments(): Promise<number>;
 }

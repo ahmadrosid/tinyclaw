@@ -166,6 +166,95 @@ export function useUnassignToolMutation() {
   });
 }
 
+export function useCreateMcpServerMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: Parameters<typeof client.createMcpServer>[0]) =>
+      client.createMcpServer(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all });
+    },
+  });
+}
+
+export function useDeleteMcpServerMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (serverId: string) => client.deleteMcpServer(serverId),
+    onSuccess: async (_data, serverId) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.detail(serverId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }),
+      ]);
+    },
+  });
+}
+
+export function useConnectMcpServerMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (serverId: string) => client.connectMcpServer(serverId),
+    onSuccess: async (_data, serverId) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.detail(serverId) }),
+      ]);
+    },
+  });
+}
+
+export function useSyncMcpServerMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (serverId: string) => client.syncMcpServer(serverId),
+    onSuccess: async (_data, serverId) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.detail(serverId) }),
+      ]);
+    },
+  });
+}
+
+export function useAssignMcpServerMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ profileId, serverId }: { profileId: string; serverId: string }) =>
+      client.assignMcpServer(profileId, { serverId }),
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.profiles.detail(variables.profileId),
+        }),
+      ]);
+    },
+  });
+}
+
+export function useUnassignMcpServerMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ profileId, serverId }: { profileId: string; serverId: string }) =>
+      client.unassignMcpServer(profileId, serverId),
+    onSuccess: async (_data, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.profiles.detail(variables.profileId),
+        }),
+      ]);
+    },
+  });
+}
+
 export function useSessionsQuery(profileId: string, channel: AgentChannel = "web") {
   return useQuery({
     queryKey: queryKeys.sessions(profileId, channel),

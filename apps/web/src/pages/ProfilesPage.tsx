@@ -22,12 +22,19 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { ExpandableTextarea } from "@/components/ui/expandable-textarea";
-import { useProfileQuery, useProfilesQuery, useToolsQuery } from "@/hooks/use-app-queries";
 import {
+  useMcpServersQuery,
+  useProfileQuery,
+  useProfilesQuery,
+  useToolsQuery,
+} from "@/hooks/use-app-queries";
+import {
+  useAssignMcpServerMutation,
   useAssignToolMutation,
   useCreateProfileMutation,
   useDeleteProfileAvatarMutation,
   useDeleteProfileMutation,
+  useUnassignMcpServerMutation,
   useUnassignToolMutation,
   useUpdateProfileMutation,
   useUploadProfileAvatarMutation,
@@ -53,6 +60,7 @@ export function ProfilesPage() {
     refetch: refetchProfiles,
   } = useProfilesQuery();
   const { data: allTools = [] } = useToolsQuery();
+  const { data: allMcpServers = [] } = useMcpServersQuery();
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
   const profileInitializedRef = useRef(false);
   const {
@@ -68,6 +76,8 @@ export function ProfilesPage() {
   const deleteAvatarMutation = useDeleteProfileAvatarMutation();
   const assignMutation = useAssignToolMutation();
   const unassignMutation = useUnassignToolMutation();
+  const assignMcpMutation = useAssignMcpServerMutation();
+  const unassignMcpMutation = useUnassignMcpServerMutation();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const createAvatarInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +96,7 @@ export function ProfilesPage() {
   const [savedPrompt, setSavedPrompt] = useState("");
   const [saveStatus, setSaveStatus] = useState<ProfileSaveStatus>("idle");
   const [assignToolId, setAssignToolId] = useState("");
+  const [assignMcpServerId, setAssignMcpServerId] = useState("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
@@ -345,6 +356,10 @@ export function ProfilesPage() {
     (tool) => !detail?.tools.some((assigned) => assigned.id === tool.id),
   );
 
+  const availableMcpServers = allMcpServers.filter(
+    (server) => !detail?.mcpServers.some((assigned) => assigned.id === server.id),
+  );
+
   const createAvailableTools = allTools.filter((tool) => !createToolIds.includes(tool.id));
 
   async function handleSelectProfile(profileId: string) {
@@ -492,6 +507,38 @@ export function ProfilesPage() {
 
     try {
       await unassignMutation.mutateAsync({ profileId: selectedId, toolId });
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
+
+  async function handleAssignMcpServer() {
+    if (!selectedId || !assignMcpServerId) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await assignMcpMutation.mutateAsync({
+        profileId: selectedId,
+        serverId: assignMcpServerId,
+      });
+      setAssignMcpServerId("");
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
+
+  async function handleUnassignMcpServer(serverId: string) {
+    if (!selectedId) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await unassignMcpMutation.mutateAsync({ profileId: selectedId, serverId });
     } catch (err) {
       setError(formatError(err));
     }
@@ -961,6 +1008,82 @@ export function ProfilesPage() {
                                 className="shrink-0 text-muted-foreground"
                                 disabled={busy}
                                 onClick={() => void handleUnassignTool(tool.id)}
+                              >
+                                Remove
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="border-t border-border pt-5">
+                      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="type-section-title">Allowed MCP servers</h3>
+                          <p className="type-body mt-1 text-xs">
+                            {detail.mcpServers.length === 0
+                              ? "No MCP servers assigned to this profile."
+                              : `${detail.mcpServers.length} assigned`}
+                          </p>
+                        </div>
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                          <Select
+                            value={assignMcpServerId}
+                            disabled={busy || availableMcpServers.length === 0}
+                            onValueChange={(value) =>
+                              setAssignMcpServerId(value != null ? String(value) : "")
+                            }
+                          >
+                            <SelectTrigger
+                              className="w-full sm:w-44"
+                              aria-label="MCP server to assign"
+                            >
+                              <SelectValue placeholder="Assign MCP server…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableMcpServers.map((server) => (
+                                <SelectItem key={server.id} value={server.id}>
+                                  {server.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busy || !assignMcpServerId}
+                            onClick={() => void handleAssignMcpServer()}
+                          >
+                            Assign
+                          </Button>
+                        </div>
+                      </div>
+
+                      {detail.mcpServers.length === 0 ? (
+                        <p className="type-body text-xs">No MCP servers assigned.</p>
+                      ) : (
+                        <ul className="divide-y divide-border rounded-md border border-border">
+                          {detail.mcpServers.map((server) => (
+                            <li
+                              key={server.id}
+                              className="flex items-start justify-between gap-3 px-4 py-3 first:rounded-t-md last:rounded-b-md"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm text-foreground">{server.name}</p>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  {server.transport} · {server.toolCount} tool
+                                  {server.toolCount === 1 ? "" : "s"} · {server.status}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="shrink-0 text-muted-foreground"
+                                disabled={busy}
+                                onClick={() => void handleUnassignMcpServer(server.id)}
                               >
                                 Remove
                               </Button>

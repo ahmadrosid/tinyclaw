@@ -474,6 +474,39 @@ export function buildOpenApiSpec() {
           },
         },
       },
+      "/v1/profiles/{profileId}/mcp-servers": {
+        post: {
+          tags: ["Profiles", "MCP"],
+          summary: "Assign an MCP server to a profile",
+          operationId: "assignMcpServerToProfile",
+          parameters: [{ $ref: "#/components/parameters/ProfileId" }],
+          requestBody: jsonBody("AssignMcpServerRequest"),
+          responses: {
+            "200": jsonResponse("ProfileResponse", "MCP server assigned"),
+            "500": errorResponse,
+          },
+        },
+      },
+      "/v1/profiles/{profileId}/mcp-servers/{serverId}": {
+        delete: {
+          tags: ["Profiles", "MCP"],
+          summary: "Unassign an MCP server from a profile",
+          operationId: "unassignMcpServerFromProfile",
+          parameters: [
+            { $ref: "#/components/parameters/ProfileId" },
+            {
+              name: "serverId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            "200": jsonResponse("ProfileResponse", "MCP server unassigned"),
+            "500": errorResponse,
+          },
+        },
+      },
       "/v1/profiles/{profileId}/tools": {
         get: {
           tags: ["Profiles", "Tools"],
@@ -508,6 +541,131 @@ export function buildOpenApiSpec() {
           ],
           responses: {
             "200": jsonResponse("ProfileResponse", "Tool unassigned"),
+            "500": errorResponse,
+          },
+        },
+      },
+      "/v1/mcp/servers": {
+        get: {
+          tags: ["MCP"],
+          summary: "List MCP servers",
+          operationId: "listMcpServers",
+          responses: {
+            "200": jsonResponse("ListMcpServersResponse", "MCP server list"),
+          },
+        },
+        post: {
+          tags: ["MCP"],
+          summary: "Create an MCP server",
+          operationId: "createMcpServer",
+          requestBody: jsonBody("CreateMcpServerRequest"),
+          responses: {
+            "201": jsonResponse("McpServerResponse", "MCP server created"),
+            "500": errorResponse,
+          },
+        },
+      },
+      "/v1/mcp/servers/test": {
+        post: {
+          tags: ["MCP"],
+          summary: "Test an MCP server connection",
+          operationId: "testMcpServer",
+          requestBody: jsonBody("CreateMcpServerRequest"),
+          responses: {
+            "200": jsonResponse("TestMcpServerResponse", "MCP test result"),
+            "500": errorResponse,
+          },
+        },
+      },
+      "/v1/mcp/servers/{serverId}": {
+        get: {
+          tags: ["MCP"],
+          summary: "Get an MCP server",
+          operationId: "getMcpServer",
+          parameters: [
+            {
+              name: "serverId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            "200": jsonResponse("McpServerResponse", "MCP server detail"),
+            "404": errorResponse,
+            "500": errorResponse,
+          },
+        },
+        patch: {
+          tags: ["MCP"],
+          summary: "Update an MCP server",
+          operationId: "updateMcpServer",
+          parameters: [
+            {
+              name: "serverId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          requestBody: jsonBody("UpdateMcpServerRequest"),
+          responses: {
+            "200": jsonResponse("McpServerResponse", "MCP server updated"),
+            "500": errorResponse,
+          },
+        },
+        delete: {
+          tags: ["MCP"],
+          summary: "Delete an MCP server",
+          operationId: "deleteMcpServer",
+          parameters: [
+            {
+              name: "serverId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            "204": { description: "MCP server deleted" },
+            "500": errorResponse,
+          },
+        },
+      },
+      "/v1/mcp/servers/{serverId}/connect": {
+        post: {
+          tags: ["MCP"],
+          summary: "Connect an MCP server",
+          operationId: "connectMcpServer",
+          parameters: [
+            {
+              name: "serverId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            "200": jsonResponse("McpServerResponse", "MCP server connected"),
+            "500": errorResponse,
+          },
+        },
+      },
+      "/v1/mcp/servers/{serverId}/sync": {
+        post: {
+          tags: ["MCP"],
+          summary: "Sync tools from an MCP server",
+          operationId: "syncMcpServer",
+          parameters: [
+            {
+              name: "serverId",
+              in: "path",
+              required: true,
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            "200": jsonResponse("McpServerResponse", "MCP server synced"),
             "500": errorResponse,
           },
         },

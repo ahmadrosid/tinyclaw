@@ -1199,6 +1199,98 @@
         }
       }
     },
+    "/v1/profiles/{profileId}/mcp-servers": {
+      "post": {
+        "tags": [
+          "Profiles",
+          "MCP"
+        ],
+        "summary": "Assign an MCP server to a profile",
+        "operationId": "assignMcpServerToProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProfileId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignMcpServerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MCP server assigned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/profiles/{profileId}/mcp-servers/{serverId}": {
+      "delete": {
+        "tags": [
+          "Profiles",
+          "MCP"
+        ],
+        "summary": "Unassign an MCP server from a profile",
+        "operationId": "unassignMcpServerFromProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProfileId"
+          },
+          {
+            "name": "serverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP server unassigned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/profiles/{profileId}/tools": {
       "get": {
         "tags": [
@@ -1304,6 +1396,321 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers": {
+      "get": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "List MCP servers",
+        "operationId": "listMcpServers",
+        "responses": {
+          "200": {
+            "description": "MCP server list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMcpServersResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Create an MCP server",
+        "operationId": "createMcpServer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMcpServerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "MCP server created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/test": {
+      "post": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Test an MCP server connection",
+        "operationId": "testMcpServer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMcpServerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MCP test result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestMcpServerResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}": {
+      "get": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Get an MCP server",
+        "operationId": "getMcpServer",
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP server detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Update an MCP server",
+        "operationId": "updateMcpServer",
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMcpServerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MCP server updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Delete an MCP server",
+        "operationId": "deleteMcpServer",
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "MCP server deleted"
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/connect": {
+      "post": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Connect an MCP server",
+        "operationId": "connectMcpServer",
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP server connected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/mcp/servers/{serverId}/sync": {
+      "post": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "Sync tools from an MCP server",
+        "operationId": "syncMcpServer",
+        "parameters": [
+          {
+            "name": "serverId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "MCP server synced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerResponse"
                 }
               }
             }
@@ -3210,6 +3617,231 @@
           }
         }
       },
+      "McpServerSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "transport",
+          "enabled",
+          "status",
+          "toolCount",
+          "lastError",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "http"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "connected",
+              "disconnected",
+              "error"
+            ]
+          },
+          "toolCount": {
+            "type": "integer"
+          },
+          "lastError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CachedMcpToolSummary": {
+        "type": "object",
+        "required": [
+          "name",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "inputSchema": {}
+        }
+      },
+      "McpServerDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/McpServerSummary"
+          },
+          {
+            "type": "object",
+            "required": [
+              "config",
+              "cachedTools"
+            ],
+            "properties": {
+              "config": {
+                "type": "object"
+              },
+              "cachedTools": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CachedMcpToolSummary"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ListMcpServersResponse": {
+        "type": "object",
+        "required": [
+          "servers"
+        ],
+        "properties": {
+          "servers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/McpServerSummary"
+            }
+          }
+        }
+      },
+      "McpServerResponse": {
+        "type": "object",
+        "required": [
+          "server"
+        ],
+        "properties": {
+          "server": {
+            "$ref": "#/components/schemas/McpServerDetail"
+          }
+        }
+      },
+      "CreateMcpServerRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "transport",
+          "config"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "http"
+            ]
+          },
+          "config": {
+            "type": "object"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "connect": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UpdateMcpServerRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "http"
+            ]
+          },
+          "config": {
+            "type": "object"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AssignMcpServerRequest": {
+        "type": "object",
+        "required": [
+          "serverId"
+        ],
+        "properties": {
+          "serverId": {
+            "type": "string"
+          }
+        }
+      },
+      "TestMcpServerResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "toolCount",
+          "tools"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "toolCount": {
+            "type": "integer"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CachedMcpToolSummary"
+            }
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "McpStatus": {
+        "type": "object",
+        "required": [
+          "serverCount",
+          "connectedCount",
+          "assignedProfileCount"
+        ],
+        "properties": {
+          "serverCount": {
+            "type": "integer"
+          },
+          "connectedCount": {
+            "type": "integer"
+          },
+          "assignedProfileCount": {
+            "type": "integer"
+          }
+        }
+      },
       "ProfileDetail": {
         "allOf": [
           {
@@ -3219,7 +3851,8 @@
             "type": "object",
             "required": [
               "systemPrompt",
-              "tools"
+              "tools",
+              "mcpServers"
             ],
             "properties": {
               "systemPrompt": {
@@ -3229,6 +3862,12 @@
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/ToolSummary"
+                }
+              },
+              "mcpServers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/McpServerSummary"
                 }
               }
             }
@@ -3790,6 +4429,7 @@
           "taskWorker",
           "telegramWorker",
           "llmUsage",
+          "mcp",
           "checkedAt"
         ],
         "properties": {
@@ -3807,6 +4447,9 @@
           },
           "llmUsage": {
             "$ref": "#/components/schemas/LlmUsageStatus"
+          },
+          "mcp": {
+            "$ref": "#/components/schemas/McpStatus"
           },
           "checkedAt": {
             "type": "string"

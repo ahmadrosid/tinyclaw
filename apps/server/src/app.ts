@@ -63,11 +63,18 @@ import {
   type RunTaskResponse,
   type ListTaskRunsResponse,
   type TaskMessagesResponse,
+  type AssignMcpServerRequest,
+  type CreateMcpServerRequest,
+  type ListMcpServersResponse,
+  type McpServerResponse,
+  type TestMcpServerResponse,
+  type UpdateMcpServerRequest,
 } from "@tinyclaw/core";
 import type { AgentChatSession } from "@tinyclaw/agent";
 import { serializeOpenApiSpec } from "./openapi/build-spec";
 import type { AgentService } from "./services/agent-service";
 import type { AutomationService } from "./services/automation-service";
+import type { McpService } from "./services/mcp-service";
 import type { TaskService } from "./services/task-service";
 import { getTimezoneCatalog } from "./services/timezone-catalog-service";
 import { SystemStatusService } from "./services/system-status-service";
@@ -98,11 +105,19 @@ export interface ServerOptions {
   automationService: AutomationService;
   taskService: TaskService;
   systemStatus: SystemStatusService;
+  mcpService: McpService;
   webDistDir?: string | null;
 }
 
 export function createApp(options: ServerOptions) {
-  const { agent, automationService, taskService, systemStatus, webDistDir = null } = options;
+  const {
+    agent,
+    automationService,
+    taskService,
+    systemStatus,
+    mcpService,
+    webDistDir = null,
+  } = options;
 
   return {
     async fetch(request: Request): Promise<Response> {
@@ -262,6 +277,56 @@ export function createApp(options: ServerOptions) {
           return json<ProfileResponse>(await agent.createProfile(body), 201);
         }
 
+        if (request.method === "GET" && url.pathname === "/v1/mcp/servers") {
+          return json<ListMcpServersResponse>(await mcpService.listServers());
+        }
+
+        if (request.method === "POST" && url.pathname === "/v1/mcp/servers") {
+          const body = await readJson<CreateMcpServerRequest>(request);
+          return json<McpServerResponse>(await mcpService.createServer(body), 201);
+        }
+
+        if (request.method === "POST" && url.pathname === "/v1/mcp/servers/test") {
+          const body = await readJson<CreateMcpServerRequest>(request);
+          return json<TestMcpServerResponse>(
+            await mcpService.testServer(body.transport, body.config),
+          );
+        }
+
+        const mcpServerActionMatch = url.pathname.match(
+          /^\/v1\/mcp\/servers\/([^/]+)\/(connect|sync)$/,
+        );
+
+        if (mcpServerActionMatch && request.method === "POST") {
+          const serverId = decodeURIComponent(mcpServerActionMatch[1]!);
+          const action = mcpServerActionMatch[2];
+
+          if (action === "connect") {
+            return json<McpServerResponse>(await mcpService.connectServer(serverId));
+          }
+
+          return json<McpServerResponse>(await mcpService.syncServer(serverId));
+        }
+
+        const mcpServerMatch = url.pathname.match(/^\/v1\/mcp\/servers\/([^/]+)$/);
+
+        if (mcpServerMatch && request.method === "GET") {
+          const serverId = decodeURIComponent(mcpServerMatch[1]!);
+          return json<McpServerResponse>(await mcpService.getServer(serverId));
+        }
+
+        if (mcpServerMatch && request.method === "PATCH") {
+          const serverId = decodeURIComponent(mcpServerMatch[1]!);
+          const body = await readJson<UpdateMcpServerRequest>(request);
+          return json<McpServerResponse>(await mcpService.updateServer(serverId, body));
+        }
+
+        if (mcpServerMatch && request.method === "DELETE") {
+          const serverId = decodeURIComponent(mcpServerMatch[1]!);
+          await mcpService.deleteServer(serverId);
+          return new Response(null, { status: 204 });
+        }
+
         if (request.method === "GET" && url.pathname === "/v1/tools") {
           return json<ListToolsResponse>(await agent.listTools());
         }
@@ -289,6 +354,26 @@ export function createApp(options: ServerOptions) {
           const toolId = decodeURIComponent(toolMatch[1]!);
           await agent.deleteTool(toolId);
           return new Response(null, { status: 204 });
+        }
+
+        const profileMcpServersMatch = url.pathname.match(
+          /^\/v1\/profiles\/([^/]+)\/mcp-servers(?:\/([^/]+))?$/,
+        );
+
+        if (profileMcpServersMatch) {
+          const profileId = decodeURIComponent(profileMcpServersMatch[1]!);
+
+          if (request.method === "POST" && !profileMcpServersMatch[2]) {
+            const body = await readJson<AssignMcpServerRequest>(request);
+            return json<ProfileResponse>(await agent.assignMcpServer(profileId, body));
+          }
+
+          if (request.method === "DELETE" && profileMcpServersMatch[2]) {
+            const serverId = decodeURIComponent(profileMcpServersMatch[2]!);
+            return json<ProfileResponse>(
+              await agent.unassignMcpServer(profileId, serverId),
+            );
+          }
         }
 
         const profileToolsMatch = url.pathname.match(

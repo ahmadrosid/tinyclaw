@@ -92,6 +92,7 @@ import {
   isCostEstimated,
   isOpenRouterModelSlug,
   resolveModel,
+  validateOpenRouterCustomModels,
 } from "../providers";
 import { createSuperBotTools } from "../tools/super-bot-tools";
 import type { AutomationRunner } from "./automation-runner";
@@ -101,6 +102,9 @@ import {
   wrapPersistedSession,
 } from "./session-persistence";
 import type { TaskRunner } from "./task-runner";
+import { buildMcpToolDefinitions } from "./mcp-tool-bridge";
+import type { McpClientManager } from "./mcp-client-manager";
+import type { McpService } from "./mcp-service";
 import { ProfileService } from "./profile-service";
 import { SuperBotSessionState } from "./super-bot-session-state";
 import { resolveToolsFromStorage } from "./tool-resolver";
@@ -123,6 +127,8 @@ export class AgentService {
   private automationTools: ToolDefinition[] = [];
   private automationRunner: AutomationRunner | null = null;
   private taskRunner: TaskRunner | null = null;
+  private mcpClientManager: McpClientManager | null = null;
+  private mcpService: McpService | null = null;
   private readonly sessions = new Map<string, StoredSession>();
   private _providerConfigured: boolean;
 
@@ -155,6 +161,23 @@ export class AgentService {
 
   setTaskRunner(runner: TaskRunner): void {
     this.taskRunner = runner;
+  }
+
+  setMcpClientManager(manager: McpClientManager): void {
+    this.mcpClientManager = manager;
+    this.sessions.clear();
+  }
+
+  setMcpService(service: McpService): void {
+    this.mcpService = service;
+  }
+
+  getMcpService(): McpService {
+    if (!this.mcpService) {
+      throw new Error("MCP service is not configured.");
+    }
+
+    return this.mcpService;
   }
 
   async getUserTimezone(): Promise<string> {
@@ -907,6 +930,17 @@ export class AgentService {
     return this.profileService.unassignTool(profileId, toolId);
   }
 
+  async assignMcpServer(
+    profileId: string,
+    request: { serverId: string },
+  ): Promise<ProfileResponse> {
+    return this.profileService.assignMcpServer(profileId, request);
+  }
+
+  async unassignMcpServer(profileId: string, serverId: string): Promise<ProfileResponse> {
+    return this.profileService.unassignMcpServer(profileId, serverId);
+  }
+
   async uploadProfileAvatar(
     profileId: string,
     attachment: ImageAttachment,
@@ -1065,6 +1099,14 @@ export class AgentService {
     const includeAutomationTools = options.includeAutomationTools ?? true;
 
     let resolved = [...tools];
+
+    if (this.mcpClientManager) {
+      const mcpServers = await this.db.listMcpServersForProfile(profile.id);
+      resolved = [
+        ...resolved,
+        ...buildMcpToolDefinitions(mcpServers, this.mcpClientManager),
+      ];
+    }
 
     if (includeAutomationTools && this.automationTools.length > 0) {
       resolved = [...resolved, ...this.automationTools];

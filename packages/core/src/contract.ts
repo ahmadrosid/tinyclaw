@@ -87,12 +87,19 @@ export interface LlmUsageStatus extends LlmUsageStats {
   costEstimated: boolean;
 }
 
+export interface McpStatus {
+  serverCount: number;
+  connectedCount: number;
+  assignedProfileCount: number;
+}
+
 export interface SystemStatusResponse {
   server: HealthResponse;
   automationWorker: AutomationWorkerStatus;
   taskWorker: TaskWorkerStatus;
   telegramWorker: TelegramWorkerStatus;
   llmUsage: LlmUsageStatus;
+  mcp: McpStatus;
   checkedAt: string;
 }
 
@@ -449,6 +456,72 @@ export interface ProfileSummary {
 export interface ProfileDetail extends ProfileSummary {
   systemPrompt: string;
   tools: ToolSummary[];
+  mcpServers: McpServerSummary[];
+}
+
+export type McpServerStatus = "connected" | "disconnected" | "error";
+export type McpTransport = "http";
+
+export interface McpHttpConfig {
+  url: string;
+  headers?: Record<string, string>;
+}
+
+export interface CachedMcpToolSummary {
+  name: string;
+  description: string;
+  inputSchema?: unknown;
+}
+
+export interface McpServerSummary {
+  id: string;
+  name: string;
+  transport: McpTransport;
+  enabled: boolean;
+  status: McpServerStatus;
+  toolCount: number;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface McpServerDetail extends McpServerSummary {
+  config: McpHttpConfig;
+  cachedTools: CachedMcpToolSummary[];
+}
+
+export interface ListMcpServersResponse {
+  servers: McpServerSummary[];
+}
+
+export interface McpServerResponse {
+  server: McpServerDetail;
+}
+
+export interface CreateMcpServerRequest {
+  name: string;
+  transport: McpTransport;
+  config: McpHttpConfig;
+  enabled?: boolean;
+  connect?: boolean;
+}
+
+export interface UpdateMcpServerRequest {
+  name?: string;
+  transport?: McpTransport;
+  config?: McpHttpConfig;
+  enabled?: boolean;
+}
+
+export interface AssignMcpServerRequest {
+  serverId: string;
+}
+
+export interface TestMcpServerResponse {
+  ok: boolean;
+  toolCount: number;
+  tools: CachedMcpToolSummary[];
+  error?: string;
 }
 
 export interface ToolSummary {

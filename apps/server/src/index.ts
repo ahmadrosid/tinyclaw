@@ -11,6 +11,8 @@ import { SystemStatusService } from "./services/system-status-service";
 import { LlmUsageTracker } from "./services/llm-usage-tracker";
 import { ensureProviderConfigured } from "./setup";
 import { resolveWebDistDir } from "./static-web";
+import { McpClientManager } from "./services/mcp-client-manager";
+import { McpService } from "./services/mcp-service";
 import { createAutomationTools } from "./tools/automation-tools";
 import { TINYCLAW_API_VERSION } from "@tinyclaw/core";
 import {
@@ -45,6 +47,17 @@ await seedDatabase(database.adapter);
 
 const llmUsageTracker = await LlmUsageTracker.create(database.adapter);
 const agent = new AgentService(userConfig, provider, database.adapter, llmUsageTracker);
+const mcpClientManager = new McpClientManager();
+const mcpService = new McpService(database.adapter, mcpClientManager);
+
+agent.setMcpClientManager(mcpClientManager);
+agent.setMcpService(mcpService);
+
+try {
+  await mcpService.connectEnabledServers();
+} catch (error) {
+  console.warn("Could not connect MCP servers:", error);
+}
 
 try {
   await agent.ensureSoulScaffolded();
@@ -77,10 +90,18 @@ const systemStatus = new SystemStatusService(
   automationScheduler,
   automationRunner,
   taskRunner,
+  mcpService,
 );
 
 const webDistDir = resolveWebDistDir(projectRoot);
-const app = createApp({ agent, automationService, taskService, systemStatus, webDistDir });
+const app = createApp({
+  agent,
+  automationService,
+  taskService,
+  systemStatus,
+  mcpService,
+  webDistDir,
+});
 
 const server = startServer({
   host,
@@ -92,7 +113,7 @@ const serverUrl = writeRuntimeServerUrl(
   `http://${server.hostname}:${server.port}`,
 );
 
-registerRuntimeCleanup(server, serverUrl, database, automationScheduler);
+registerRuntimeCleanup(server, serverUrl, database, automationScheduler, mcpClientManager);
 
 if (server.port !== requestedPort) {
   console.log(`Port ${requestedPort} is busy. Using ${server.port} instead.`);
@@ -164,6 +185,7 @@ function registerRuntimeCleanup(
   serverUrl: string,
   database: Database,
   scheduler: AutomationScheduler,
+  mcpClientManager: McpClientManager,
 ): void {
   let cleanedUp = false;
 
@@ -174,6 +196,7 @@ function registerRuntimeCleanup(
 
     cleanedUp = true;
     scheduler.stop();
+    void mcpClientManager.disconnectAll();
     clearRuntimeServerUrl(serverUrl);
     database.close();
   };

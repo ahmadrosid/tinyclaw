@@ -381,17 +381,137 @@ export const openApiSchemas = {
       updatedAt: { type: "string", format: "date-time" },
     },
   },
+  McpServerSummary: {
+    type: "object",
+    required: [
+      "id",
+      "name",
+      "transport",
+      "enabled",
+      "status",
+      "toolCount",
+      "lastError",
+      "createdAt",
+      "updatedAt",
+    ],
+    properties: {
+      id: { type: "string" },
+      name: { type: "string" },
+      transport: { type: "string", enum: ["http"] },
+      enabled: { type: "boolean" },
+      status: { type: "string", enum: ["connected", "disconnected", "error"] },
+      toolCount: { type: "integer" },
+      lastError: { type: ["string", "null"] },
+      createdAt: { type: "string", format: "date-time" },
+      updatedAt: { type: "string", format: "date-time" },
+    },
+  },
+  CachedMcpToolSummary: {
+    type: "object",
+    required: ["name", "description"],
+    properties: {
+      name: { type: "string" },
+      description: { type: "string" },
+      inputSchema: {},
+    },
+  },
+  McpServerDetail: {
+    allOf: [
+      { $ref: "#/components/schemas/McpServerSummary" },
+      {
+        type: "object",
+        required: ["config", "cachedTools"],
+        properties: {
+          config: { type: "object" },
+          cachedTools: {
+            type: "array",
+            items: { $ref: "#/components/schemas/CachedMcpToolSummary" },
+          },
+        },
+      },
+    ],
+  },
+  ListMcpServersResponse: {
+    type: "object",
+    required: ["servers"],
+    properties: {
+      servers: {
+        type: "array",
+        items: { $ref: "#/components/schemas/McpServerSummary" },
+      },
+    },
+  },
+  McpServerResponse: {
+    type: "object",
+    required: ["server"],
+    properties: {
+      server: { $ref: "#/components/schemas/McpServerDetail" },
+    },
+  },
+  CreateMcpServerRequest: {
+    type: "object",
+    required: ["name", "transport", "config"],
+    properties: {
+      name: { type: "string" },
+      transport: { type: "string", enum: ["http"] },
+      config: { type: "object" },
+      enabled: { type: "boolean" },
+      connect: { type: "boolean" },
+    },
+  },
+  UpdateMcpServerRequest: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      transport: { type: "string", enum: ["http"] },
+      config: { type: "object" },
+      enabled: { type: "boolean" },
+    },
+  },
+  AssignMcpServerRequest: {
+    type: "object",
+    required: ["serverId"],
+    properties: {
+      serverId: { type: "string" },
+    },
+  },
+  TestMcpServerResponse: {
+    type: "object",
+    required: ["ok", "toolCount", "tools"],
+    properties: {
+      ok: { type: "boolean" },
+      toolCount: { type: "integer" },
+      tools: {
+        type: "array",
+        items: { $ref: "#/components/schemas/CachedMcpToolSummary" },
+      },
+      error: { type: "string" },
+    },
+  },
+  McpStatus: {
+    type: "object",
+    required: ["serverCount", "connectedCount", "assignedProfileCount"],
+    properties: {
+      serverCount: { type: "integer" },
+      connectedCount: { type: "integer" },
+      assignedProfileCount: { type: "integer" },
+    },
+  },
   ProfileDetail: {
     allOf: [
       { $ref: "#/components/schemas/ProfileSummary" },
       {
         type: "object",
-        required: ["systemPrompt", "tools"],
+        required: ["systemPrompt", "tools", "mcpServers"],
         properties: {
           systemPrompt: { type: "string" },
           tools: {
             type: "array",
             items: { $ref: "#/components/schemas/ToolSummary" },
+          },
+          mcpServers: {
+            type: "array",
+            items: { $ref: "#/components/schemas/McpServerSummary" },
           },
         },
       },
@@ -690,6 +810,7 @@ export const openApiSchemas = {
       "taskWorker",
       "telegramWorker",
       "llmUsage",
+      "mcp",
       "checkedAt",
     ],
     properties: {
@@ -698,6 +819,7 @@ export const openApiSchemas = {
       taskWorker: { $ref: "#/components/schemas/TaskWorkerStatus" },
       telegramWorker: { $ref: "#/components/schemas/TelegramWorkerStatus" },
       llmUsage: { $ref: "#/components/schemas/LlmUsageStatus" },
+      mcp: { $ref: "#/components/schemas/McpStatus" },
       checkedAt: { type: "string" },
     },
   },

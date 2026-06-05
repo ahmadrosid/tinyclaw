@@ -22,7 +22,7 @@ flowchart TB
     agentSvc["AgentService"]
     profileSvc["ProfileService"]
     resolver["tool-resolver"]
-    handlers["Tool handlers<br/>builtin · bash · super-bot"]
+    handlers["Tool handlers<br/>builtin · bash · javascript · mcp"]
     providers["providers/<br/>OpenAI · Anthropic"]
     memory[("In-memory chat<br/>AgentChatSession")]
   end
@@ -84,7 +84,9 @@ tinyclaw/
 | HTTP routing | `app.ts` in `apps/server` |
 | Session lifecycle, model switching | `AgentService` |
 | Profile and tool CRUD | `ProfileService` |
-| Resolving which tools a session may call | `tool-resolver.ts` |
+| Resolving DB-backed tools a session may call | `tool-resolver.ts` |
+| MCP server registry, connections, profile assignment | `mcp-service.ts`, `mcp-client-manager.ts` |
+| Runtime MCP tool expansion for assigned servers | `mcp-tool-bridge.ts` in `AgentService.resolveProfileTools` |
 | Super Bot meta-tools, bash | `super-bot-tools.ts`, `bash.ts` |
 | LLM vendor calls | `providers/` in `apps/server` |
 | Chat, streaming, tool loop | `AgentHarness`, `AgentChatSession` in `@tinyclaw/agent` |

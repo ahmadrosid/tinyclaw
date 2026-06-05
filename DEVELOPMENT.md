@@ -145,6 +145,46 @@ Saved in `~/.tinyclaw/config.ini` as `provider=openai_compatible`, `display_name
 | `gpt-5.4` | GPT-5.4 | openai (default) |
 | `gpt-5.3-codex` | GPT-5.3 Codex | openai |
 
+## MCP servers
+
+Register MCP servers via the API or web UI (**Soul → MCP**). Assign them to profiles with `POST /v1/profiles/{profileId}/mcp-servers`.
+
+stdio example:
+
+```bash
+curl -sS -X POST http://127.0.0.1:4310/v1/mcp/servers \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "filesystem",
+    "transport": "stdio",
+    "config": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+    },
+    "connect": true
+  }'
+```
+
+HTTP example:
+
+```bash
+curl -sS -X POST http://127.0.0.1:4310/v1/mcp/servers \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "remote",
+    "transport": "http",
+    "config": { "url": "https://example.com/mcp" }
+  }'
+```
+
+Assign to a profile:
+
+```bash
+curl -sS -X POST http://127.0.0.1:4310/v1/profiles/profile_default/mcp-servers \
+  -H 'Content-Type: application/json' \
+  -d '{ "serverId": "mcp_..." }'
+```
+
 ## Dev scripts
 
 | Script | Description |

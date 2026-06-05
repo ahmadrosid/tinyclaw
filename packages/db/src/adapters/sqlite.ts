@@ -10,6 +10,7 @@ import type {
   StoredAutomationRecord,
   StoredAutomationRunRecord,
   StoredLlmUsageStatsRecord,
+  StoredMcpServerRecord,
   StoredProfileRecord,
   StoredSessionMessageRecord,
   StoredSessionRecord,
@@ -120,6 +121,19 @@ interface LlmUsageStatsRow {
   output_tokens: number;
   estimated_cost_usd: number;
   tracked_since: string;
+  updated_at: string;
+}
+
+interface McpServerRow {
+  id: string;
+  name: string;
+  transport: string;
+  config: string;
+  enabled: number;
+  status: string;
+  last_error: string | null;
+  cached_tools: string;
+  created_at: string;
   updated_at: string;
 }
 
@@ -310,6 +324,44 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
   const getLlmUsageStatsStmt = db.prepare(
     "SELECT * FROM llm_usage_stats WHERE id = ?",
   );
+  const listMcpServersStmt = db.prepare("SELECT * FROM mcp_servers");
+  const getMcpServerStmt = db.prepare("SELECT * FROM mcp_servers WHERE id = ?");
+  const getMcpServerByNameStmt = db.prepare("SELECT * FROM mcp_servers WHERE name = ?");
+  const upsertMcpServerStmt = db.prepare(`
+    INSERT INTO mcp_servers (
+      id, name, transport, config, enabled, status, last_error, cached_tools, created_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      transport = excluded.transport,
+      config = excluded.config,
+      enabled = excluded.enabled,
+      status = excluded.status,
+      last_error = excluded.last_error,
+      cached_tools = excluded.cached_tools,
+      updated_at = excluded.updated_at
+  `);
+  const deleteMcpServerStmt = db.prepare("DELETE FROM mcp_servers WHERE id = ?");
+  const listMcpServersForProfileStmt = db.prepare(`
+    SELECT mcp_servers.*
+    FROM mcp_servers
+    INNER JOIN profile_mcp_servers ON profile_mcp_servers.server_id = mcp_servers.id
+    WHERE profile_mcp_servers.profile_id = ?
+    ORDER BY mcp_servers.name ASC
+  `);
+  const assignMcpServerStmt = db.prepare(`
+    INSERT OR IGNORE INTO profile_mcp_servers (profile_id, server_id)
+    VALUES (?, ?)
+  `);
+  const unassignMcpServerStmt = db.prepare(`
+    DELETE FROM profile_mcp_servers
+    WHERE profile_id = ? AND server_id = ?
+  `);
+  const countProfileMcpAssignmentsStmt = db.prepare(`
+    SELECT COUNT(*) AS count FROM profile_mcp_servers
+  `);
+
   const incrementLlmUsageStatsStmt = db.prepare(`
     INSERT INTO llm_usage_stats (
       id,
@@ -610,6 +662,60 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
         updatedAt,
       );
     },
+
+    async listMcpServers() {
+      return listMcpServersStmt.all().map((row) => toMcpServerRecord(row as McpServerRow));
+    },
+
+    async getMcpServer(id) {
+      const row = getMcpServerStmt.get(id) as McpServerRow | null;
+      return row ? toMcpServerRecord(row) : null;
+    },
+
+    async getMcpServerByName(name) {
+      const row = getMcpServerByNameStmt.get(name) as McpServerRow | null;
+      return row ? toMcpServerRecord(row) : null;
+    },
+
+    async upsertMcpServer(record) {
+      upsertMcpServerStmt.run(
+        record.id,
+        record.name,
+        record.transport,
+        JSON.stringify(record.config ?? {}),
+        record.enabled ? 1 : 0,
+        record.status,
+        record.lastError,
+        JSON.stringify(record.cachedTools ?? []),
+        record.createdAt,
+        record.updatedAt,
+      );
+    },
+
+    async deleteMcpServer(id) {
+      const result = deleteMcpServerStmt.run(id);
+      return result.changes > 0;
+    },
+
+    async listMcpServersForProfile(profileId) {
+      return listMcpServersForProfileStmt
+        .all(profileId)
+        .map((row) => toMcpServerRecord(row as McpServerRow));
+    },
+
+    async assignMcpServerToProfile(profileId, serverId) {
+      assignMcpServerStmt.run(profileId, serverId);
+    },
+
+    async unassignMcpServerFromProfile(profileId, serverId) {
+      const result = unassignMcpServerStmt.run(profileId, serverId);
+      return result.changes > 0;
+    },
+
+    async countProfileMcpAssignments() {
+      const row = countProfileMcpAssignmentsStmt.get() as { count: number };
+      return row.count;
+    },
   };
 }
 
@@ -645,6 +751,21 @@ function toProfileRecord(row: ProfileRow): StoredProfileRecord {
     systemPrompt: row.system_prompt,
     model: row.model,
     isSuper: row.is_super !== 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toMcpServerRecord(row: McpServerRow): StoredMcpServerRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    transport: row.transport as StoredMcpServerRecord["transport"],
+    config: parseJson(row.config),
+    enabled: row.enabled !== 0,
+    status: row.status as StoredMcpServerRecord["status"],
+    lastError: row.last_error,
+    cachedTools: parseJson(row.cached_tools) as StoredMcpServerRecord["cachedTools"],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

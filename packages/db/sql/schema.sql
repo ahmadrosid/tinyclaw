@@ -108,6 +108,29 @@ CREATE TABLE IF NOT EXISTS task_runs (
 CREATE INDEX IF NOT EXISTS task_runs_task_started
   ON task_runs (task_id, started_at DESC);
 
+CREATE TABLE IF NOT EXISTS mcp_servers (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  transport TEXT NOT NULL,
+  config TEXT NOT NULL,
+  enabled INTEGER DEFAULT 1 NOT NULL,
+  status TEXT NOT NULL DEFAULT 'disconnected',
+  last_error TEXT,
+  cached_tools TEXT DEFAULT '[]' NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS mcp_servers_name_unique ON mcp_servers (name);
+
+CREATE TABLE IF NOT EXISTS profile_mcp_servers (
+  profile_id TEXT NOT NULL,
+  server_id TEXT NOT NULL,
+  PRIMARY KEY (profile_id, server_id),
+  FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE,
+  FOREIGN KEY (server_id) REFERENCES mcp_servers (id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS llm_usage_stats (
   id TEXT PRIMARY KEY NOT NULL,
   request_count INTEGER NOT NULL DEFAULT 0,

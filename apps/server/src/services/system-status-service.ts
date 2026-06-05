@@ -3,6 +3,7 @@ import { getTelegramWorkerStatus, TINYCLAW_API_VERSION } from "@tinyclaw/core";
 import type { AgentService } from "./agent-service";
 import type { AutomationRunner } from "./automation-runner";
 import type { AutomationScheduler } from "./automation-scheduler";
+import type { McpService } from "./mcp-service";
 import type { TaskRunner } from "./task-runner";
 
 export class SystemStatusService {
@@ -11,6 +12,7 @@ export class SystemStatusService {
     private readonly scheduler: AutomationScheduler,
     private readonly automationRunner: AutomationRunner,
     private readonly taskRunner: TaskRunner,
+    private readonly mcpService: McpService | null = null,
   ) {}
 
   async getStatus(): Promise<SystemStatusResponse> {
@@ -40,6 +42,9 @@ export class SystemStatusService {
         providerConfigured,
         usageFields,
       ),
+      mcp: this.mcpService
+        ? await this.mcpService.getStatusSummary()
+        : { serverCount: 0, connectedCount: 0, assignedProfileCount: 0 },
       checkedAt: new Date().toISOString(),
     };
   }

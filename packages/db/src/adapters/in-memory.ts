@@ -6,6 +6,7 @@ import type {
   StoredAutomationRecord,
   StoredAutomationRunRecord,
   StoredLlmUsageStatsRecord,
+  StoredMcpServerRecord,
   StoredProfileRecord,
   StoredSessionMessageRecord,
   StoredSessionRecord,
@@ -24,6 +25,9 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
   const tools = new Map<string, StoredToolRecord>();
   const toolsByName = new Map<string, StoredToolRecord>();
   const profileTools = new Map<string, Set<string>>();
+  const mcpServers = new Map<string, StoredMcpServerRecord>();
+  const mcpServersByName = new Map<string, StoredMcpServerRecord>();
+  const profileMcpServers = new Map<string, Set<string>>();
   const sessions = new Map<string, StoredSessionRecord>();
   const sessionMessages = new Map<string, StoredSessionMessageRecord[]>();
   let llmUsageStats: StoredLlmUsageStatsRecord | null = null;
@@ -91,6 +95,7 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
       }
 
       profileTools.delete(id);
+      profileMcpServers.delete(id);
       return true;
     },
 
@@ -279,6 +284,84 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
         estimatedCostUsd: llmUsageStats.estimatedCostUsd + delta.estimatedCostUsd,
         updatedAt,
       };
+    },
+
+    async listMcpServers() {
+      return Array.from(mcpServers.values());
+    },
+
+    async getMcpServer(id) {
+      return mcpServers.get(id) ?? null;
+    },
+
+    async getMcpServerByName(name) {
+      return mcpServersByName.get(name) ?? null;
+    },
+
+    async upsertMcpServer(record) {
+      const existing = mcpServers.get(record.id);
+
+      if (existing) {
+        mcpServersByName.delete(existing.name);
+      }
+
+      mcpServers.set(record.id, record);
+      mcpServersByName.set(record.name, record);
+    },
+
+    async deleteMcpServer(id) {
+      const existing = mcpServers.get(id);
+
+      if (!existing) {
+        return false;
+      }
+
+      mcpServers.delete(id);
+      mcpServersByName.delete(existing.name);
+
+      for (const assigned of profileMcpServers.values()) {
+        assigned.delete(id);
+      }
+
+      return true;
+    },
+
+    async listMcpServersForProfile(profileId) {
+      const assigned = profileMcpServers.get(profileId);
+
+      if (!assigned) {
+        return [];
+      }
+
+      return Array.from(assigned)
+        .map((serverId) => mcpServers.get(serverId))
+        .filter((server): server is StoredMcpServerRecord => server !== undefined);
+    },
+
+    async assignMcpServerToProfile(profileId, serverId) {
+      const assigned = profileMcpServers.get(profileId) ?? new Set<string>();
+      assigned.add(serverId);
+      profileMcpServers.set(profileId, assigned);
+    },
+
+    async unassignMcpServerFromProfile(profileId, serverId) {
+      const assigned = profileMcpServers.get(profileId);
+
+      if (!assigned?.delete(serverId)) {
+        return false;
+      }
+
+      return true;
+    },
+
+    async countProfileMcpAssignments() {
+      let count = 0;
+
+      for (const assigned of profileMcpServers.values()) {
+        count += assigned.size;
+      }
+
+      return count;
     },
   };
 }

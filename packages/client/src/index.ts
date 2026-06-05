@@ -1,6 +1,12 @@
 import type {
   AgentChannel,
+  AssignMcpServerRequest,
   AssignToolRequest,
+  CreateMcpServerRequest,
+  ListMcpServersResponse,
+  McpServerResponse,
+  TestMcpServerResponse,
+  UpdateMcpServerRequest,
   ChatMessage,
   CreateProfileRequest,
   CreateSessionResponse,
@@ -283,6 +289,83 @@ export class TinyClawClient {
       {
         method: "DELETE",
       },
+    );
+  }
+
+  async listMcpServers(): Promise<ListMcpServersResponse> {
+    return this.request<ListMcpServersResponse>("/v1/mcp/servers");
+  }
+
+  async getMcpServer(serverId: string): Promise<McpServerResponse> {
+    return this.request<McpServerResponse>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}`,
+    );
+  }
+
+  async createMcpServer(request: CreateMcpServerRequest): Promise<McpServerResponse> {
+    return this.request<McpServerResponse>("/v1/mcp/servers", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async updateMcpServer(
+    serverId: string,
+    request: UpdateMcpServerRequest,
+  ): Promise<McpServerResponse> {
+    return this.request<McpServerResponse>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(request),
+      },
+    );
+  }
+
+  async deleteMcpServer(serverId: string): Promise<void> {
+    await this.request(`/v1/mcp/servers/${encodeURIComponent(serverId)}`, {
+      method: "DELETE",
+    });
+  }
+
+  async connectMcpServer(serverId: string): Promise<McpServerResponse> {
+    return this.request<McpServerResponse>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/connect`,
+      { method: "POST" },
+    );
+  }
+
+  async syncMcpServer(serverId: string): Promise<McpServerResponse> {
+    return this.request<McpServerResponse>(
+      `/v1/mcp/servers/${encodeURIComponent(serverId)}/sync`,
+      { method: "POST" },
+    );
+  }
+
+  async testMcpServer(request: CreateMcpServerRequest): Promise<TestMcpServerResponse> {
+    return this.request<TestMcpServerResponse>("/v1/mcp/servers/test", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async assignMcpServer(
+    profileId: string,
+    request: AssignMcpServerRequest,
+  ): Promise<ProfileResponse> {
+    return this.request<ProfileResponse>(
+      `/v1/profiles/${encodeURIComponent(profileId)}/mcp-servers`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      },
+    );
+  }
+
+  async unassignMcpServer(profileId: string, serverId: string): Promise<ProfileResponse> {
+    return this.request<ProfileResponse>(
+      `/v1/profiles/${encodeURIComponent(profileId)}/mcp-servers/${encodeURIComponent(serverId)}`,
+      { method: "DELETE" },
     );
   }
 
