@@ -38,15 +38,6 @@ On first start, two profiles are created:
 | Super Bot | `profile_super_bot` | Creates bots and manages tools |
 | Default Bot | `profile_default` | Normal assistant chat |
 
-Start a session with a profile:
-
-```json
-POST /v1/sessions
-{ "channel": "cli", "profileId": "profile_super_bot" }
-```
-
-If you omit `profileId`, it uses **Default Bot**.
-
 ## Tools
 
 Tools are actions a bot can use (in chat or automations).
