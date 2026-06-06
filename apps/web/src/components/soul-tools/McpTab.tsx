@@ -1,15 +1,15 @@
-import type { CreateMcpServerRequest, McpServerSummary } from "@tinyclaw/core/contract";
+import type { CachedMcpToolSummary, CreateMcpServerRequest, McpServerSummary } from "@tinyclaw/core/contract";
 import {
-  ChevronDownIcon,
-  ChevronRightIcon,
+  BlocksIcon,
+  EllipsisVerticalIcon,
   PlugIcon,
   PlusIcon,
   RefreshCwIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { client } from "@/lib/client";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { McpToolLabels, McpToolList } from "@/components/soul-tools/McpToolList";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,17 +19,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { useMcpServersQuery } from "@/hooks/use-app-queries";
+import { useMcpServerDetailQuery, useMcpServersQuery } from "@/hooks/use-app-queries";
 import {
   useConnectMcpServerMutation,
   useCreateMcpServerMutation,
   useDeleteMcpServerMutation,
   useSyncMcpServerMutation,
 } from "@/hooks/use-resource-mutations";
-import { formatError } from "@/lib/client";
+import { client, formatError } from "@/lib/client";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
@@ -44,7 +50,8 @@ export function McpTab() {
   const syncMutation = useSyncMcpServerMutation();
   const [actionError, setActionError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detailServerId, setDetailServerId] = useState<string | null>(null);
+  const detailServer = servers.find((server) => server.id === detailServerId) ?? null;
 
   const loading = isLoading && servers.length === 0;
   const refreshing = isFetching && !loading;
@@ -73,6 +80,7 @@ export function McpTab() {
 
     try {
       await deleteMutation.mutateAsync(server.id);
+      setDetailServerId((current) => (current === server.id ? null : current));
     } catch (err) {
       setActionError(formatError(err));
     }
@@ -83,6 +91,7 @@ export function McpTab() {
 
     try {
       await connectMutation.mutateAsync(serverId);
+      setDetailServerId(serverId);
     } catch (err) {
       setActionError(formatError(err));
     }
@@ -93,6 +102,7 @@ export function McpTab() {
 
     try {
       await syncMutation.mutateAsync(serverId);
+      setDetailServerId(serverId);
     } catch (err) {
       setActionError(formatError(err));
     }
@@ -157,68 +167,41 @@ export function McpTab() {
                       <p className="text-sm font-medium text-foreground">{server.name}</p>
                       <StatusBadge status={server.status} />
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {server.toolCount} tool{server.toolCount === 1 ? "" : "s"}
-                      {server.lastError ? ` · ${server.lastError}` : ""}
-                    </p>
+                    {server.lastError ? (
+                      <p className="mt-1 text-xs text-destructive">{server.lastError}</p>
+                    ) : null}
+                    <McpToolLabels
+                      serverId={server.id}
+                      toolCount={server.toolCount}
+                      connected={server.status === "connected"}
+                      onShowAll={() => setDetailServerId(server.id)}
+                    />
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => void handleConnect(server.id)}
-                    >
-                      <PlugIcon className="size-4" aria-hidden />
-                      Connect
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => void handleSync(server.id)}
-                    >
-                      Sync
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => void handleDelete(server)}
-                    >
-                      <Trash2Icon className="size-4" aria-hidden />
-                      Delete
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={expandedId === server.id ? "Collapse tools" : "Expand tools"}
-                      onClick={() =>
-                        setExpandedId((current) => (current === server.id ? null : server.id))
-                      }
-                    >
-                      {expandedId === server.id ? (
-                        <ChevronDownIcon className="size-4" aria-hidden />
-                      ) : (
-                        <ChevronRightIcon className="size-4" aria-hidden />
-                      )}
-                    </Button>
-                  </div>
+                  <McpServerActions
+                    server={server}
+                    busy={busy}
+                    onViewTools={() => setDetailServerId(server.id)}
+                    onConnect={() => void handleConnect(server.id)}
+                    onSync={() => void handleSync(server.id)}
+                    onDelete={() => void handleDelete(server)}
+                  />
                 </div>
-
-                {expandedId === server.id ? (
-                  <ServerToolsPreview serverId={server.id} toolCount={server.toolCount} />
-                ) : null}
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      <McpServerToolsDialog
+        server={detailServer}
+        open={detailServerId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailServerId(null);
+          }
+        }}
+      />
 
       <CreateMcpServerDialog
         open={createOpen}
@@ -233,8 +216,9 @@ export function McpTab() {
           setActionError(null);
 
           try {
-            await createMutation.mutateAsync(request);
+            const response = await createMutation.mutateAsync(request);
             setCreateOpen(false);
+            setDetailServerId(response.server.id);
           } catch (err) {
             const message = formatError(err);
             setActionError(message);
@@ -246,88 +230,131 @@ export function McpTab() {
   );
 }
 
-function ServerToolsPreview({
-  serverId,
-  toolCount,
+function McpServerActions({
+  server,
+  busy,
+  onViewTools,
+  onConnect,
+  onSync,
+  onDelete,
 }: {
-  serverId: string;
-  toolCount: number;
+  server: McpServerSummary;
+  busy: boolean;
+  onViewTools: () => void;
+  onConnect: () => void;
+  onSync: () => void;
+  onDelete: () => void;
 }) {
-  const [tools, setTools] = useState<Array<{ name: string; description: string }> | null>(
-    null,
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`View tools for ${server.name}`}
+        onClick={onViewTools}
+      >
+        <BlocksIcon className="size-4" aria-hidden />
+      </Button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              disabled={busy}
+              aria-label={`Actions for ${server.name}`}
+            />
+          }
+        >
+          <EllipsisVerticalIcon className="size-4" aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-40">
+          {server.status !== "connected" ? (
+            <DropdownMenuItem disabled={busy} onClick={onConnect}>
+              <PlugIcon aria-hidden />
+              Connect
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem disabled={busy} onClick={onSync}>
+            <RefreshCwIcon aria-hidden />
+            Sync tools
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" disabled={busy} onClick={onDelete}>
+            <Trash2Icon aria-hidden />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+}
 
-  useEffect(() => {
-    if (toolCount === 0) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function loadTools() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await client.getMcpServer(serverId);
-
-        if (!cancelled) {
-          setTools(
-            response.server.cachedTools.map((tool) => ({
-              name: tool.name,
-              description: tool.description,
-            })),
-          );
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(formatError(err));
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadTools();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [serverId, toolCount]);
-
-  if (toolCount === 0) {
-    return (
-      <p className="mt-3 text-xs text-muted-foreground">
-        No cached tools yet. Connect and sync this server.
-      </p>
-    );
-  }
-
-  if (loading && tools === null) {
-    return <p className="mt-3 text-xs text-muted-foreground">Loading tools…</p>;
-  }
-
-  if (error) {
-    return <p className="mt-3 text-xs text-destructive">{error}</p>;
-  }
-
-  if (!tools || tools.length === 0) {
-    return null;
-  }
+function McpServerToolsDialog({
+  server,
+  open,
+  onOpenChange,
+}: {
+  server: McpServerSummary | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: detail, isLoading, error } = useMcpServerDetailQuery(
+    open && server ? server.id : null,
+  );
 
   return (
-    <ul className="mt-3 space-y-2 rounded-md border border-border bg-muted/20 p-3">
-      {tools.map((tool) => (
-        <li key={tool.name}>
-          <p className="text-sm text-foreground">{tool.name}</p>
-          <p className="text-xs text-muted-foreground">{tool.description}</p>
-        </li>
-      ))}
-    </ul>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex h-[min(85dvh,42rem)] max-h-[min(90dvh,85vh)] w-[calc(100%-1.5rem)] flex-col gap-4 overflow-hidden p-4 sm:max-w-3xl sm:gap-6 sm:p-6">
+        {server ? (
+          <>
+            <DialogHeader className="gap-2 pr-8 sm:gap-3">
+              <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
+                <span
+                  className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/30 text-muted-foreground"
+                  aria-hidden
+                >
+                  <BlocksIcon className="size-4" />
+                </span>
+                {server.name}
+              </DialogTitle>
+              <DialogDescription className="leading-relaxed">
+                Tools exposed by this MCP server and available to assigned profiles.
+              </DialogDescription>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <StatusBadge status={server.status} />
+                <span className="text-xs text-muted-foreground">
+                  {server.toolCount} tool{server.toolCount === 1 ? "" : "s"}
+                </span>
+              </div>
+            </DialogHeader>
+
+            <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
+              {isLoading && !detail ? (
+                <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                  <Spinner className="size-4" />
+                  Loading tools…
+                </div>
+              ) : error ? (
+                <p className="rounded-md bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+                  {formatError(error)}
+                </p>
+              ) : !detail || detail.cachedTools.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {server.status === "connected"
+                    ? "Connected, but no tools were discovered. Try Sync tools from the server menu."
+                    : "No cached tools yet. Connect and sync this server."}
+                </p>
+              ) : (
+                <McpToolList tools={detail.cachedTools} />
+              )}
+            </div>
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -351,6 +378,7 @@ function CreateMcpServerDialog({
     ok: boolean;
     toolCount: number;
     message: string;
+    tools: CachedMcpToolSummary[];
   } | null>(null);
 
   const canSubmit = name.trim().length > 0 && url.trim().length > 0;
@@ -392,6 +420,7 @@ function CreateMcpServerDialog({
         setTestResult({
           ok: true,
           toolCount: result.toolCount,
+          tools: result.tools,
           message:
             result.toolCount === 0
               ? "Connected, but no tools were returned."
@@ -403,12 +432,14 @@ function CreateMcpServerDialog({
       setTestResult({
         ok: false,
         toolCount: 0,
+        tools: [],
         message: result.error ?? "Connection test failed.",
       });
     } catch (error) {
       setTestResult({
         ok: false,
         toolCount: 0,
+        tools: [],
         message: formatError(error),
       });
     } finally {
@@ -508,17 +539,28 @@ function CreateMcpServerDialog({
             </Button>
 
             {testResult ? (
-              <p
-                className={cn(
-                  "rounded-md px-3 py-2.5 text-sm",
-                  testResult.ok
-                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                    : "bg-destructive/10 text-destructive",
-                )}
-                role="status"
-              >
-                {testResult.message}
-              </p>
+              <div className="space-y-3">
+                <p
+                  className={cn(
+                    "rounded-md px-3 py-2.5 text-sm",
+                    testResult.ok
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "bg-destructive/10 text-destructive",
+                  )}
+                  role="status"
+                >
+                  {testResult.message}
+                </p>
+
+                {testResult.ok && testResult.tools.length > 0 ? (
+                  <div className="rounded-md border border-border bg-muted/20 p-3">
+                    <p className="mb-3 text-xs font-medium text-foreground">
+                      Discovered tools ({testResult.tools.length})
+                    </p>
+                    <McpToolList tools={testResult.tools} />
+                  </div>
+                ) : null}
+              </div>
             ) : null}
 
             {submitError ? (

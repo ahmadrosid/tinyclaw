@@ -172,7 +172,8 @@ export function useCreateMcpServerMutation() {
   return useMutation({
     mutationFn: (input: Parameters<typeof client.createMcpServer>[0]) =>
       client.createMcpServer(input),
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      queryClient.setQueryData(queryKeys.mcp.detail(data.server.id), data.server);
       await queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all });
     },
   });
@@ -198,11 +199,9 @@ export function useConnectMcpServerMutation() {
 
   return useMutation({
     mutationFn: (serverId: string) => client.connectMcpServer(serverId),
-    onSuccess: async (_data, serverId) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.detail(serverId) }),
-      ]);
+    onSuccess: async (data, serverId) => {
+      queryClient.setQueryData(queryKeys.mcp.detail(serverId), data.server);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all });
     },
   });
 }
@@ -212,11 +211,9 @@ export function useSyncMcpServerMutation() {
 
   return useMutation({
     mutationFn: (serverId: string) => client.syncMcpServer(serverId),
-    onSuccess: async (_data, serverId) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.mcp.detail(serverId) }),
-      ]);
+    onSuccess: async (data, serverId) => {
+      queryClient.setQueryData(queryKeys.mcp.detail(serverId), data.server);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all });
     },
   });
 }
