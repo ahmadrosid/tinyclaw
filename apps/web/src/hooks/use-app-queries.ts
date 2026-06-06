@@ -101,6 +101,22 @@ export function useMcpServersQuery() {
   return useQuery(mcpServersQueryOptions);
 }
 
+export function mcpServerDetailQueryOptions(serverId: string) {
+  return queryOptions({
+    queryKey: queryKeys.mcp.detail(serverId),
+    queryFn: async () => (await client.getMcpServer(serverId)).server,
+    staleTime: defaultStaleTime,
+    enabled: Boolean(serverId),
+  });
+}
+
+export function useMcpServerDetailQuery(serverId: string | null) {
+  return useQuery({
+    ...mcpServerDetailQueryOptions(serverId ?? ""),
+    enabled: Boolean(serverId),
+  });
+}
+
 export function toolQueryOptions(toolId: string) {
   return queryOptions({
     queryKey: queryKeys.tools.detail(toolId),
