@@ -179,6 +179,24 @@ export function useCreateMcpServerMutation() {
   });
 }
 
+export function useUpdateMcpServerMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      serverId,
+      request,
+    }: {
+      serverId: string;
+      request: Parameters<typeof client.updateMcpServer>[1];
+    }) => client.updateMcpServer(serverId, request),
+    onSuccess: async (data, { serverId }) => {
+      queryClient.setQueryData(queryKeys.mcp.detail(serverId), data.server);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all });
+    },
+  });
+}
+
 export function useDeleteMcpServerMutation() {
   const queryClient = useQueryClient();
 

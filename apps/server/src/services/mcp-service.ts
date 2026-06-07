@@ -92,7 +92,10 @@ export class McpService {
     }
 
     const transport = request.transport ?? server.transport;
-    const config = request.config ?? server.config;
+    const previousConfig = asMcpHttpConfig(server.config);
+    const config = request.config
+      ? mergeMcpHttpConfig(previousConfig, request.config)
+      : previousConfig;
 
     if (request.transport !== undefined) {
       validateTransport(transport);
@@ -206,12 +209,17 @@ export class McpService {
   async testServer(
     transport: McpTransport,
     config: McpHttpConfig,
+    serverId?: string,
   ): Promise<TestMcpServerResponse> {
     validateTransport(transport);
-    validateConfig(transport, config);
+    const resolvedConfig = serverId
+      ? mergeMcpHttpConfig(asMcpHttpConfig((await this.requireServer(serverId)).config), config)
+      : config;
+
+    validateConfig(transport, resolvedConfig);
 
     try {
-      const tools = await this.manager.testConnection(transport, config);
+      const tools = await this.manager.testConnection(transport, resolvedConfig);
 
       return {
         ok: true,
@@ -319,6 +327,64 @@ function toMcpServerDetail(server: StoredMcpServerRecord): McpServerDetail {
   };
 }
 
+const REDACTED_HEADER_VALUE = "••••••••";
+
+function asMcpHttpConfig(config: unknown): McpHttpConfig {
+  if (typeof config === "object" && config !== null) {
+    return config as McpHttpConfig;
+  }
+
+  return { url: "" };
+}
+
+function mergeMcpHttpConfig(previous: McpHttpConfig, next: McpHttpConfig): McpHttpConfig {
+  const url = next.url?.trim() || previous.url;
+
+  return {
+    url,
+    headers: mergeRedactedHeaders(previous.headers, next.headers),
+  };
+}
+
+function mergeRedactedHeaders(
+  previous: Record<string, string> | undefined,
+  next: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+  if (!next) {
+    return previous;
+  }
+
+  const previousHeaders = previous ?? {};
+  const merged: Record<string, string> = {};
+
+  for (const [key, nextValue] of Object.entries(next)) {
+    const trimmedKey = key.trim();
+
+    if (!trimmedKey) {
+      continue;
+    }
+
+    const trimmedValue = nextValue.trim();
+
+    if (!trimmedValue) {
+      if (trimmedKey in previousHeaders) {
+        merged[trimmedKey] = previousHeaders[trimmedKey]!;
+      }
+
+      continue;
+    }
+
+    if (trimmedValue === REDACTED_HEADER_VALUE && trimmedKey in previousHeaders) {
+      merged[trimmedKey] = previousHeaders[trimmedKey]!;
+      continue;
+    }
+
+    merged[trimmedKey] = trimmedValue;
+  }
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
 function redactMcpConfig(_transport: McpTransport, config: unknown): McpHttpConfig {
   const http =
     typeof config === "object" && config !== null
@@ -341,7 +407,7 @@ function redactStringRecord(
   const redacted: Record<string, string> = {};
 
   for (const [key, entry] of Object.entries(value)) {
-    redacted[key] = entry ? "••••••••" : entry;
+    redacted[key] = entry ? REDACTED_HEADER_VALUE : entry;
   }
 
   return redacted;

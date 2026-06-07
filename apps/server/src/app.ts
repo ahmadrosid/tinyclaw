@@ -290,7 +290,7 @@ export function createApp(options: ServerOptions) {
         if (request.method === "POST" && url.pathname === "/v1/mcp/servers/test") {
           const body = await readJson<CreateMcpServerRequest>(request);
           return json<TestMcpServerResponse>(
-            await mcpService.testServer(body.transport, body.config),
+            await mcpService.testServer(body.transport, body.config, body.serverId),
           );
         }
 

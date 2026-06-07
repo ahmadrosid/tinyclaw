@@ -1,15 +1,19 @@
-import type { CachedMcpToolSummary, CreateMcpServerRequest, McpServerSummary } from "@tinyclaw/core/contract";
+import type {
+  CachedMcpToolSummary,
+  CreateMcpServerRequest,
+  McpServerSummary,
+} from "@tinyclaw/core/contract";
 import {
   BlocksIcon,
   EllipsisVerticalIcon,
   EyeIcon,
+  PencilIcon,
   PlugIcon,
   PlusIcon,
   RefreshCwIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { McpToolLabels, McpToolList } from "@/components/soul-tools/McpToolList";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,12 +38,13 @@ import {
   useCreateMcpServerMutation,
   useDeleteMcpServerMutation,
   useSyncMcpServerMutation,
+  useUpdateMcpServerMutation,
 } from "@/hooks/use-resource-mutations";
 import { client, formatError } from "@/lib/client";
-import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
 const sectionClass = "rounded-md border border-border bg-card";
+const REDACTED_HEADER_VALUE = "••••••••";
 
 type McpHeaderRow = {
   key: string;
@@ -51,30 +56,27 @@ function emptyHeaderRow(): McpHeaderRow {
 }
 
 export function McpTab() {
-  const queryClient = useQueryClient();
-  const { data: servers = [], isLoading, error, isFetching } = useMcpServersQuery();
+  const { data: servers = [], isLoading, error } = useMcpServersQuery();
   const createMutation = useCreateMcpServerMutation();
+  const updateMutation = useUpdateMcpServerMutation();
   const deleteMutation = useDeleteMcpServerMutation();
   const connectMutation = useConnectMcpServerMutation();
   const syncMutation = useSyncMcpServerMutation();
   const [actionError, setActionError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editServerId, setEditServerId] = useState<string | null>(null);
   const [detailServerId, setDetailServerId] = useState<string | null>(null);
+  const editServer = servers.find((server) => server.id === editServerId) ?? null;
   const detailServer = servers.find((server) => server.id === detailServerId) ?? null;
 
   const loading = isLoading && servers.length === 0;
-  const refreshing = isFetching && !loading;
   const busy =
     createMutation.isPending ||
+    updateMutation.isPending ||
     deleteMutation.isPending ||
     connectMutation.isPending ||
     syncMutation.isPending;
   const errorMessage = actionError ?? (error ? formatError(error) : null);
-
-  async function refresh() {
-    setActionError(null);
-    await queryClient.invalidateQueries({ queryKey: queryKeys.mcp.all });
-  }
 
   async function handleDelete(server: McpServerSummary) {
     if (
@@ -141,20 +143,6 @@ export function McpTab() {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              disabled={busy || refreshing}
-              aria-label="Refresh MCP servers"
-              onClick={() => void refresh()}
-            >
-              {refreshing ? (
-                <Spinner className="size-4" />
-              ) : (
-                <RefreshCwIcon className="size-4" aria-hidden />
-              )}
-            </Button>
             <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
               <PlusIcon className="size-4" aria-hidden />
               Add server
@@ -188,6 +176,7 @@ export function McpTab() {
                     server={server}
                     busy={busy}
                     onViewTools={() => setDetailServerId(server.id)}
+                    onEdit={() => setEditServerId(server.id)}
                     onConnect={() => void handleConnect(server.id)}
                     onSync={() => void handleSync(server.id)}
                     onDelete={() => void handleDelete(server)}
@@ -209,7 +198,7 @@ export function McpTab() {
         }}
       />
 
-      <CreateMcpServerDialog
+      <McpServerDialog
         open={createOpen}
         busy={createMutation.isPending}
         onOpenChange={(open) => {
@@ -222,9 +211,46 @@ export function McpTab() {
           setActionError(null);
 
           try {
-            const response = await createMutation.mutateAsync(request);
+            const response = await createMutation.mutateAsync({ ...request, connect: true });
             setCreateOpen(false);
             setDetailServerId(response.server.id);
+          } catch (err) {
+            const message = formatError(err);
+            setActionError(message);
+            throw new Error(message);
+          }
+        }}
+      />
+
+      <McpServerDialog
+        server={editServer}
+        open={editServerId !== null}
+        busy={updateMutation.isPending || connectMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditServerId(null);
+            setActionError(null);
+          }
+        }}
+        onSubmit={async (request) => {
+          if (!editServer) {
+            return;
+          }
+
+          setActionError(null);
+
+          try {
+            const wasConnected = editServer.status === "connected";
+            const { connect: _connect, ...updateRequest } = request;
+            await updateMutation.mutateAsync({
+              serverId: editServer.id,
+              request: updateRequest,
+            });
+            setEditServerId(null);
+
+            if (wasConnected) {
+              await connectMutation.mutateAsync(editServer.id);
+            }
           } catch (err) {
             const message = formatError(err);
             setActionError(message);
@@ -240,6 +266,7 @@ function McpServerActions({
   server,
   busy,
   onViewTools,
+  onEdit,
   onConnect,
   onSync,
   onDelete,
@@ -247,6 +274,7 @@ function McpServerActions({
   server: McpServerSummary;
   busy: boolean;
   onViewTools: () => void;
+  onEdit: () => void;
   onConnect: () => void;
   onSync: () => void;
   onDelete: () => void;
@@ -284,6 +312,10 @@ function McpServerActions({
               Connect
             </DropdownMenuItem>
           ) : null}
+          <DropdownMenuItem disabled={busy} onClick={onEdit}>
+            <PencilIcon aria-hidden />
+            Edit
+          </DropdownMenuItem>
           <DropdownMenuItem disabled={busy} onClick={onSync}>
             <RefreshCwIcon aria-hidden />
             Sync tools
@@ -329,6 +361,13 @@ function McpServerToolsDialog({
               <DialogDescription className="leading-relaxed">
                 Tools exposed by this MCP server and available to assigned profiles.
               </DialogDescription>
+              {detail?.config.url ? (
+                <p className="truncate font-mono text-xs text-muted-foreground" title={detail.config.url}>
+                  {detail.config.url}
+                </p>
+              ) : isLoading ? (
+                <p className="text-xs text-muted-foreground">Loading server details…</p>
+              ) : null}
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <StatusBadge status={server.status} />
                 <span className="text-xs text-muted-foreground">
@@ -364,17 +403,23 @@ function McpServerToolsDialog({
   );
 }
 
-function CreateMcpServerDialog({
+function McpServerDialog({
   open,
   busy,
+  server,
   onOpenChange,
   onSubmit,
 }: {
   open: boolean;
   busy: boolean;
+  server?: McpServerSummary | null;
   onOpenChange: (open: boolean) => void;
   onSubmit: (request: CreateMcpServerRequest) => Promise<void>;
 }) {
+  const isEdit = server != null;
+  const { data: detail, isLoading: loadingDetail } = useMcpServerDetailQuery(
+    open && server ? server.id : null,
+  );
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState<McpHeaderRow[]>([emptyHeaderRow()]);
@@ -387,26 +432,48 @@ function CreateMcpServerDialog({
     tools: CachedMcpToolSummary[];
   } | null>(null);
 
-  const canSubmit = name.trim().length > 0 && url.trim().length > 0;
+  const idPrefix = server ? `mcp-edit-${server.id}` : "mcp-create";
+  const loadingForm = isEdit && loadingDetail && !detail;
+  const formDisabled = busy || testing || loadingForm;
+  const canSubmit = name.trim().length > 0 && url.trim().length > 0 && !loadingForm;
 
-  function reset() {
-    setName("");
-    setUrl("");
-    setHeaders([emptyHeaderRow()]);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (!server) {
+      setName("");
+      setUrl("");
+      setHeaders([emptyHeaderRow()]);
+      setSubmitError(null);
+      setTestResult(null);
+      setTesting(false);
+      return;
+    }
+
+    if (!detail) {
+      return;
+    }
+
+    setName(detail.name);
+    setUrl(detail.config.url);
+    setHeaders(recordToHeaderRows(detail.config.headers));
     setSubmitError(null);
     setTestResult(null);
     setTesting(false);
-  }
+  }, [open, server, detail]);
 
-  function buildRequest(connect: boolean): CreateMcpServerRequest {
+  function buildRequest(): CreateMcpServerRequest {
     return {
       name: name.trim(),
       transport: "http",
       config: {
         url: url.trim(),
-        headers: headersToRecord(headers),
+        headers: headersToRecord(headers, isEdit),
       },
-      connect,
+      connect: false,
+      ...(isEdit && server ? { serverId: server.id } : {}),
     };
   }
 
@@ -420,7 +487,7 @@ function CreateMcpServerDialog({
     setTestResult(null);
 
     try {
-      const result = await client.testMcpServer(buildRequest(false));
+      const result = await client.testMcpServer(buildRequest());
 
       if (result.ok) {
         setTestResult({
@@ -463,38 +530,37 @@ function CreateMcpServerDialog({
     setSubmitError(null);
 
     try {
-      await onSubmit(buildRequest(true));
-      reset();
+      await onSubmit(buildRequest());
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : formatError(error));
     }
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        onOpenChange(nextOpen);
-        if (!nextOpen) {
-          reset();
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-6 p-6 sm:max-w-lg">
         <form className="space-y-6" onSubmit={handleSubmit}>
           <DialogHeader className="gap-2">
-            <DialogTitle>Add MCP server</DialogTitle>
+            <DialogTitle>{isEdit ? "Edit MCP server" : "Add MCP server"}</DialogTitle>
             <DialogDescription>
-              Register a server, then assign it to profiles on the Profiles page.
+              {isEdit
+                ? "Update the server URL or headers. Leave values blank to keep the current ones."
+                : "Register a server, then assign it to profiles on the Profiles page."}
             </DialogDescription>
           </DialogHeader>
 
+          {loadingForm ? (
+            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <Spinner className="size-4" />
+              Loading server…
+            </div>
+          ) : (
           <div className="space-y-5">
-            <McpFormField label="Name" htmlFor="mcp-name">
+            <McpFormField label="Name" htmlFor={`${idPrefix}-name`}>
               <Input
-                id="mcp-name"
+                id={`${idPrefix}-name`}
                 value={name}
-                disabled={busy || testing}
+                disabled={formDisabled}
                 autoFocus
                 onChange={(event) => {
                   setName(event.target.value);
@@ -504,11 +570,11 @@ function CreateMcpServerDialog({
               />
             </McpFormField>
 
-            <McpFormField label="URL" htmlFor="mcp-url">
+            <McpFormField label="URL" htmlFor={`${idPrefix}-url`}>
               <Input
-                id="mcp-url"
+                id={`${idPrefix}-url`}
                 value={url}
-                disabled={busy || testing}
+                disabled={formDisabled}
                 className="font-mono text-sm"
                 onChange={(event) => {
                   setUrl(event.target.value);
@@ -521,7 +587,8 @@ function CreateMcpServerDialog({
             <McpFormField label="Headers" hint="Optional">
               <McpHeadersEditor
                 headers={headers}
-                disabled={busy || testing}
+                isEdit={isEdit}
+                disabled={formDisabled}
                 onChange={(nextHeaders) => {
                   setHeaders(nextHeaders);
                   setTestResult(null);
@@ -534,7 +601,7 @@ function CreateMcpServerDialog({
               variant="outline"
               size="sm"
               className="self-start"
-              disabled={busy || testing || !canSubmit}
+              disabled={formDisabled || !canSubmit}
               onClick={() => void handleTestConnection()}
             >
               {testing ? <Spinner className="size-4" /> : "Test connection"}
@@ -574,18 +641,25 @@ function CreateMcpServerDialog({
               </p>
             ) : null}
           </div>
+          )}
 
           <DialogFooter className="gap-3 border-t-0 bg-transparent p-3 sm:justify-end">
             <Button
               type="button"
               variant="outline"
-              disabled={busy || testing}
+              disabled={formDisabled}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={busy || testing || !canSubmit}>
-              {busy ? <Spinner className="size-4" /> : "Add server"}
+            <Button type="submit" disabled={formDisabled || !canSubmit}>
+              {busy ? (
+                <Spinner className="size-4" />
+              ) : isEdit ? (
+                "Save changes"
+              ) : (
+                "Add server"
+              )}
             </Button>
           </DialogFooter>
         </form>
@@ -596,10 +670,12 @@ function CreateMcpServerDialog({
 
 function McpHeadersEditor({
   headers,
+  isEdit = false,
   disabled,
   onChange,
 }: {
   headers: McpHeaderRow[];
+  isEdit?: boolean;
   disabled?: boolean;
   onChange: (headers: McpHeaderRow[]) => void;
 }) {
@@ -634,7 +710,7 @@ function McpHeadersEditor({
                 disabled={disabled}
                 className="font-mono text-sm"
                 aria-label={`Header value ${index + 1}`}
-                placeholder="Bearer token"
+                placeholder={isEdit ? "Leave blank to keep" : "Bearer token"}
                 onChange={(event) => updateRow(index, "value", event.target.value)}
               />
             </div>
@@ -720,14 +796,37 @@ function PageState({ message }: { message: string }) {
   );
 }
 
-function headersToRecord(rows: McpHeaderRow[]): Record<string, string> | undefined {
+function recordToHeaderRows(headers?: Record<string, string>): McpHeaderRow[] {
+  if (!headers || Object.keys(headers).length === 0) {
+    return [emptyHeaderRow()];
+  }
+
+  return Object.entries(headers).map(([key, value]) => ({
+    key,
+    value: value === REDACTED_HEADER_VALUE ? "" : value,
+  }));
+}
+
+function headersToRecord(
+  rows: McpHeaderRow[],
+  forUpdate = false,
+): Record<string, string> | undefined {
   const headers: Record<string, string> = {};
 
   for (const row of rows) {
     const key = row.key.trim();
     const value = row.value.trim();
 
-    if (key && value) {
+    if (!key) {
+      continue;
+    }
+
+    if (forUpdate) {
+      headers[key] = value;
+      continue;
+    }
+
+    if (value) {
       headers[key] = value;
     }
   }

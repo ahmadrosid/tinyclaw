@@ -515,6 +515,8 @@ export interface CreateMcpServerRequest {
   config: McpHttpConfig;
   enabled?: boolean;
   connect?: boolean;
+  /** When testing an existing server, merges blank header values with stored secrets. */
+  serverId?: string;
 }
 
 export interface UpdateMcpServerRequest {

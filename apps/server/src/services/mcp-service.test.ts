@@ -61,6 +61,48 @@ describe("McpService", () => {
     expect(assigned[0]?.id).toBe(created.server.id);
   });
 
+  test("updates MCP server config while preserving blank header values", async () => {
+    const db = createInMemoryDatabaseAdapter();
+    const service = new McpService(db, new McpClientManager());
+
+    const created = await service.createServer({
+      name: "demo",
+      transport: "http",
+      config: {
+        url: "https://example.com/mcp",
+        headers: {
+          Authorization: "secret-token",
+          "X-Custom": "keep-me",
+        },
+      },
+      connect: false,
+    });
+
+    const updated = await service.updateServer(created.server.id, {
+      config: {
+        url: "https://example.com/mcp",
+        headers: {
+          Authorization: "",
+          "X-Custom": "updated-value",
+        },
+      },
+    });
+
+    const stored = await db.getMcpServer(created.server.id);
+
+    expect(updated.server.config.headers).toEqual({
+      Authorization: "••••••••",
+      "X-Custom": "••••••••",
+    });
+    expect(stored?.config).toEqual({
+      url: "https://example.com/mcp",
+      headers: {
+        Authorization: "secret-token",
+        "X-Custom": "updated-value",
+      },
+    });
+  });
+
   test("deleting a server removes profile assignments", async () => {
     const db = createInMemoryDatabaseAdapter();
     const service = new McpService(db, new McpClientManager());
