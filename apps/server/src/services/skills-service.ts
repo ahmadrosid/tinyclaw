@@ -14,6 +14,7 @@ import {
   composeMatchedSkillsPrompt,
   composeSkillsCatalog,
   createSkillFile,
+  deleteSkillDirectory,
   discoverSkills,
   loadSkillTools,
   matchSkillsForMessage,
@@ -95,6 +96,22 @@ export class SkillsService {
     }
 
     return this.getSkill(record.id);
+  }
+
+  async deleteSkill(skillId: string): Promise<void> {
+    const record = await this.requireSkill(skillId);
+
+    if (record.sourcePath) {
+      await deleteSkillDirectory(record.sourcePath);
+    }
+
+    const deleted = await this.db.deleteSkill(skillId);
+
+    if (!deleted) {
+      throw new Error("Skill not found.");
+    }
+
+    this.discoveredCache = null;
   }
 
   async getSkill(skillId: string): Promise<SkillResponse> {

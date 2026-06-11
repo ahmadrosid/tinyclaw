@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { pathExists } from "@tinyclaw/core";
+import { getUserConfigDir, pathExists } from "@tinyclaw/core";
 import { parseSkillMarkdown } from "./parse";
 import {
   getGlobalSkillsDir,
@@ -63,4 +63,30 @@ export async function createSkillFile(options: CreateSkillFileOptions): Promise<
   await writeFile(skillFilePath, content, "utf8");
 
   return directory;
+}
+
+function isManagedSkillDirectory(directory: string): boolean {
+  const configDir = path.resolve(getUserConfigDir());
+  const resolved = path.resolve(directory);
+
+  if (!resolved.startsWith(`${configDir}${path.sep}`)) {
+    return false;
+  }
+
+  const relative = path.relative(configDir, resolved);
+  const parts = relative.split(path.sep);
+
+  if (parts[0] === "agent" && parts[1] === "skills" && parts.length >= 3) {
+    return true;
+  }
+
+  return parts[0] === "profiles" && parts[2] === "skills" && parts.length >= 4;
+}
+
+export async function deleteSkillDirectory(directory: string): Promise<void> {
+  if (!isManagedSkillDirectory(directory)) {
+    throw new Error("Skill directory is outside the allowed skills path.");
+  }
+
+  await rm(directory, { recursive: true, force: true });
 }

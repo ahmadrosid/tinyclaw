@@ -2,7 +2,6 @@ import type { CreateMcpServerRequest, CreateSkillRequest, ProfileSummary } from 
 import {
   CameraIcon,
   PlusIcon,
-  RefreshCwIcon,
   SearchIcon,
   Trash2Icon,
   UsersRoundIcon,
@@ -50,7 +49,7 @@ import {
   useCreateProfileMutation,
   useCreateSkillMutation,
   useDeleteProfileMutation,
-  useSyncSkillsMutation,
+  useDeleteSkillMutation,
   useUnassignMcpServerMutation,
   useUnassignSkillMutation,
   useUnassignToolMutation,
@@ -102,9 +101,9 @@ export function ProfilesPage() {
   const unassignMcpMutation = useUnassignMcpServerMutation();
   const createMcpMutation = useCreateMcpServerMutation();
   const createSkillMutation = useCreateSkillMutation();
-  const syncSkillsMutation = useSyncSkillsMutation();
   const assignSkillMutation = useAssignSkillMutation();
   const unassignSkillMutation = useUnassignSkillMutation();
+  const deleteSkillMutation = useDeleteSkillMutation();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const createAvatarInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -156,9 +155,9 @@ export function ProfilesPage() {
     unassignMcpMutation.isPending ||
     createMcpMutation.isPending ||
     createSkillMutation.isPending ||
-    syncSkillsMutation.isPending ||
     assignSkillMutation.isPending ||
-    unassignSkillMutation.isPending;
+    unassignSkillMutation.isPending ||
+    deleteSkillMutation.isPending;
 
   const trimmedSearch = searchQuery.trim();
   const isSearching = trimmedSearch.length > 0;
@@ -394,8 +393,9 @@ export function ProfilesPage() {
     (server) => !detail?.mcpServers.some((assigned) => assigned.id === server.id),
   );
 
-  const availableSkills = allSkills.filter(
-    (skill) => !detail?.skills.some((assigned) => assigned.id === skill.id),
+  const assignedSkillIds = useMemo(
+    () => new Set(detail?.skills.map((skill) => skill.id) ?? []),
+    [detail?.skills],
   );
 
   const createAvailableTools = allTools.filter((tool) => !createToolIds.includes(tool.id));
@@ -573,16 +573,6 @@ export function ProfilesPage() {
     }
   }
 
-  async function handleSyncSkills() {
-    setError(null);
-
-    try {
-      await syncSkillsMutation.mutateAsync();
-    } catch (err) {
-      setError(formatError(err));
-    }
-  }
-
   async function handleAssignSkill(skillId: string) {
     if (!selectedId) {
       return;
@@ -592,6 +582,28 @@ export function ProfilesPage() {
 
     try {
       await assignSkillMutation.mutateAsync({ profileId: selectedId, skillId });
+    } catch (err) {
+      setError(formatError(err));
+    }
+  }
+
+  async function handleDeleteSkill(skillId: string, options: { confirm?: boolean } = {}) {
+    const skill = allSkills.find((entry) => entry.id === skillId);
+
+    if (!skill) {
+      return;
+    }
+
+    if (options.confirm !== false) {
+      if (!window.confirm(`Delete skill "${skill.name}"? This removes it from every profile.`)) {
+        return;
+      }
+    }
+
+    setError(null);
+
+    try {
+      await deleteSkillMutation.mutateAsync(skillId);
     } catch (err) {
       setError(formatError(err));
     }
@@ -940,7 +952,7 @@ export function ProfilesPage() {
                     <div className="border-t border-border pt-5">
                       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h3 className="type-section-title">Allowed tools</h3>
+                          <h3 className="type-section-title">Tools</h3>
                           <p className="type-body mt-1 text-xs">
                             {detail.tools.length === 0
                               ? "No tools assigned to this profile."
@@ -993,7 +1005,7 @@ export function ProfilesPage() {
                     <div className="border-t border-border pt-5">
                       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h3 className="type-section-title">Allowed MCP servers</h3>
+                          <h3 className="type-section-title">MCP servers</h3>
                           <p className="type-body mt-1 text-xs">
                             {detail.mcpServers.length === 0
                               ? "No MCP servers assigned to this profile."
@@ -1067,7 +1079,7 @@ export function ProfilesPage() {
                     <div className="border-t border-border pt-5">
                       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h3 className="type-section-title">Allowed skills</h3>
+                          <h3 className="type-section-title">Skills</h3>
                           <p className="type-body mt-1 text-xs">
                             {detail.skills.length === 0
                               ? "No workflow skills assigned to this profile."
@@ -1082,28 +1094,15 @@ export function ProfilesPage() {
                             disabled={busy}
                             onClick={() => setSkillCreateOpen(true)}
                           >
-                            <PlusIcon className="size-4" aria-hidden />
                             Add skill
                           </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => void handleSyncSkills()}
-                          >
-                            {syncSkillsMutation.isPending ? (
-                              <Spinner className="size-4" />
-                            ) : (
-                              <RefreshCwIcon className="size-4" aria-hidden />
-                            )}
-                            Sync skills
-                          </Button>
                           <SkillAssignPicker
-                            skills={availableSkills}
+                            skills={allSkills}
+                            assignedSkillIds={assignedSkillIds}
                             disabled={busy}
-                            buttonLabel="Assign existing"
+                            buttonLabel="Manage skills"
                             onAssign={handleAssignSkill}
+                            onDelete={handleDeleteSkill}
                           />
                         </div>
                       </div>
@@ -1114,7 +1113,7 @@ export function ProfilesPage() {
                           add folders with{" "}
                           <code className="rounded bg-muted px-1 py-0.5">SKILL.md</code> under{" "}
                           <code className="rounded bg-muted px-1 py-0.5">~/.tinyclaw/agent/skills/</code>
-                          , then sync.
+                          .
                         </p>
                       ) : detail.skills.length === 0 ? (
                         <p className="type-body text-xs">
@@ -1125,23 +1124,21 @@ export function ProfilesPage() {
                           {detail.skills.map((skill) => (
                             <li
                               key={skill.id}
-                              className="flex items-start justify-between gap-3 px-4 py-3 first:rounded-t-md last:rounded-b-md"
+                              className="flex items-center justify-between gap-2 px-3 py-2 first:rounded-t-md last:rounded-b-md"
                             >
                               <div className="min-w-0">
-                                <p className="text-sm text-foreground">{skill.name}</p>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
-                                  {skill.description}
+                                <p className="truncate text-sm font-medium leading-tight text-foreground">
+                                  {skill.name}
                                 </p>
-                                {skill.hasTool || skill.disableModelInvocation ? (
-                                  <p className="mt-0.5 text-xs text-muted-foreground/80">
-                                    {[
-                                      skill.hasTool ? "includes tool" : null,
-                                      skill.disableModelInvocation ? "explicit invoke only" : null,
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" · ")}
-                                  </p>
-                                ) : null}
+                                <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-muted-foreground">
+                                  {[
+                                    skill.description,
+                                    skill.hasTool ? "includes tool" : null,
+                                    skill.disableModelInvocation ? "explicit invoke only" : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
                               </div>
                               <Button
                                 type="button"
@@ -1387,7 +1384,7 @@ export function ProfilesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <DialogFooter className="gap-3 border-t-0 bg-transparent p-0 pt-2 sm:justify-end">
+          <DialogFooter className="gap-3 border-t-0 bg-transparent p-0 pt-2 sm:flex-wrap sm:justify-end">
             <Button
               type="button"
               variant="outline"
@@ -1396,9 +1393,23 @@ export function ProfilesPage() {
             >
               Cancel
             </Button>
+            {removeConfirm?.kind === "skill" ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={busy}
+                onClick={() =>
+                  void handleDeleteSkill(removeConfirm.id, { confirm: false }).then(() =>
+                    setRemoveConfirm(null),
+                  )
+                }
+              >
+                {deleteSkillMutation.isPending ? <Spinner className="size-4" /> : "Delete skill"}
+              </Button>
+            ) : null}
             <Button
               type="button"
-              variant="destructive"
+              variant={removeConfirm?.kind === "skill" ? "outline" : "destructive"}
               disabled={busy}
               onClick={() => void handleRemoveAssignmentConfirm()}
             >
@@ -1406,6 +1417,8 @@ export function ProfilesPage() {
               unassignMcpMutation.isPending ||
               unassignSkillMutation.isPending ? (
                 <Spinner className="size-4" />
+              ) : removeConfirm?.kind === "skill" ? (
+                "Remove from profile"
               ) : (
                 "Remove"
               )}

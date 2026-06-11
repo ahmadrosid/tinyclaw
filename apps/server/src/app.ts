@@ -381,6 +381,12 @@ export function createApp(options: ServerOptions) {
           return json<SkillResponse>(await agent.getSkill(skillId));
         }
 
+        if (skillMatch && request.method === "DELETE") {
+          const skillId = decodeURIComponent(skillMatch[1]!);
+          await agent.deleteSkill(skillId);
+          return new Response(null, { status: 204 });
+        }
+
         const profileSkillsMatch = url.pathname.match(
           /^\/v1\/profiles\/([^/]+)\/skills(?:\/([^/]+))?$/,
         );

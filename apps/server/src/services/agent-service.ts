@@ -1038,6 +1038,10 @@ export class AgentService {
     return this.requireSkillsService().createSkill(request);
   }
 
+  async deleteSkill(skillId: string): Promise<void> {
+    return this.requireSkillsService().deleteSkill(skillId);
+  }
+
   async syncSkills(): Promise<SyncSkillsResponse> {
     return this.requireSkillsService().syncDiscoveredSkills();
   }

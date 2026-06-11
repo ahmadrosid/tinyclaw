@@ -85,4 +85,20 @@ describe("SkillsService", () => {
     const listed = await service.listSkills();
     expect(listed.skills.some((skill) => skill.name === "notes")).toBe(true);
   });
+
+  test("deletes profile skills from disk and the database", async () => {
+    const db = createInMemoryDatabaseAdapter();
+    const service = new SkillsService(db);
+
+    const created = await service.createSkill({
+      name: "notes",
+      description: "Capture notes for the user.",
+      profileId: "profile_default",
+    });
+
+    await service.deleteSkill(created.skill.id);
+
+    const listed = await service.listSkills();
+    expect(listed.skills.some((skill) => skill.name === "notes")).toBe(false);
+  });
 });

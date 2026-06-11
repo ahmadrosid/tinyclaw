@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { composeSkillMarkdown, createSkillFile } from "./write";
+import { pathExists } from "@tinyclaw/core";
+import { composeSkillMarkdown, createSkillFile, deleteSkillDirectory } from "./write";
 
 describe("createSkillFile", () => {
   let configDir: string;
@@ -43,5 +44,20 @@ describe("createSkillFile", () => {
     });
 
     expect(content).toContain("disable-model-invocation: true");
+  });
+
+  test("deleteSkillDirectory removes a managed profile skill directory", async () => {
+    configDir = await mkdtemp(join(tmpdir(), "tinyclaw-skill-write-"));
+    process.env.TINYCLAW_CONFIG_DIR = configDir;
+
+    const directory = await createSkillFile({
+      name: "notes",
+      description: "Capture notes for the user.",
+      profileId: "profile_default",
+    });
+
+    await deleteSkillDirectory(directory);
+
+    expect(await pathExists(directory)).toBe(false);
   });
 });

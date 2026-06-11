@@ -281,6 +281,20 @@ export function useCreateSkillMutation() {
   });
 }
 
+export function useDeleteSkillMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (skillId: string) => client.deleteSkill(skillId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.all }),
+      ]);
+    },
+  });
+}
+
 export function useSyncSkillsMutation() {
   const queryClient = useQueryClient();
 
