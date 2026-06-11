@@ -7,9 +7,9 @@ import { useMemo, useState } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { OpenRouterProviderModelFields } from "@/components/OpenRouterProviderModelFields";
 import {
-  CustomCompatibleProviderFields,
+  CustomProviderFields,
   toCustomModelEntries,
-} from "@/components/CustomCompatibleProviderFields";
+} from "@/components/CustomProviderFields";
 import type { ModelListRow } from "@/components/ModelListEditor";
 import { Button } from "@/components/ui/button";
 import {
@@ -272,7 +272,7 @@ export function ProviderInstanceCard({
             <DialogHeader>
               <DialogTitle>Edit provider</DialogTitle>
             </DialogHeader>
-            <CustomCompatibleProviderFields
+            <CustomProviderFields
               displayName={editLabel}
               baseUrl={editBaseUrl}
               apiKey=""
@@ -305,7 +305,7 @@ export function ProviderInstanceCard({
             <DialogHeader>
               <DialogTitle>Manage models</DialogTitle>
             </DialogHeader>
-            <CustomCompatibleProviderFields
+            <CustomProviderFields
               displayName={instance.label}
               baseUrl={instance.baseUrl ?? ""}
               apiKey=""

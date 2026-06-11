@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { FormField } from "@/components/ui/form-field";
 import { Spinner } from "@/components/ui/spinner";
-import { CustomCompatibleProviderFields } from "@/components/CustomCompatibleProviderFields";
+import { CustomProviderFields } from "@/components/CustomProviderFields";
 import { OpenRouterProviderModelFields } from "@/components/OpenRouterProviderModelFields";
 import { useProviderSetupForm } from "@/hooks/use-provider-setup-form";
 import {
@@ -105,7 +105,7 @@ export function ProviderSetupForm({
       ) : (
         <>
           {form.selectedProvider === "openai_compatible" ? (
-            <CustomCompatibleProviderFields
+            <CustomProviderFields
               displayName={form.displayName}
               baseUrl={form.baseUrl}
               apiKey={form.apiKey}

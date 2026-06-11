@@ -11,7 +11,7 @@ import { FormField } from "@/components/ui/form-field";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import type { ModelsDevRow } from "@/hooks/use-models-dev";
 
-interface CustomCompatibleProviderFieldsProps {
+interface CustomProviderFieldsProps {
   displayName: string;
   baseUrl: string;
   apiKey: string;
@@ -27,7 +27,7 @@ interface CustomCompatibleProviderFieldsProps {
   onCustomModelsChange: (models: ModelListRow[]) => void;
 }
 
-export function CustomCompatibleProviderFields({
+export function CustomProviderFields({
   displayName,
   baseUrl,
   customModels,
@@ -40,7 +40,7 @@ export function CustomCompatibleProviderFields({
   onDisplayNameChange,
   onBaseUrlChange,
   onCustomModelsChange,
-}: CustomCompatibleProviderFieldsProps) {
+}: CustomProviderFieldsProps) {
   const [isBrowsing, setIsBrowsing] = useState(false);
 
   const handleBrowseSelect = (_provider: string, modelId: string, row: ModelsDevRow) => {
