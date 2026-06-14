@@ -947,7 +947,7 @@ function parseChannel(value: string | undefined): AgentChannel {
     return value;
   }
 
-  throw new Error("Invalid channel. Expected cli, web, or telegram.");
+  throw new TinyClawApiError("Invalid channel. Expected cli, web, or telegram.", 400);
 }
 
 async function readJson<T>(request: Request): Promise<T> {
