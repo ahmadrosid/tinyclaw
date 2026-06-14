@@ -562,6 +562,7 @@ export function ChatPage() {
             <ChatMessageList
               messages={messages}
               branchingMessageId={branchingMessageId}
+              actionsDisabled={busy}
               onBranchMessage={(message) => void handleBranchMessage(message)}
               onRetryMessage={(message) => void handleTryAgainMessage(message)}
             />

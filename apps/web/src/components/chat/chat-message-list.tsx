@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 interface ChatMessageListProps {
   messages: ChatListItem[];
   branchingMessageId?: string | null;
+  actionsDisabled?: boolean;
   onBranchMessage?: (message: ChatListItem) => void;
   onRetryMessage?: (message: ChatListItem) => void;
   emptyMessage?: string;
@@ -48,6 +49,7 @@ type MessageTurn =
 export function ChatMessageList({
   messages,
   branchingMessageId,
+  actionsDisabled = false,
   onBranchMessage,
   onRetryMessage,
   emptyMessage,
@@ -70,6 +72,7 @@ export function ChatMessageList({
               key={turn.messages.map(({ message }) => message.id).join(":")}
               messages={turn.messages}
               branchingMessageId={branchingMessageId}
+              actionsDisabled={actionsDisabled}
               onBranchMessage={onBranchMessage}
               onRetryMessage={onRetryMessage}
             />
@@ -110,11 +113,13 @@ function groupMessagesIntoTurns(messages: ChatListItem[]): MessageTurn[] {
 function AssistantTurn({
   messages,
   branchingMessageId,
+  actionsDisabled,
   onBranchMessage,
   onRetryMessage,
 }: {
   messages: IndexedMessage[];
   branchingMessageId?: string | null;
+  actionsDisabled?: boolean;
   onBranchMessage?: (message: ChatListItem) => void;
   onRetryMessage?: (message: ChatListItem) => void;
 }) {
@@ -143,6 +148,7 @@ function AssistantTurn({
           message={anchorMessage}
           copyContent={assistantTurnContent(turnMessages)}
           busy={branchingMessageId === anchorMessage.id}
+          actionsDisabled={actionsDisabled}
           onBranchMessage={onBranchMessage}
           onRetryMessage={onRetryMessage}
         />
@@ -207,12 +213,14 @@ function AssistantMessageActions({
   message,
   copyContent,
   busy,
+  actionsDisabled = false,
   onBranchMessage,
   onRetryMessage,
 }: {
   message: ChatListItem;
   copyContent: string;
   busy: boolean;
+  actionsDisabled?: boolean;
   onBranchMessage?: (message: ChatListItem) => void;
   onRetryMessage?: (message: ChatListItem) => void;
 }) {
@@ -275,7 +283,7 @@ function AssistantMessageActions({
           type="button"
           aria-label="Try again"
           title="Try again"
-          disabled={busy}
+          disabled={busy || actionsDisabled}
           onClick={() => onRetryMessage(message)}
           className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-40"
         >
