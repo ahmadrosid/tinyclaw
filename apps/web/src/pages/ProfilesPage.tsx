@@ -75,9 +75,32 @@ const defaultCreatePrompt = "You are a helpful assistant.";
 const sectionClass = "rounded-md border border-border bg-card";
 const identityBoxClass = "p-3";
 const profilesTagline = "Separate prompt, tools, and soul for each bot.";
-const profileSaveDelayMs = 600;
+const profileTextSaveDelayMs = 1000;
+const profileModelSaveDelayMs = 400;
 
 type ProfileSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
+
+type ProfileEditSnapshot = {
+  editName: string;
+  editPrompt: string;
+  editModel: string | null;
+  savedName: string;
+  savedPrompt: string;
+  savedModel: string | null;
+};
+
+function profileHasPendingEdits(snapshot: ProfileEditSnapshot): boolean {
+  const name = snapshot.editName.trim();
+  if (!name) {
+    return false;
+  }
+
+  return (
+    name !== snapshot.savedName ||
+    snapshot.editPrompt !== snapshot.savedPrompt ||
+    snapshot.editModel !== snapshot.savedModel
+  );
+}
 
 type RemoveAssignmentTarget =
   | { kind: "tool"; id: string; name: string }
@@ -143,6 +166,8 @@ export function ProfilesPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
+  const pendingSaveRef = useRef(false);
+  const performSaveRef = useRef<() => Promise<boolean>>(async () => true);
   const editStateRef = useRef({
     editName,
     editPrompt,
@@ -215,9 +240,47 @@ export function ProfilesPage() {
     );
   }, [detail, editName, editPrompt, editModel, savedName, savedPrompt, savedModel]);
 
+  const clearScheduledSave = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleSave = useCallback(
+    (delayMs = profileTextSaveDelayMs) => {
+      clearScheduledSave();
+
+      const snapshot = editStateRef.current;
+      const { selectedId: profileId, detail: profileDetail } = snapshot;
+
+      if (!profileId || !profileDetail) {
+        return;
+      }
+
+      if (!snapshot.editName.trim()) {
+        setSaveStatus("idle");
+        return;
+      }
+
+      if (!profileHasPendingEdits(snapshot)) {
+        setSaveStatus("idle");
+        return;
+      }
+
+      setSaveStatus("pending");
+      saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
+        void performSaveRef.current();
+      }, delayMs);
+    },
+    [clearScheduledSave],
+  );
+
   const performSave = useCallback(async (): Promise<boolean> => {
     if (savingRef.current) {
-      return true;
+      pendingSaveRef.current = true;
+      return false;
     }
 
     const {
@@ -249,6 +312,8 @@ export function ProfilesPage() {
     setSaveStatus("saving");
     setError(null);
 
+    let savedSuccessfully = false;
+
     try {
       await updateMutation.mutateAsync({
         profileId,
@@ -261,14 +326,21 @@ export function ProfilesPage() {
       setSavedName(name);
       setSavedPrompt(promptDraft);
       setSavedModel(modelDraft);
+      editStateRef.current = {
+        ...editStateRef.current,
+        savedName: name,
+        savedPrompt: promptDraft,
+        savedModel: modelDraft,
+      };
       setSaveStatus("saved");
+      savedSuccessfully = true;
 
       if (savedHintTimerRef.current) {
         clearTimeout(savedHintTimerRef.current);
       }
 
       savedHintTimerRef.current = setTimeout(() => {
-        setSaveStatus("idle");
+        setSaveStatus((current) => (current === "saved" ? "idle" : current));
       }, 2000);
 
       return true;
@@ -278,54 +350,52 @@ export function ProfilesPage() {
       return false;
     } finally {
       savingRef.current = false;
+
+      const queuedDuringSave = pendingSaveRef.current;
+      pendingSaveRef.current = false;
+      const hasMoreEdits = profileHasPendingEdits(editStateRef.current);
+
+      if (savedSuccessfully && (queuedDuringSave || hasMoreEdits)) {
+        scheduleSave(0);
+      } else if (queuedDuringSave && hasMoreEdits) {
+        scheduleSave(profileTextSaveDelayMs);
+      }
     }
-  }, [updateMutation]);
+  }, [scheduleSave, updateMutation]);
 
-  const scheduleSave = useCallback(() => {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-    }
-
-    const {
-      editName: nameDraft,
-      editPrompt: promptDraft,
-      editModel: modelDraft,
-      savedName: baselineName,
-      savedPrompt: baselinePrompt,
-      savedModel: baselineModel,
-      selectedId: profileId,
-      detail: profileDetail,
-    } = editStateRef.current;
-
-    if (!profileId || !profileDetail) {
-      return;
-    }
-
-    const name = nameDraft.trim();
-    if (!name) {
-      setSaveStatus("idle");
-      return;
-    }
-
-    if (name === baselineName && promptDraft === baselinePrompt && modelDraft === baselineModel) {
-      setSaveStatus("idle");
-      return;
-    }
-
-    setSaveStatus("pending");
-    saveTimerRef.current = setTimeout(() => {
-      void performSave();
-    }, profileSaveDelayMs);
-  }, [performSave]);
+  performSaveRef.current = performSave;
 
   const flushSave = useCallback(async (): Promise<boolean> => {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
-
+    clearScheduledSave();
     return performSave();
-  }, [performSave]);
+  }, [clearScheduledSave, performSave]);
+
+  const handleEditNameChange = useCallback(
+    (value: string) => {
+      setEditName(value);
+      editStateRef.current.editName = value;
+      scheduleSave(profileTextSaveDelayMs);
+    },
+    [scheduleSave],
+  );
+
+  const handleEditPromptChange = useCallback(
+    (value: string) => {
+      setEditPrompt(value);
+      editStateRef.current.editPrompt = value;
+      scheduleSave(profileTextSaveDelayMs);
+    },
+    [scheduleSave],
+  );
+
+  const handleEditModelChange = useCallback(
+    (model: string | null) => {
+      setEditModel(model);
+      editStateRef.current.editModel = model;
+      scheduleSave(profileModelSaveDelayMs);
+    },
+    [scheduleSave],
+  );
 
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedId),
@@ -387,6 +457,8 @@ export function ProfilesPage() {
       return;
     }
 
+    clearScheduledSave();
+    pendingSaveRef.current = false;
     setEditName(detail.name);
     setEditPrompt(detail.systemPrompt);
     setEditModel(detail.model);
@@ -394,29 +466,17 @@ export function ProfilesPage() {
     setSavedPrompt(detail.systemPrompt);
     setSavedModel(detail.model);
     setSaveStatus("idle");
-  }, [detail?.id]);
-
-  useEffect(() => {
-    scheduleSave();
-
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-      }
-    };
-  }, [editName, editPrompt, editModel, scheduleSave]);
+  }, [clearScheduledSave, detail?.id]);
 
   useEffect(() => {
     return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-      }
+      clearScheduledSave();
 
       if (savedHintTimerRef.current) {
         clearTimeout(savedHintTimerRef.current);
       }
     };
-  }, []);
+  }, [clearScheduledSave]);
 
   useEffect(() => {
     return () => {
@@ -457,10 +517,7 @@ export function ProfilesPage() {
       return;
     }
 
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = null;
-    }
+    clearScheduledSave();
 
     const {
       editName: nameDraft,
@@ -947,7 +1004,8 @@ export function ProfilesPage() {
                             value={editName}
                             disabled={busy}
                             className="h-8 min-w-0 font-semibold"
-                            onChange={(event) => setEditName(event.target.value)}
+                            onChange={(event) => handleEditNameChange(event.target.value)}
+                            onBlur={() => void flushSave()}
                           />
                         </div>
                         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
@@ -1023,12 +1081,12 @@ export function ProfilesPage() {
                             const nextValue = value != null ? String(value) : INHERIT_MODEL_VALUE;
 
                             if (nextValue === INHERIT_MODEL_VALUE) {
-                              setEditModel(null);
+                              handleEditModelChange(null);
                               return;
                             }
 
                             const decoded = decodeModelSelection(nextValue);
-                            setEditModel(decoded?.modelId ?? null);
+                            handleEditModelChange(decoded?.modelId ?? null);
                           }}
                         >
                           <SelectTrigger id="profile-model" className="w-full">
@@ -1070,7 +1128,7 @@ export function ProfilesPage() {
                         dialogDescription="Instructions sent to the model at the start of each chat."
                         value={editPrompt}
                         disabled={busy}
-                        onChange={(event) => setEditPrompt(event.target.value)}
+                        onChange={(event) => handleEditPromptChange(event.target.value)}
                         onSave={flushSave}
                         containerClassName="flex min-h-0 flex-1 flex-col gap-1.5"
                         previewClassName="min-h-16 flex-1"
