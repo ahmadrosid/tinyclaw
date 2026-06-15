@@ -187,4 +187,42 @@ describe("WorkerManagerService", () => {
       expect(status).toBeNull();
     });
   });
+
+  describe("getAllWorkerStatuses", () => {
+    test("returns statuses for all workers in one PM2 call", async () => {
+      const mockPm2 = createMockPm2();
+      mockPm2.list = mock((cb: (err: Error | null, list: unknown[]) => void) =>
+        cb(null, [
+          {
+            name: "telegram",
+            pm2_env: { status: "online", pm_uptime: Date.now() - 120000 },
+            monit: { cpu: 3.1, memory: 60_000_000 },
+          },
+        ]),
+      );
+      const service = new WorkerManagerService(projectRoot, mockPm2);
+
+      const result = await service.getAllWorkerStatuses();
+
+      expect(mockPm2.list).toHaveBeenCalledTimes(1);
+      expect(result.telegram.managed).toBe(true);
+      expect(result.telegram.status).toBe("online");
+      expect(result.telegram.cpuPercent).toBe(3.1);
+      expect(result.whatsapp.managed).toBe(false);
+      expect(result.whatsapp.status).toBeNull();
+    });
+
+    test("returns managed: false for all when PM2 connect fails", async () => {
+      const mockPm2 = createMockPm2();
+      mockPm2.connect = mock((cb: (err: Error | null) => void) =>
+        cb(new Error("connect failed")),
+      );
+      const service = new WorkerManagerService(projectRoot, mockPm2);
+
+      const result = await service.getAllWorkerStatuses();
+
+      expect(result.telegram.managed).toBe(false);
+      expect(result.whatsapp.managed).toBe(false);
+    });
+  });
 });

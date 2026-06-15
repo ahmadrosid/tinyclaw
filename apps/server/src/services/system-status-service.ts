@@ -23,13 +23,10 @@ export class SystemStatusService {
     const models = await this.agent.getModels();
     const usageFields = this.agent.getUsageStatusFields();
 
-    const [telegramPm2, whatsappPm2] = await Promise.all([
-      this.workerManager.getWorkerStatus("telegram"),
-      this.workerManager.getWorkerStatus("whatsapp"),
-    ]);
+    const statuses = await this.workerManager.getAllWorkerStatuses();
 
-    const telegramStatus = this.resolveWorkerStatus("telegram", telegramPm2);
-    const whatsappStatus = this.resolveWorkerStatus("whatsapp", whatsappPm2);
+    const telegramStatus = this.resolveWorkerStatus("telegram", statuses.telegram);
+    const whatsappStatus = this.resolveWorkerStatus("whatsapp", statuses.whatsapp);
 
     return {
       server: this.getServerStatus(),

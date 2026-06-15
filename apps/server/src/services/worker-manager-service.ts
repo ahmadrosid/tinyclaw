@@ -106,6 +106,30 @@ export class WorkerManagerService {
     });
   }
 
+  private pm2ProcessToInfo(
+    match: Pm2ProcessDescription | undefined,
+  ): WorkerProcessInfo {
+    if (!match) {
+      return { managed: false, status: null, cpuPercent: null, memoryMb: null, uptimeSeconds: null };
+    }
+
+    const status = match.pm2_env?.status ?? null;
+    const mappedStatus: WorkerProcessInfo["status"] =
+      status === "online" || status === "stopped" || status === "errored"
+        ? status
+        : null;
+
+    return {
+      managed: true,
+      status: mappedStatus,
+      cpuPercent: match.monit?.cpu ?? null,
+      memoryMb: match.monit ? Math.round(match.monit.memory / 1024 / 1024 * 100) / 100 : null,
+      uptimeSeconds: match.pm2_env?.pm_uptime
+        ? Math.round((Date.now() - match.pm2_env.pm_uptime) / 1000)
+        : null,
+    };
+  }
+
   async getWorkerStatus(name: string): Promise<WorkerProcessInfo | null> {
     if (!this.isValidWorker(name)) {
       return null;
@@ -114,28 +138,29 @@ export class WorkerManagerService {
     try {
       const list = await this.listAllPm2Processes();
       const match = list.find((p) => p.name === name);
-
-      if (!match) {
-        return { managed: false, status: null, cpuPercent: null, memoryMb: null, uptimeSeconds: null };
-      }
-
-      const status = match.pm2_env?.status ?? null;
-      const mappedStatus: WorkerProcessInfo["status"] =
-        status === "online" || status === "stopped" || status === "errored"
-          ? status
-          : null;
-
-      return {
-        managed: true,
-        status: mappedStatus,
-        cpuPercent: match.monit?.cpu ?? null,
-        memoryMb: match.monit ? Math.round(match.monit.memory / 1024 / 1024 * 100) / 100 : null,
-        uptimeSeconds: match.pm2_env?.pm_uptime
-          ? Math.round((Date.now() - match.pm2_env.pm_uptime) / 1000)
-          : null,
-      };
+      return this.pm2ProcessToInfo(match);
     } catch {
       return { managed: false, status: null, cpuPercent: null, memoryMb: null, uptimeSeconds: null };
+    }
+  }
+
+  async getAllWorkerStatuses(): Promise<Record<string, WorkerProcessInfo>> {
+    try {
+      const list = await this.listAllPm2Processes();
+
+      return Object.fromEntries(
+        VALID_WORKERS.map((name) => {
+          const match = list.find((p) => p.name === name);
+          return [name, this.pm2ProcessToInfo(match)];
+        }),
+      );
+    } catch {
+      return Object.fromEntries(
+        VALID_WORKERS.map((name) => [
+          name,
+          { managed: false, status: null, cpuPercent: null, memoryMb: null, uptimeSeconds: null },
+        ]),
+      );
     }
   }
 
