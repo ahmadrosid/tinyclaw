@@ -124,15 +124,7 @@ For project facts and reference documents, use knowledge_base_search instead of 
 
 export const MEMORY_TEMPLATE = `# Memory Log
 
-Notable sessions, decisions, and context for continuity across conversations.
-
-Append new entries at the bottom with a date header.
-
 ---
-
-## [YYYY-MM-DD]
-
-- [Notable event or decision]
 `;
 
 export const GOOD_OUTPUTS_TEMPLATE = `# Good Outputs

@@ -37,6 +37,48 @@ test("buildChatSystemPrompt includes todo_write guidance when tool is available"
   expect(prompt).toContain("continue unfinished tasks");
 });
 
+test("buildChatSystemPrompt includes update_profile_memory guidance when tool is available", () => {
+  const prompt = buildChatSystemPrompt(
+    [{ name: "update_profile_memory", description: "Memory", parameters: { type: "object", properties: {} } }],
+    { enableToolLoop: true },
+  );
+
+  expect(prompt).toContain("update_profile_memory");
+  expect(prompt).toContain("facts, preferences, and personal context");
+  expect(prompt).toContain("create_skill");
+});
+
+test("buildChatSystemPrompt includes create_skill guidance when tool is available", () => {
+  const prompt = buildChatSystemPrompt(
+    [{ name: "create_skill", description: "Skill", parameters: { type: "object", properties: {} } }],
+    { enableToolLoop: true },
+  );
+
+  expect(prompt).toContain("create_skill");
+  expect(prompt).toContain("step-by-step workflows and repeatable procedures");
+  expect(prompt).toContain("update_profile_memory");
+});
+
+test("buildChatSystemPrompt omits memory and skill guidance when tools are not present", () => {
+  const prompt = buildChatSystemPrompt(
+    [{ name: "write_file", description: "Write", parameters: { type: "object", properties: {} } }],
+    { enableToolLoop: true },
+  );
+
+  expect(prompt).not.toContain("update_profile_memory");
+  expect(prompt).not.toContain("create_skill");
+});
+
+test("buildChatSystemPrompt omits tool guidance when enableToolLoop is false", () => {
+  const prompt = buildChatSystemPrompt(
+    [{ name: "update_profile_memory", description: "Memory", parameters: { type: "object", properties: {} } }],
+    { enableToolLoop: false },
+  );
+
+  expect(prompt).not.toContain("update_profile_memory");
+  expect(prompt).not.toContain("create_skill");
+});
+
 test("buildChatSystemPrompt adds private chat guidance for telegram and whatsapp", () => {
   const telegram = buildChatSystemPrompt([], { channel: "telegram" });
   const whatsapp = buildChatSystemPrompt([], { channel: "whatsapp" });

@@ -6,6 +6,7 @@ import { getCustomToolsDir, guardFilePath, PathGuardError, type PathGuardOptions
 import { searchFilesTool } from "./search-files";
 import { knowledgeBaseSearchTool } from "./knowledge-base-search";
 import { webSearchTool } from "./web-search";
+import { updateProfileMemoryTool } from "./profile-memory";
 
 export interface WriteFileInput {
   path: string;
@@ -153,7 +154,7 @@ export async function runDeleteFile(
 export const createSkillTool: ToolDefinition<CreateSkillInput> = {
   name: "create_skill",
   description:
-    "Create a reusable skill for the active profile and assign it immediately. Use when the agent needs to save a repeatable workflow.",
+    "Save a step-by-step procedure or repeatable workflow as a skill for the active profile and assign it immediately. Use for actions the agent executes — multi-step instructions, workflows, and processes. Not for facts or observations (use update_profile_memory for those).",
   parameters: {
     type: "object",
     properties: {
@@ -167,7 +168,7 @@ export const createSkillTool: ToolDefinition<CreateSkillInput> = {
       },
       body: {
         type: "string",
-        description: "Optional skill instructions to save in SKILL.md.",
+        description: "Optional step-by-step instructions for the agent to follow when this skill activates.",
       },
       disableModelInvocation: {
         type: "boolean",
@@ -189,6 +190,7 @@ export const builtinTools: ToolDefinition[] = [
   searchFilesTool,
   knowledgeBaseSearchTool,
   webSearchTool,
+  updateProfileMemoryTool,
 ];
 
 function readRequiredString(input: unknown, key: string): string {

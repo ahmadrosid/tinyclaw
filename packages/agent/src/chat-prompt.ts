@@ -55,6 +55,18 @@ export function buildChatSystemPrompt(
         "When an active task plan is present in your context, continue unfinished tasks on the next turn before taking on new work unless the user changes direction.",
       );
     }
+
+    if (tools.some((tool) => tool.name === "update_profile_memory")) {
+      sections.push(
+        "Use update_profile_memory to record facts, preferences, and personal context — things you know about the user. Do not use it for step-by-step procedures; use create_skill for those.",
+      );
+    }
+
+    if (tools.some((tool) => tool.name === "create_skill")) {
+      sections.push(
+        "Use create_skill to save step-by-step workflows and repeatable procedures — actions you execute for the user. Do not use it for facts or observations; use update_profile_memory for those.",
+      );
+    }
   }
 
   if (options.channel === "telegram" || options.channel === "whatsapp") {
