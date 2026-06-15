@@ -6,6 +6,7 @@ import { getCustomToolsDir, guardFilePath, PathGuardError, type PathGuardOptions
 import { searchFilesTool } from "./search-files";
 import { knowledgeBaseSearchTool } from "./knowledge-base-search";
 import { webSearchTool } from "./web-search";
+import { updateProfileMemoryTool } from "./profile-memory";
 
 export interface WriteFileInput {
   path: string;
@@ -189,6 +190,7 @@ export const builtinTools: ToolDefinition[] = [
   searchFilesTool,
   knowledgeBaseSearchTool,
   webSearchTool,
+  updateProfileMemoryTool,
 ];
 
 function readRequiredString(input: unknown, key: string): string {
