@@ -20,6 +20,8 @@ import { useMemo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { LlmUsageStatus, SystemStatusResponse } from "@tinyclaw/core/contract";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { useRestartWorker, useStartWorker, useStopWorker } from "@/hooks/use-worker-actions";
 import { useRefreshSystemStatus, useSystemStatusQuery } from "@/hooks/use-system-status";
 import { formatError } from "@/lib/client";
 import { PAGE_PATHS } from "@/lib/navigation";
@@ -93,7 +95,11 @@ export function StatusPage() {
 function StatusDashboard({ status }: { status: SystemStatusResponse }) {
   const summary = useMemo(() => deriveSummary(status), [status]);
   const services = useMemo(() => buildServiceColumns(status), [status]);
-  const { automationWorker, taskWorker } = status;
+  const { automationWorker, taskWorker, telegramWorker, whatsappWorker } = status;
+
+  const startWorker = useStartWorker();
+  const stopWorker = useStopWorker();
+  const restartWorker = useRestartWorker();
 
   return (
     <section className={cn(sectionClass, "min-w-0 overflow-hidden")}>
@@ -114,9 +120,43 @@ function StatusDashboard({ status }: { status: SystemStatusResponse }) {
       </div>
 
       <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 lg:grid-cols-5 lg:divide-x lg:divide-y-0">
-        {services.map((service) => (
-          <ServiceColumn key={service.title} {...service} />
-        ))}
+        {services.map((service) => {
+          if (service.title === "Telegram") {
+            return (
+              <WorkerServiceColumn
+                key={service.title}
+                icon={service.icon}
+                title={service.title}
+                status={service.status}
+                tone={service.tone}
+                worker={telegramWorker}
+                workerName="telegram"
+                startWorker={startWorker}
+                stopWorker={stopWorker}
+                restartWorker={restartWorker}
+              />
+            );
+          }
+
+          if (service.title === "WhatsApp") {
+            return (
+              <WorkerServiceColumn
+                key={service.title}
+                icon={service.icon}
+                title={service.title}
+                status={service.status}
+                tone={service.tone}
+                worker={whatsappWorker}
+                workerName="whatsapp"
+                startWorker={startWorker}
+                stopWorker={stopWorker}
+                restartWorker={restartWorker}
+              />
+            );
+          }
+
+          return <ServiceColumn key={service.title} {...service} />;
+        })}
       </div>
     </section>
   );
@@ -501,6 +541,165 @@ function ServiceColumn({
           {status}
         </p>
       </div>
+    </div>
+  );
+}
+
+function MetricsDisplay({
+  cpuPercent,
+  memoryMb,
+}: {
+  cpuPercent: number | null | undefined;
+  memoryMb: number | null | undefined;
+}) {
+  if (cpuPercent == null && memoryMb == null) return null;
+
+  return (
+    <div className="flex items-center gap-3 border-t border-border px-5 py-2">
+      {cpuPercent != null ? (
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <ZapIcon className="size-3" aria-hidden />
+          CPU: {cpuPercent.toFixed(1)}%
+        </span>
+      ) : null}
+      {memoryMb != null ? (
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <ServerIcon className="size-3" aria-hidden />
+          Mem: {memoryMb < 1 ? `${(memoryMb * 1024).toFixed(0)} KB` : `${memoryMb.toFixed(1)} MB`}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function WorkerActionBar({
+  running,
+  pm2Managed,
+  workerName,
+  startWorker,
+  stopWorker,
+  restartWorker,
+}: {
+  running: boolean;
+  pm2Managed: boolean;
+  workerName: string;
+  startWorker: ReturnType<typeof useStartWorker>;
+  stopWorker: ReturnType<typeof useStopWorker>;
+  restartWorker: ReturnType<typeof useRestartWorker>;
+}) {
+  const isLoading =
+    startWorker.isPending && (startWorker.variables === workerName) ||
+    stopWorker.isPending && (stopWorker.variables === workerName) ||
+    restartWorker.isPending && (restartWorker.variables === workerName);
+
+  if (!pm2Managed) {
+    return (
+      <div className="flex items-center gap-2 border-t border-border px-5 py-2">
+        <span className="text-xs text-muted-foreground">PM2 not available</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 border-t border-border px-5 py-2">
+      {running ? (
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            onClick={() => stopWorker.mutate(workerName)}
+          >
+            {isLoading ? <Spinner className="size-3" /> : null}
+            Stop
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            onClick={() => restartWorker.mutate(workerName)}
+          >
+            {isLoading ? <Spinner className="size-3" /> : null}
+            Restart
+          </Button>
+        </>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isLoading}
+          onClick={() => startWorker.mutate(workerName)}
+        >
+          {isLoading ? <Spinner className="size-3" /> : null}
+          Start
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function WorkerServiceColumn({
+  icon: Icon,
+  title,
+  status,
+  tone,
+  worker,
+  workerName,
+  startWorker,
+  stopWorker,
+  restartWorker,
+}: {
+  icon: LucideIcon;
+  title: string;
+  status: string;
+  tone: ServiceStatusTone;
+  worker: SystemStatusResponse["telegramWorker"];
+  workerName: string;
+  startWorker: ReturnType<typeof useStartWorker>;
+  stopWorker: ReturnType<typeof useStopWorker>;
+  restartWorker: ReturnType<typeof useRestartWorker>;
+}) {
+  return (
+    <div className="flex flex-col">
+      <div className="flex min-w-0 items-center gap-3 p-5">
+        <span
+          className={cn(
+            iconTileClass,
+            tone === "bad" && "bg-destructive/5",
+          )}
+        >
+          <Icon className={iconClass} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="type-section-title leading-tight">{title}</h2>
+          <p
+            className={cn(
+              "mt-1 text-xs font-medium leading-none",
+              tone === "ok" && "text-emerald-700 dark:text-emerald-300",
+              tone === "warn" && "text-amber-700 dark:text-amber-300",
+              tone === "bad" && "text-destructive",
+              tone === "muted" && "text-muted-foreground",
+            )}
+          >
+            {status}
+          </p>
+        </div>
+      </div>
+      <WorkerActionBar
+        running={worker.running}
+        pm2Managed={worker.process?.managed ?? false}
+        workerName={workerName}
+        startWorker={startWorker}
+        stopWorker={stopWorker}
+        restartWorker={restartWorker}
+      />
+      <MetricsDisplay
+        cpuPercent={worker.process?.cpuPercent}
+        memoryMb={worker.process?.memoryMb}
+      />
     </div>
   );
 }
