@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileTextIcon, XIcon } from "lucide-react";
+import { FileTextIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
