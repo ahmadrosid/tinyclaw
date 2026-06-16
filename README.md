@@ -8,7 +8,7 @@
 
 A tiny, working Bun + TypeScript monorepo for running your own AI agent. Chat, create automations from natural language, and connect via web, CLI, Telegram, or WhatsApp — all through one server.
 
-![Demo](./demo.png)
+![Demo](./tinyclaw-demo.png)
 
 Inspired by [OpenClaw](https://github.com/openclaw/openclaw) and [Hermes](https://github.com/nousresearch/hermes-agent).
 
