@@ -36,7 +36,7 @@ export function ProfileAvatar({
         src={avatarUrl}
         alt=""
         className={cn(
-          "shrink-0 rounded-full object-cover",
+          "shrink-0 rounded-2xl object-cover",
           sizeClasses[size],
           className,
         )}
@@ -48,7 +48,7 @@ export function ProfileAvatar({
     <span
       aria-hidden
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-muted font-medium text-foreground",
+        "inline-flex shrink-0 items-center justify-center rounded-2xl bg-muted font-medium text-foreground",
         sizeClasses[size],
         className,
       )}

@@ -551,52 +551,65 @@ export function ChatPage() {
     ],
   );
 
+  const isEmptyState = messages.length === 0 && !busy;
+
+  const composer = (
+    <ChatComposer
+      className={isEmptyState && !error ? "py-0 [&>p:first-child]:min-h-0" : "py-0"}
+      chatStatus={chatStatus}
+      busy={busy}
+      canStop={canStop}
+      disabled={!profileId}
+      error={error}
+      profileId={profileId}
+      profiles={profiles}
+      activeProfile={activeProfile}
+      onProfileSwitch={handleProfileSwitch}
+      showOfflineHint={showOfflineHint}
+      providerConfigured={health?.providerConfigured}
+      onNavigateSetup={() => navigate(SETUP_PATH)}
+      providerModelGroups={providerModelGroups}
+      inheritModelLabel={profileModelLabel(
+        null,
+        providerModelGroups,
+        models?.defaultModel ?? models?.currentModel,
+      )}
+      profileModelId={activeProfile?.model ?? null}
+      currentModelSelection={currentModelSelection}
+      onModelChange={handleModelChange}
+      renderModelLabel={renderModelLabel}
+      todos={agentTodos}
+      onSubmit={(text, files) => void sendMessage(text, files)}
+      onStop={stopStreaming}
+    />
+  );
+
+  if (isEmptyState) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col justify-center px-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col mb-12">
+          <ChatWelcome profile={activeProfile} />
+          {composer}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col px-6">
       <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {messages.length === 0 && !busy ? (
-            <ChatWelcome profile={activeProfile} />
-          ) : (
-            <ChatMessageList
-              messages={messages}
-              branchingMessageId={branchingMessageId}
-              actionsDisabled={busy}
-              onBranchMessage={(message) => void handleBranchMessage(message)}
-              onRetryMessage={(message) => void handleTryAgainMessage(message)}
-            />
-          )}
+          <ChatMessageList
+            messages={messages}
+            branchingMessageId={branchingMessageId}
+            actionsDisabled={busy}
+            onBranchMessage={(message) => void handleBranchMessage(message)}
+            onRetryMessage={(message) => void handleTryAgainMessage(message)}
+          />
         </div>
 
         <div className="sticky bottom-0 z-10 mt-auto w-full shrink-0 bg-background/95 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/85">
-          <ChatComposer
-            className="py-0"
-            chatStatus={chatStatus}
-            busy={busy}
-            canStop={canStop}
-            disabled={!profileId}
-            error={error}
-            profileId={profileId}
-            profiles={profiles}
-            activeProfile={activeProfile}
-            onProfileSwitch={handleProfileSwitch}
-            showOfflineHint={showOfflineHint}
-            providerConfigured={health?.providerConfigured}
-            onNavigateSetup={() => navigate(SETUP_PATH)}
-            providerModelGroups={providerModelGroups}
-            inheritModelLabel={profileModelLabel(
-              null,
-              providerModelGroups,
-              models?.defaultModel ?? models?.currentModel,
-            )}
-            profileModelId={activeProfile?.model ?? null}
-            currentModelSelection={currentModelSelection}
-            onModelChange={handleModelChange}
-            renderModelLabel={renderModelLabel}
-            todos={agentTodos}
-            onSubmit={(text, files) => void sendMessage(text, files)}
-            onStop={stopStreaming}
-          />
+          {composer}
         </div>
       </div>
     </div>
@@ -640,22 +653,18 @@ function findRetryCheckpoint(
 
 function ChatWelcome({ profile }: { profile: ProfileSummary | undefined }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 pb-10 pt-16 text-center">
-      <div className="flex size-14 items-center justify-center rounded-2xl border border-border/80 bg-card shadow-sm">
-        {profile ? (
-          <ProfileAvatar profile={profile} size="lg" className="size-12" />
-        ) : (
-          <MessageCircleIcon className="size-6 text-muted-foreground" aria-hidden="true" />
-        )}
+    <div className="flex items-center gap-4 px-2">
+      <div className="min-w-0 text-left">
+        <h2 className="type-section-title text-xl tracking-tight">
+          {/* {profile ? `Chat with ${profile.name}` : "Start chatting"} */}
+          Hi, good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}!
+        </h2>
+        <p className="type-body mt-1 max-w-sm">
+          {profile?.isSuper
+            ? "Ask anything, attach images, or run tools."
+            : "What can I help you with today?"}
+        </p>
       </div>
-      <h2 className="type-section-title mt-5">
-        {profile ? `Chat with ${profile.name}` : "Start chatting"}
-      </h2>
-      <p className="type-body mt-1.5 max-w-sm">
-        {profile?.isSuper
-          ? "Ask anything, attach images, or run tools."
-          : "Ask a question or attach an image to get started."}
-      </p>
     </div>
   );
 }
