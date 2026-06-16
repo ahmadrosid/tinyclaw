@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import {
   getUserContextPath,
   getUserContextStatus,
+  initUserContext,
   loadUserContext,
 } from "./user-context";
 
@@ -48,4 +49,28 @@ test("getUserContextStatus includes content when active", async () => {
   expect(status.active).toBe(true);
   expect(status.path).toBe(getUserContextPath());
   expect(status.content).toBe("# About Me");
+});
+
+test("initUserContext creates the simplified template", async () => {
+  const result = await initUserContext();
+
+  expect(result.created).toBe(true);
+  expect(result.path).toBe(getUserContextPath());
+
+  const content = await loadUserContext();
+  expect(content).toContain("# About Me");
+  expect(content).toContain("A quick note so the agent knows who you are:");
+  expect(content).toContain("Name / nickname:");
+  expect(content).toContain("How you like replies");
+});
+
+test("initUserContext does not overwrite existing file", async () => {
+  await writeFile(getUserContextPath(), "# Existing content", "utf8");
+
+  const result = await initUserContext();
+
+  expect(result.created).toBe(false);
+
+  const content = await loadUserContext();
+  expect(content).toBe("# Existing content");
 });

@@ -9,34 +9,13 @@ import { getUserConfigDir } from "./user-config";
 
 const USER_TEMPLATE = `# About Me
 
-How the agent should understand and help you.
-
----
-
-## Basics
+A quick note so the agent knows who you are:
 
 - Name / nickname:
-- Role:
-
----
-
-## Communication
-
-- Preferred tone from the agent:
-- Detail level (concise vs thorough):
-
----
-
-## Work context
-
+- What you do:
 - Current projects:
 - Tech stack:
-- Priorities:
-
----
-
-## Preferences
-
+- How you like replies (concise, detailed, casual, formal):
 - Always:
 - Never:
 `;
