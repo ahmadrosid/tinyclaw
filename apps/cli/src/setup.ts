@@ -101,6 +101,7 @@ export async function ensureUserConfiguredViaCli(
 
   try {
     const result = await client.setupUser(email, password);
+    client.setAuthToken(result.token);
     console.log("Admin user created successfully.");
     return true;
   } catch (error) {
