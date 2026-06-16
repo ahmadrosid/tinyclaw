@@ -15,6 +15,7 @@ import { resolveWebDistDir } from "./static-web";
 import { McpClientManager } from "./services/mcp-client-manager";
 import { McpService } from "./services/mcp-service";
 import { SkillsService } from "./services/skills-service";
+import { AuthService } from "./services/auth-service";
 import { createAutomationTools } from "./tools/automation-tools";
 import { TINYCLAW_API_VERSION } from "@tinyclaw/core";
 import {
@@ -51,6 +52,19 @@ const config = loadConfig();
 const database = await createDatabase(config.databaseUrl, { baseDir: getUserConfigDir() });
 
 await seedDatabase(database.adapter);
+
+// Setup auth service
+const jwtSecret = process.env.TINYCLAW_JWT_SECRET;
+const adminEmail = process.env.TINYCLAW_ADMIN_EMAIL;
+const adminPassword = process.env.TINYCLAW_ADMIN_PASSWORD;
+
+let authService: AuthService | null = null;
+if (jwtSecret && adminEmail && adminPassword) {
+  authService = new AuthService({ jwtSecret, adminEmail, adminPassword });
+  await authService.seedUserIfNeeded(database.adapter);
+} else if (jwtSecret || adminEmail || adminPassword) {
+  console.warn("Auth partially configured. Set all three: TINYCLAW_JWT_SECRET, TINYCLAW_ADMIN_EMAIL, TINYCLAW_ADMIN_PASSWORD.");
+}
 
 const llmUsageTracker = await LlmUsageTracker.create(database.adapter);
 const agent = new AgentService(userConfig, provider, database.adapter, llmUsageTracker);
@@ -119,6 +133,8 @@ const app = createApp({
   systemStatus,
   workerManager,
   mcpService,
+  authService,
+  databaseAdapter: database.adapter,
   webDistDir,
 });
 

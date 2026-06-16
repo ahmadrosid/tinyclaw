@@ -99,6 +99,8 @@ import type { TaskService } from "./services/task-service";
 import { getTimezoneCatalog } from "./services/timezone-catalog-service";
 import { SystemStatusService } from "./services/system-status-service";
 import type { WorkerManagerService } from "./services/worker-manager-service";
+import type { AuthService } from "./services/auth-service";
+import type { DatabaseAdapter } from "@tinyclaw/db";
 import { tryServeStaticWeb } from "./static-web";
 
 const DOCS_HTML = `<!doctype html>
@@ -128,6 +130,8 @@ export interface ServerOptions {
   systemStatus: SystemStatusService;
   workerManager: WorkerManagerService;
   mcpService: McpService;
+  authService?: AuthService | null;
+  databaseAdapter?: DatabaseAdapter | null;
   webDistDir?: string | null;
 }
 
@@ -139,6 +143,8 @@ export function createApp(options: ServerOptions) {
     systemStatus,
     workerManager,
     mcpService,
+    authService,
+    databaseAdapter,
     webDistDir = null,
   } = options;
 
@@ -168,6 +174,72 @@ export function createApp(options: ServerOptions) {
             apiVersion: TINYCLAW_API_VERSION,
             providerConfigured: agent.providerConfigured,
           });
+        }
+
+        // Auth endpoints
+        if (request.method === "POST" && url.pathname === "/v1/auth/login") {
+          const body = await readJson<{ email: string; password: string }>(request);
+
+          if (!authService || !databaseAdapter) {
+            return errorResponse("Authentication not configured", 500);
+          }
+
+          const user = await databaseAdapter.getUserByEmail(body.email);
+          if (!user) {
+            return errorResponse("Invalid credentials", 401);
+          }
+
+          const valid = await authService.verifyPassword(body.password, user.passwordHash);
+          if (!valid) {
+            return errorResponse("Invalid credentials", 401);
+          }
+
+          const token = await authService.createToken(user.email);
+          return json({ token });
+        }
+
+        if (request.method === "GET" && url.pathname === "/v1/auth/me") {
+          if (!authService) {
+            return errorResponse("Authentication not configured", 500);
+          }
+          
+          const authHeader = request.headers.get("Authorization");
+          if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return errorResponse("Authentication required", 401);
+          }
+          
+          const token = authHeader.slice(7);
+          try {
+            const payload = await authService.verifyToken(token);
+            return json({ email: payload.email });
+          } catch {
+            return errorResponse("Invalid token", 401);
+          }
+        }
+
+        // Auth middleware for all other routes
+        if (authService) {
+          const isPublicRoute = 
+            url.pathname === "/health" ||
+            url.pathname === "/docs" ||
+            url.pathname === "/docs/" ||
+            url.pathname === "/openapi.json" ||
+            url.pathname === "/v1/auth/login" ||
+            url.pathname === "/v1/auth/me";
+          
+          if (!isPublicRoute) {
+            const authHeader = request.headers.get("Authorization");
+            if (!authHeader || !authHeader.startsWith("Bearer ")) {
+              return errorResponse("Authentication required", 401);
+            }
+            
+            const token = authHeader.slice(7);
+            try {
+              await authService.verifyToken(token);
+            } catch {
+              return errorResponse("Invalid token", 401);
+            }
+          }
         }
 
 if (request.method === "GET" && url.pathname === "/v1/system/status") {
