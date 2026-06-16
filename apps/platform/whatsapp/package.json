@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run src/index.ts",
-    "build": "bun build ./src/index.ts --outdir dist --target bun",
+    "build": "bun build ./src/index.ts --outdir dist --target bun --external link-preview-js --external jimp --external sharp --external qrcode-terminal",
     "test": "bun test"
   },
   "dependencies": {
