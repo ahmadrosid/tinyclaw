@@ -35,9 +35,9 @@ function AppShell() {
       <AuthProvider>
         <AppProvider>
           <Routes>
+            <Route path="/setup" element={<SetupWizardPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route element={<AuthGuard />}>
-              <Route path="/setup" element={<SetupWizardPage />} />
               <Route element={<SetupGuard />}>
                 <Route element={<Layout />}>
                   <Route index element={<Navigate to="/chat" replace />} />

@@ -456,6 +456,7 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
     INSERT INTO users (id, email, password_hash, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?)
   `);
+  const countUsersStmt = db.prepare("SELECT COUNT(*) as count FROM users");
 
   return {
     async getUserByEmail(email) {
@@ -471,6 +472,11 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
         record.createdAt,
         record.updatedAt,
       );
+    },
+
+    async countUsers() {
+      const row = countUsersStmt.get() as { count: number };
+      return row.count;
     },
 
     async listAutomations() {

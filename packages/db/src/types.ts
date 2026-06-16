@@ -158,6 +158,7 @@ export interface StoredUserRecord {
 export interface DatabaseAdapter {
   getUserByEmail(email: string): Promise<StoredUserRecord | null>;
   createUser(record: StoredUserRecord): Promise<void>;
+  countUsers(): Promise<number>;
 
   listAutomations(): Promise<StoredAutomationRecord[]>;
   getAutomation(id: string): Promise<StoredAutomationRecord | null>;

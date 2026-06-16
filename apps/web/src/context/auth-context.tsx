@@ -12,6 +12,7 @@ interface AuthContextValue {
   user: { email: string } | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  setup: (email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -45,6 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setup = useCallback(async (email: string, password: string) => {
+    const response = await client.setupUser(email, password);
+    localStorage.setItem(AUTH_STORAGE_KEY, response.token);
+    client.setAuthToken(response.token);
+    const me = await client.getMe();
+    setUser(me);
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     const response = await client.login(email, password);
     localStorage.setItem(AUTH_STORAGE_KEY, response.token);
@@ -63,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isAuthenticated: user !== null,
     isLoading,
+    setup,
     login,
     logout,
   };

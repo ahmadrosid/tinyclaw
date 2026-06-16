@@ -18,7 +18,7 @@ export function SetupGuard() {
     return <Outlet />;
   }
 
-  if (health?.providerConfigured !== true) {
+  if (health?.userConfigured !== true || health?.providerConfigured !== true) {
     return <Navigate to={SETUP_PATH} replace />;
   }
 

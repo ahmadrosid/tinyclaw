@@ -1,6 +1,7 @@
 import { useState, useCallback, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { SetupWizardStepper } from "@/components/setup-wizard/SetupWizardStepper";
+import { SetupStepAccount } from "@/components/setup-wizard/SetupStepAccount";
 import { SetupStepProvider } from "@/components/setup-wizard/SetupStepProvider";
 import { SetupStepUserContext } from "@/components/setup-wizard/SetupStepUserContext";
 import { SetupStepTelegram } from "@/components/setup-wizard/SetupStepTelegram";
@@ -8,10 +9,11 @@ import { SetupStepWhatsApp } from "@/components/setup-wizard/SetupStepWhatsApp";
 import { pathForPage } from "@/lib/navigation";
 
 export const SETUP_STEPS = [
-  { id: 1, label: "Provider", required: true },
-  { id: 2, label: "About You", required: false },
-  { id: 3, label: "Telegram", required: false },
-  { id: 4, label: "WhatsApp", required: false },
+  { id: 1, label: "Account", required: true },
+  { id: 2, label: "Provider", required: true },
+  { id: 3, label: "About You", required: false },
+  { id: 4, label: "Telegram", required: false },
+  { id: 5, label: "WhatsApp", required: false },
 ] as const;
 
 export type SetupStepId = (typeof SETUP_STEPS)[number]["id"];
@@ -76,28 +78,36 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
   }, [currentStep, goSkip, handleComplete]);
 
   const heading = currentStep === 1
-    ? "Welcome to TinyClaw"
+    ? "Create your account"
     : currentStep === 2
-      ? "Tell us about yourself"
+      ? "Welcome to TinyClaw"
       : currentStep === 3
-        ? "Connect Telegram"
-        : "Connect WhatsApp";
+        ? "Tell us about yourself"
+        : currentStep === 4
+          ? "Connect Telegram"
+          : "Connect WhatsApp";
 
   const subtitle = currentStep === 1
-    ? "Set up your AI provider to get started. You can add more later."
+    ? "Set up your admin account to secure the dashboard."
     : currentStep === 2
-      ? "Help the agent understand your preferences — optional."
+      ? "Set up your AI provider to get started. You can add more later."
       : currentStep === 3
-        ? "Link Telegram so the agent can message you — optional."
-        : "Link WhatsApp so the agent can message you — optional.";
+        ? "Help the agent understand your preferences — optional."
+        : currentStep === 4
+          ? "Link Telegram so the agent can message you — optional."
+          : "Link WhatsApp so the agent can message you — optional.";
 
   function renderStep(): ReactNode {
     switch (currentStep) {
       case 1:
         return (
-          <SetupStepProvider onNext={() => handleStepAdvance()} />
+          <SetupStepAccount onNext={handleStepAdvance} />
         );
       case 2:
+        return (
+          <SetupStepProvider onNext={() => handleStepAdvance()} />
+        );
+      case 3:
         return (
           <SetupStepUserContext
             onNext={handleStepAdvance}
@@ -105,7 +115,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
             onBack={goBack}
           />
         );
-      case 3:
+      case 4:
         return (
           <SetupStepTelegram
             onNext={handleStepAdvance}
@@ -113,7 +123,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
             onBack={goBack}
           />
         );
-      case 4:
+      case 5:
         return (
           <SetupStepWhatsApp
             onNext={handleStepAdvance}

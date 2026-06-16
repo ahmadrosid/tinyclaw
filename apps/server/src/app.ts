@@ -169,14 +169,42 @@ export function createApp(options: ServerOptions) {
         }
 
         if (request.method === "GET" && url.pathname === "/health") {
+          const userCount = await databaseAdapter?.countUsers() ?? 0;
           return json<HealthResponse>({
             ok: true,
             apiVersion: TINYCLAW_API_VERSION,
             providerConfigured: agent.providerConfigured,
+            userConfigured: userCount > 0,
           });
         }
 
         // Auth endpoints
+        if (request.method === "POST" && url.pathname === "/v1/auth/setup") {
+          if (!authService || !databaseAdapter) {
+            return errorResponse("Authentication not configured", 500);
+          }
+
+          const userCount = await databaseAdapter.countUsers();
+          if (userCount > 0) {
+            return errorResponse("Admin user already exists", 409);
+          }
+
+          const body = await readJson<{ email: string; password: string }>(request);
+          const hash = await authService.hashPassword(body.password);
+          const now = new Date().toISOString();
+
+          await databaseAdapter.createUser({
+            id: "user_admin",
+            email: body.email,
+            passwordHash: hash,
+            createdAt: now,
+            updatedAt: now,
+          });
+
+          const token = await authService.createToken(body.email);
+          return json({ token }, 201);
+        }
+
         if (request.method === "POST" && url.pathname === "/v1/auth/login") {
           const body = await readJson<{ email: string; password: string }>(request);
 
@@ -224,6 +252,7 @@ export function createApp(options: ServerOptions) {
             url.pathname === "/docs" ||
             url.pathname === "/docs/" ||
             url.pathname === "/openapi.json" ||
+            url.pathname === "/v1/auth/setup" ||
             url.pathname === "/v1/auth/login" ||
             url.pathname === "/v1/auth/me";
           

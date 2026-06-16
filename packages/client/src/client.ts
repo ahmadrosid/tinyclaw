@@ -845,6 +845,13 @@ export class TinyClawClient {
     return this.request<ListTimezonesResponse>("/v1/timezones");
   }
 
+  async setupUser(email: string, password: string): Promise<{ token: string }> {
+    return this.request<{ token: string }>("/v1/auth/setup", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
   async login(email: string, password: string): Promise<{ token: string }> {
     return this.request<{ token: string }>("/v1/auth/login", {
       method: "POST",

@@ -47,6 +47,7 @@ export interface HealthResponse {
   ok: true;
   apiVersion: typeof TINYCLAW_API_VERSION;
   providerConfigured: boolean;
+  userConfigured: boolean;
 }
 
 export interface AutomationWorkerStatus {

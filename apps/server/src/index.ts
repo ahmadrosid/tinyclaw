@@ -55,15 +55,12 @@ await seedDatabase(database.adapter);
 
 // Setup auth service
 const jwtSecret = process.env.TINYCLAW_JWT_SECRET;
-const adminEmail = process.env.TINYCLAW_ADMIN_EMAIL;
-const adminPassword = process.env.TINYCLAW_ADMIN_PASSWORD;
 
 let authService: AuthService | null = null;
-if (jwtSecret && adminEmail && adminPassword) {
-  authService = new AuthService({ jwtSecret, adminEmail, adminPassword });
-  await authService.seedUserIfNeeded(database.adapter);
-} else if (jwtSecret || adminEmail || adminPassword) {
-  console.warn("Auth partially configured. Set all three: TINYCLAW_JWT_SECRET, TINYCLAW_ADMIN_EMAIL, TINYCLAW_ADMIN_PASSWORD.");
+if (jwtSecret) {
+  authService = new AuthService({ jwtSecret });
+} else {
+  console.warn("Auth not configured. Set TINYCLAW_JWT_SECRET to enable authentication.");
 }
 
 const llmUsageTracker = await LlmUsageTracker.create(database.adapter);

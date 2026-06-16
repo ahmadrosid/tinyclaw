@@ -15,8 +15,9 @@ export function SetupWizardPage() {
 
   // Only redirect on the initial render (before mount) if the user is
   // already fully configured. Once the wizard mounts, allow the user to
-  // finish all steps — even after providerConfigured becomes true on step 1.
-  if (!hasMounted && health?.providerConfigured === true) {
+  // finish all steps — even after providerConfigured becomes true on step 2.
+  const isFullyConfigured = health?.userConfigured === true && health?.providerConfigured === true;
+  if (!hasMounted && isFullyConfigured) {
     return <Navigate to={pathForPage("chat")} replace />;
   }
 
