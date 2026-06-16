@@ -29,10 +29,11 @@ function formatUserContextError(error: unknown): string {
 
 interface UserContextSettingsProps {
   onSaveSuccess?: () => void;
+  autoInit?: boolean;
 }
 
 /** USER.md editor row for Settings — render inside a parent card. */
-export function UserContextSettings({ onSaveSuccess }: UserContextSettingsProps = {}) {
+export function UserContextSettings({ onSaveSuccess, autoInit = false }: UserContextSettingsProps = {}) {
   const {
     data: status,
     isLoading,
@@ -47,6 +48,7 @@ export function UserContextSettings({ onSaveSuccess }: UserContextSettingsProps 
   const [editorOpen, setEditorOpen] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [autoInitAttempted, setAutoInitAttempted] = useState(false);
 
   const busy = initMutation.isPending || writeMutation.isPending;
   const isDirty = content !== savedContent;
@@ -61,6 +63,33 @@ export function UserContextSettings({ onSaveSuccess }: UserContextSettingsProps 
       setSavedContent("");
     }
   }, [status]);
+
+  // Auto-create USER.md in wizard contexts so the user can immediately edit
+  useEffect(() => {
+    if (!autoInit || autoInitAttempted || isActive || isLoading || !status) {
+      return;
+    }
+
+    setAutoInitAttempted(true);
+
+    async function autoCreate() {
+      setFormError(null);
+      setHint(null);
+
+      try {
+        const result = await initMutation.mutateAsync();
+        await refetch();
+        if (result.created) {
+          setEditorOpen(true);
+        }
+        setHint(result.created ? "Template created." : "USER.md already exists.");
+      } catch (error) {
+        setFormError(formatUserContextError(error));
+      }
+    }
+
+    void autoCreate();
+  }, [autoInit, autoInitAttempted, isActive, isLoading, status, initMutation, refetch]);
 
   function handleEditorOpenChange(open: boolean) {
     setEditorOpen(open);
@@ -81,9 +110,6 @@ export function UserContextSettings({ onSaveSuccess }: UserContextSettingsProps 
         setEditorOpen(true);
       }
       setHint(result.created ? "Template created." : "USER.md already exists.");
-      if (result.created) {
-        onSaveSuccess?.();
-      }
     } catch (error) {
       setFormError(formatUserContextError(error));
     }

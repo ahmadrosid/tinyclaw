@@ -11,7 +11,7 @@ export function SetupStepUserContext({ onNext, onSkip, onBack }: SetupStepUserCo
   return (
     <div className="space-y-4">
       <div className="rounded-md border border-border bg-card">
-        <UserContextSettings onSaveSuccess={onNext} />
+        <UserContextSettings onSaveSuccess={onNext} autoInit={true} />
       </div>
 
       <div className="flex items-center justify-between">
