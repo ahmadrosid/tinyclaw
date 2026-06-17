@@ -32,27 +32,33 @@ Or run the server on its own:
 bun run dev:server
 ```
 
-### Telegram
+### Docker
 
-Configure in the web app under **Settings → Telegram**, or use env vars, then run:
+You can also run TinyClaw with Docker.
 
-```bash
-bun run dev:telegram
-```
-
-See [apps/platform/telegram/README.md](./apps/platform/telegram/README.md) for setup details.
-
-### WhatsApp
-
-Configure it in **Settings → WhatsApp**, then run:
+**Prebuilt image (quickest):**
 
 ```bash
-bun run dev:whatsapp
+# Pull and run the latest image
+docker pull ghcr.io/ahmadrosid/tinyclaw:latest
+docker run -d -p 4310:4310 -v tinyclaw-config:/root/.tinyclaw ghcr.io/ahmadrosid/tinyclaw:latest
 ```
 
-Save your phone number, generate the pairing code, then enter it in WhatsApp under **Settings → Linked Devices → Link with phone number**.
+**Build from source:**
 
-See [apps/platform/whatsapp/README.md](./apps/platform/whatsapp/README.md) for bridge details.
+```bash
+# Build the image
+docker build -t tinyclaw .
+
+# Run the container
+docker run -d -p 4310:4310 -v tinyclaw-config:/root/.tinyclaw tinyclaw
+```
+
+The dashboard will be available at http://localhost:4310.
+
+### Integrations
+
+TinyClaw integrates with **Telegram** and **WhatsApp**. Enable them in the web app under **Settings → Telegram** or **Settings → WhatsApp**.
 
 On first run, the server prompts for a provider and API key if none is configured. Settings are saved to `~/.tinyclaw/config.ini`.
 
