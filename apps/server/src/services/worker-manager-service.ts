@@ -1,9 +1,16 @@
 import type { WorkerLogsResponse, WorkerProcessInfo } from "@tinyclaw/core";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 const WORKER_SCRIPTS: Record<string, string> = {
   telegram: "apps/platform/telegram/src/index.ts",
   whatsapp: "apps/platform/whatsapp/src/index.ts",
+};
+
+const WORKER_DIST_SCRIPTS: Partial<Record<string, string>> = {
+  telegram: "apps/platform/telegram/dist/index.js",
+  whatsapp: "apps/platform/whatsapp/dist/index.js",
 };
 
 const VALID_WORKERS = Object.keys(WORKER_SCRIPTS);
@@ -62,13 +69,22 @@ export class WorkerManagerService {
     return VALID_WORKERS.includes(name);
   }
 
+  private resolveWorkerScript(name: string): string {
+    const distScript = WORKER_DIST_SCRIPTS[name];
+    if (distScript && existsSync(join(this.projectRoot, distScript))) {
+      return distScript;
+    }
+
+    return WORKER_SCRIPTS[name]!;
+  }
+
   async startWorker(name: string): Promise<void> {
     if (!this.isValidWorker(name)) {
       throw new Error(`Unknown worker: ${name}`);
     }
 
     await this.withPm2(async (pm2) => {
-      const script = WORKER_SCRIPTS[name]!;
+      const script = this.resolveWorkerScript(name);
       await promisifyPm2<void>((cb) => pm2.delete(name, cb)).catch(() => {});
       await promisifyPm2<void>((cb) =>
         pm2.start(

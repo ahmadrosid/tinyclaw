@@ -1,5 +1,5 @@
 import { describe, expect, test, mock } from "bun:test";
-import { mkdtemp, writeFile, unlink } from "node:fs/promises";
+import { mkdtemp, writeFile, unlink, mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { WorkerManagerService } from "./worker-manager-service";
@@ -79,6 +79,23 @@ describe("WorkerManagerService", () => {
       expect(opts.script).toBe("bun");
       expect(opts.args).toContain("apps/platform/whatsapp/src/index.ts");
       expect(opts.interpreter).toBeUndefined();
+    });
+
+    test("starts worker from dist when dist build exists", async () => {
+      const tmpProjectRoot = await mkdtemp(join(tmpdir(), "tinyclaw-worker-dist-"));
+      const distFilePath = join(tmpProjectRoot, "apps/platform/whatsapp/dist/index.js");
+      await mkdir(join(tmpProjectRoot, "apps/platform/whatsapp/dist"), { recursive: true });
+      await writeFile(distFilePath, "console.log('ok')");
+
+      const mockPm2 = createMockPm2();
+      const service = new WorkerManagerService(tmpProjectRoot, mockPm2);
+
+      await service.startWorker("whatsapp");
+
+      const opts = (mockPm2.start as ReturnType<typeof mock>).mock.calls[0][0];
+      expect(opts.args).toContain("apps/platform/whatsapp/dist/index.js");
+
+      await rm(tmpProjectRoot, { recursive: true, force: true });
     });
 
     test("throws for unknown worker", async () => {
