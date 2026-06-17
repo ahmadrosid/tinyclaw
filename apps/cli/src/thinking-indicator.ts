@@ -1,11 +1,12 @@
 import type { StatusRenderer } from "./terminal-renderer";
+import { serializeStyledLine, styledLine, type StyledLine } from "./styled-text";
 
 const THINKING_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 const FRAME_INTERVAL_MS = 80;
 
-export function formatThinkingIndicator(frameIndex: number): string {
+export function formatThinkingIndicator(frameIndex: number): StyledLine {
   const frame = THINKING_FRAMES[frameIndex % THINKING_FRAMES.length] ?? THINKING_FRAMES[0];
-  return `\x1b[2m${frame} Thinking\x1b[0m`;
+  return styledLine(`${frame} Thinking`, { dim: true });
 }
 
 export class ThinkingIndicator {
@@ -67,6 +68,6 @@ export class ThinkingIndicator {
       this.lineStarted = true;
     }
 
-    process.stdout.write(`\r\x1b[K${content}`);
+    process.stdout.write(`\r\x1b[K${serializeStyledLine(content)}`);
   }
 }

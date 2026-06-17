@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { consumeTerminalInput, isTerminalResponse } from "./terminal-input";
+import { consumeTerminalInput, isMouseEventReport, isTerminalResponse } from "./terminal-input";
 import { appendStreamText, ScreenBuffer } from "./screen-buffer";
 
 describe("isTerminalResponse", () => {
@@ -9,7 +9,7 @@ describe("isTerminalResponse", () => {
   });
 
   test("detects mouse tracking reports", () => {
-    expect(isTerminalResponse("\x1b[<64;12;8M")).toBe(true);
+    expect(isMouseEventReport("\x1b[<64;12;8M")).toBe(true);
   });
 });
 
@@ -31,10 +31,10 @@ describe("consumeTerminalInput", () => {
     expect(isTerminalResponse("\x1b[12;1R")).toBe(true);
   });
 
-  test("swallows mouse tracking events", () => {
+  test("emits mouse tracking events", () => {
     const consumed = consumeTerminalInput("a\x1b[<64;12;8Mb");
 
-    expect(consumed.events).toEqual(["a", "b"]);
+    expect(consumed.events).toEqual(["a", "\x1b[<64;12;8M", "b"]);
     expect(consumed.pending).toBe("");
   });
 });

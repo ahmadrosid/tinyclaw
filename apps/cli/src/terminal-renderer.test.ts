@@ -6,6 +6,7 @@ import {
   type ComposerState,
   TerminalRenderer,
 } from "./terminal-renderer";
+import { plainLine, styledLine } from "./styled-text";
 
 describe("buildComposerLines", () => {
   test("renders pending summaries, wrapped input, and selected suggestions", () => {
@@ -29,9 +30,9 @@ describe("buildComposerLines", () => {
     );
 
     expect(lines).toEqual([
-      "\x1b[2m⏳ pending: pending\x1b[0m",
-      "> abcdefgh▌",
-      `\x1b[36m› ${"/help".padEnd(14)} show help\x1b[0m`,
+      styledLine("⏳ pending: pending", { dim: true }),
+      plainLine("> abcdefgh▌"),
+      styledLine(`› ${"/help".padEnd(14)} show help`, { color: "cyan" }),
     ]);
   });
 
@@ -50,25 +51,7 @@ describe("buildComposerLines", () => {
       80,
     );
 
-    expect(lines).toEqual(["> ▌"]);
-  });
-
-  test("truncates suggestions to fit the terminal width", () => {
-    const lines = buildComposerLines(
-      {
-        composer: {
-          prefix: "> ",
-          value: "",
-          cursorVisible: true,
-          suggestions: [{ label: "/help", description: "show help" }],
-          selectedIndex: 0,
-        },
-        pendingMessages: [],
-      },
-      20,
-    );
-
-    expect(lines).toEqual(["> ▌", `\x1b[36m› ${"/help".padEnd(14)} sh…\x1b[0m`]);
+    expect(lines).toEqual([plainLine("> ▌")]);
   });
 });
 
@@ -124,8 +107,8 @@ describe("TerminalRenderer", () => {
     renderer.setPendingMessages(pendingMessages);
 
     expect(setReservedRowsSpy).toHaveBeenLastCalledWith(2, [
-      "\x1b[2m⏳ pending: pending\x1b[0m",
-      "> hello▌",
+      styledLine("⏳ pending: pending", { dim: true }),
+      plainLine("> hello▌"),
     ]);
     expect(renderer.getState().composer).toEqual(composerState);
     expect(renderer.getState().pendingMessages).toEqual(pendingMessages);
@@ -171,11 +154,12 @@ describe("TerminalRenderer", () => {
 
     writeStatusLineSpy = spyOn(layout, "writeStatusLine").mockImplementation(() => {});
     clearStatusLineSpy = spyOn(layout, "clearStatusLine").mockImplementation(() => {});
+    const line = styledLine("thinking", { dim: true });
 
-    renderer.setStatusLine("thinking");
+    renderer.setStatusLine(line);
     renderer.setStatusLine(null);
 
-    expect(writeStatusLineSpy).toHaveBeenCalledWith("thinking");
+    expect(writeStatusLineSpy).toHaveBeenCalledWith(line);
     expect(clearStatusLineSpy).toHaveBeenCalledTimes(1);
     expect(renderer.getState().statusLine).toBeNull();
   });

@@ -6,10 +6,6 @@ export function isTerminalResponse(chunk: string): boolean {
     return true;
   }
 
-  if (MOUSE_EVENT_REPORT.test(chunk)) {
-    return true;
-  }
-
   if (chunk === "\x1b[I" || chunk === "\x1b[O") {
     return true;
   }
@@ -19,6 +15,10 @@ export function isTerminalResponse(chunk: string): boolean {
   }
 
   return false;
+}
+
+export function isMouseEventReport(chunk: string): boolean {
+  return MOUSE_EVENT_REPORT.test(chunk);
 }
 
 export function consumeTerminalInput(buffer: string): {
@@ -52,7 +52,9 @@ export function consumeTerminalInput(buffer: string): {
 
       const sequence = match[0];
 
-      if (!isTerminalResponse(sequence)) {
+      if (isMouseEventReport(sequence)) {
+        events.push(sequence);
+      } else if (!isTerminalResponse(sequence)) {
         events.push(sequence);
       }
 

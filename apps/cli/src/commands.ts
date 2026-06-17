@@ -1,4 +1,113 @@
-import type { ProfileSummary, ProviderModelOption } from "@tinyclaw/core";
+import type { ModelsResponse, ProfileSummary, ProviderModelOption } from "@tinyclaw/core";
+
+export function parseModelCommandArg(raw: string): {
+  providerId: string | null;
+  modelId: string;
+} {
+  const trimmed = raw.trim();
+  const separator = trimmed.indexOf("::");
+
+  if (separator > 0) {
+    return {
+      providerId: trimmed.slice(0, separator),
+      modelId: trimmed.slice(separator + 2),
+    };
+  }
+
+  return { providerId: null, modelId: trimmed };
+}
+
+export function resolveModelSwitchTarget(
+  cached: ModelsResponse,
+  rawArg: string,
+): { providerId: string; modelId: string } | "unknown" | "ambiguous" {
+  const { providerId: explicitProviderId, modelId } = parseModelCommandArg(rawArg);
+
+  if (!modelId) {
+    return "unknown";
+  }
+
+  if (explicitProviderId) {
+    const match = cached.models.find(
+      (model) =>
+        model.id === modelId &&
+        (model.providerId ?? model.provider) === explicitProviderId,
+    );
+
+    if (match?.providerId) {
+      return { providerId: match.providerId, modelId };
+    }
+
+    if (cached.providers.some((provider) => provider.id === explicitProviderId)) {
+      return { providerId: explicitProviderId, modelId };
+    }
+
+    return "unknown";
+  }
+
+  const matches = cached.models.filter((model) => model.id === modelId);
+
+  if (matches.length === 1 && matches[0]!.providerId) {
+    return { providerId: matches[0]!.providerId, modelId };
+  }
+
+  if (matches.length > 1) {
+    const onCurrent = matches.find((model) => model.providerId === cached.currentProviderId);
+
+    if (onCurrent?.providerId) {
+      return { providerId: onCurrent.providerId, modelId };
+    }
+
+    return "ambiguous";
+  }
+
+  if (cached.currentProviderId) {
+    return { providerId: cached.currentProviderId, modelId };
+  }
+
+  return "unknown";
+}
+
+export function effectiveModelState(
+  profile: ProfileSummary,
+  models: ModelsResponse | null,
+): { modelId: string | null; providerId: string | null } {
+  const modelId = profile.model ?? models?.currentModel ?? null;
+
+  if (!modelId || !models) {
+    return { modelId, providerId: models?.currentProviderId ?? null };
+  }
+
+  if (profile.model) {
+    const match = models.models.find((model) => model.id === profile.model);
+
+    return {
+      modelId,
+      providerId: match?.providerId ?? models.currentProviderId,
+    };
+  }
+
+  return { modelId, providerId: models.currentProviderId };
+}
+
+export function isActiveModelOption(
+  model: ProviderModelOption,
+  active: { modelId: string | null; providerId: string | null },
+): boolean {
+  if (!active.modelId || model.id !== active.modelId) {
+    return false;
+  }
+
+  if (!active.providerId) {
+    return true;
+  }
+
+  return (model.providerId ?? model.provider) === active.providerId;
+}
+
+export function formatModelCommandArg(model: ProviderModelOption): string {
+  return model.providerId ? `${model.providerId}::${model.id}` : model.id;
+}
 
 export interface SlashCommand {
   name: string;
@@ -22,6 +131,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: "/models", description: "list available models" },
   { name: "/model", description: "show or switch model" },
   { name: "/thinking", description: "show or change extended thinking" },
+  { name: "/debug", description: "toggle layout debug overlay" },
   { name: "/profile", description: "show or switch bot profile" },
   { name: "/exit", description: "quit" },
 ];
@@ -39,6 +149,7 @@ export interface ResolveSuggestionsOptions {
   input: string;
   models?: ProviderModelOption[];
   currentModel?: string | null;
+  currentProviderId?: string | null;
   profiles?: ProfileSummary[];
   currentProfileId?: string | null;
 }
@@ -50,6 +161,7 @@ export function resolveSuggestions(
     input,
     models = [],
     currentModel = null,
+    currentProviderId = null,
     profiles = [],
     currentProfileId = null,
   } = options;
@@ -108,8 +220,9 @@ export function resolveSuggestions(
         );
       })
       .map((model) => {
+        const active = { modelId: currentModel, providerId: currentProviderId };
         const markers = [
-          model.id === currentModel ? "current" : null,
+          isActiveModelOption(model, active) ? "current" : null,
           model.default ? "default" : null,
         ]
           .filter(Boolean)
@@ -117,8 +230,8 @@ export function resolveSuggestions(
 
         return {
           label: model.id,
-          description: `${model.name} [${model.provider}]${markers ? ` (${markers})` : ""}`,
-          insertValue: `/model ${model.id}`,
+          description: `${model.name} [${model.providerLabel ?? model.provider}]${markers ? ` (${markers})` : ""}`,
+          insertValue: `/model ${formatModelCommandArg(model)}`,
         };
       });
   }

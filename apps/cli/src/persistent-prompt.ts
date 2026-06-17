@@ -20,6 +20,9 @@ export interface PersistentPromptOptions {
   onSubmit: (result: PromptLineResult) => void | Promise<void>;
   onCancel: () => void;
   onAbortStream?: () => void;
+  onScrollHistory?: (
+    event: "line_up" | "line_down" | "page_up" | "page_down" | "home" | "end",
+  ) => void;
 }
 
 export class PersistentPrompt {
@@ -30,6 +33,9 @@ export class PersistentPrompt {
   private readonly onSubmit: (result: PromptLineResult) => void | Promise<void>;
   private readonly onCancel: () => void;
   private readonly onAbortStream?: () => void;
+  private readonly onScrollHistory?: (
+    event: "line_up" | "line_down" | "page_up" | "page_down" | "home" | "end",
+  ) => void;
 
   private value = "";
   private attachedImages: ImageAttachment[] = [];
@@ -52,6 +58,7 @@ export class PersistentPrompt {
     this.onSubmit = options.onSubmit;
     this.onCancel = options.onCancel;
     this.onAbortStream = options.onAbortStream;
+    this.onScrollHistory = options.onScrollHistory;
   }
 
   start(): void {
@@ -297,6 +304,9 @@ export class PersistentPrompt {
         this.hasNavigated = true;
         this.selectedIndex = (this.selectedIndex - 1 + suggestions.length) % suggestions.length;
         this.render();
+      } else if (this.value.length === 0) {
+        // Some terminals emit wheel as arrow keys; treat empty-composer arrows as history scroll.
+        this.onScrollHistory?.("line_up");
       }
 
       return;
@@ -309,6 +319,8 @@ export class PersistentPrompt {
         this.hasNavigated = true;
         this.selectedIndex = (this.selectedIndex + 1) % suggestions.length;
         this.render();
+      } else if (this.value.length === 0) {
+        this.onScrollHistory?.("line_down");
       }
 
       return;
@@ -327,6 +339,26 @@ export class PersistentPrompt {
 
     if (key === "\u0016") {
       this.queueClipboardAttach();
+      return;
+    }
+
+    if (key === "\u001b[5~") {
+      this.onScrollHistory?.("page_up");
+      return;
+    }
+
+    if (key === "\u001b[6~") {
+      this.onScrollHistory?.("page_down");
+      return;
+    }
+
+    if (key === "\u001b[H" || key === "\u001b[1~") {
+      this.onScrollHistory?.("home");
+      return;
+    }
+
+    if (key === "\u001b[F" || key === "\u001b[4~") {
+      this.onScrollHistory?.("end");
       return;
     }
 

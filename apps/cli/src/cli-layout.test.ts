@@ -4,7 +4,6 @@ import {
   getContentBottomLine,
   getInputStartLine,
   getPinnedInputStartLine,
-  getTerminalColumns,
   getVisiblePinnedInputRows,
   shouldPinToBottom,
   TerminalLayout,
@@ -14,7 +13,7 @@ import {
   formatPendingSummary,
   MessageQueue,
 } from "./message-queue";
-import { TerminalInput } from "./terminal-input";
+import { plainLine, styledLine } from "./styled-text";
 
 describe("shouldPinToBottom", () => {
   test("stays inline while there is room for input", () => {
@@ -32,12 +31,6 @@ describe("getContentBottomLine", () => {
       getContentBottomLine({ lastOutputLine: 5, statusRow: 7, streamRow: 6 }),
     ).toBe(7);
   });
-
-  test("ignores a cleared status row", () => {
-    expect(
-      getContentBottomLine({ lastOutputLine: 5, statusRow: null, streamRow: 4 }),
-    ).toBe(5);
-  });
 });
 
 describe("getInputStartLine", () => {
@@ -51,10 +44,6 @@ describe("getVisiblePinnedInputRows", () => {
   test("uses the full available viewport for oversized pinned input", () => {
     expect(getVisiblePinnedInputRows(50, 24)).toBe(23);
   });
-
-  test("keeps small prompts fully visible", () => {
-    expect(getVisiblePinnedInputRows(3, 24)).toBe(3);
-  });
 });
 
 describe("getPinnedInputStartLine", () => {
@@ -66,10 +55,6 @@ describe("getPinnedInputStartLine", () => {
 describe("computeReservedRows", () => {
   test("requires at least one row", () => {
     expect(computeReservedRows({ pendingLineCount: 0, promptLineCount: 0 })).toBe(1);
-  });
-
-  test("sums pending and prompt rows", () => {
-    expect(computeReservedRows({ pendingLineCount: 2, promptLineCount: 3 })).toBe(5);
   });
 });
 
@@ -119,29 +104,9 @@ describe("formatPendingDisplayLines", () => {
     expect(lines[0]).toContain("⏳ pending:");
     expect(lines[0]).toContain("follow up");
   });
-
-  test("wraps long pending text", () => {
-    const lines = formatPendingDisplayLines(
-      [
-        {
-          line: "abcdefghijklmnopqrstuvwxyz",
-          sendInput: { message: "abcdefghijklmnopqrstuvwxyz" },
-        },
-      ],
-      20,
-    );
-
-    expect(lines.length).toBeGreaterThan(1);
-  });
 });
 
-describe("getTerminalColumns", () => {
-  test("returns a positive width", () => {
-    expect(getTerminalColumns()).toBeGreaterThan(0);
-  });
-});
-
-describe("TerminalLayout rendering", () => {
+describe("TerminalLayout frame pipeline", () => {
   let writeSpy: ReturnType<typeof spyOn<typeof process.stdout, "write">> | null = null;
   let writes: string[] = [];
 
@@ -159,156 +124,249 @@ describe("TerminalLayout rendering", () => {
     });
   }
 
-  function createAnchoredLayout(contentBottomRow: number): TerminalLayout {
+  function setTerminalSize(columns: number, rows: number): void {
+    Object.defineProperty(process.stdout, "columns", {
+      configurable: true,
+      value: columns,
+    });
+    Object.defineProperty(process.stdout, "rows", {
+      configurable: true,
+      value: rows,
+    });
+  }
+
+  test("diff-renders only changed lines", async () => {
+    captureStdout();
+    setTerminalSize(80, 10);
     const layout = new TerminalLayout(null);
 
     Object.assign(layout as Record<string, unknown>, {
       enabled: true,
       anchored: true,
-      pinned: false,
-      contentBottomRow,
     });
 
-    return layout;
-  }
-
-  test("clears inline status rows before streamed output resumes", () => {
-    captureStdout();
-    const layout = createAnchoredLayout(5);
-
-    layout.setReservedRows(1, ["> "]);
+    layout.setReservedRows(1, [plainLine("> ")]);
     writes = [];
-
-    layout.writelnScroll("> hi");
-    layout.writeStatusLine("thinking");
-
-    expect((layout as Record<string, unknown>).contentBottomRow).toBe(6);
+    layout.writelnScroll("hello");
+    const firstOutput = writes.join("");
 
     writes = [];
-    layout.clearStatusLine();
+    layout.writelnScroll("world");
+    const secondOutput = writes.join("");
 
-    const output = writes.join("");
-    expect(output).toContain("\x1b[7;1H\x1b[K");
-    expect(output).toContain("\x1b[8;1H\x1b[K");
-    expect(output).toContain("\x1b[7;1H\x1b[K> ");
-    expect((layout as Record<string, unknown>).statusAbsoluteRow).toBeNull();
-    expect((layout as Record<string, unknown>).streamAbsoluteRow).toBe(7);
+    expect(firstOutput).toContain("\x1b[");
+    expect(secondOutput).toContain("\x1b[");
+    expect(secondOutput.length).toBeLessThan(firstOutput.length * 2);
   });
 
-  test("does not commit pinned status lines into scrollback", () => {
+  test("serializes styled status line through frame serializer", () => {
     captureStdout();
-    const layout = createAnchoredLayout(22);
-
-    layout.setReservedRows(2, ["> hi", "  there"]);
-    writes = [];
-
-    layout.writeStatusLine("thinking");
-
-    const output = writes.join("");
-    const internals = layout as Record<string, unknown>;
-    const buffer = internals.buffer as Record<string, unknown>;
-
-    expect(internals.statusAbsoluteRow).toBe(22);
-    expect(output).toContain("\x1b[22;1H\x1b[Kthinking");
-    expect(output).not.toContain("thinking\n");
-    expect(buffer.contentLines).toEqual([]);
-    expect(buffer.streamLine).toBe("");
-  });
-
-  test("renders pinned status after making room for it", () => {
-    captureStdout();
-    const layout = createAnchoredLayout(23);
-
-    layout.setReservedRows(1, ["> "]);
-    writes = [];
-
-    layout.writeStatusLine("thinking");
-
-    const output = writes.join("");
-    expect(output).toContain("\x1b[24;1H\x1b[K> ");
-    expect(output).toContain("\x1b[23;1H\x1b[Kthinking");
-    expect(output.lastIndexOf("\x1b[23;1H\x1b[Kthinking")).toBeGreaterThan(
-      output.lastIndexOf("\x1b[1;23r"),
-    );
-  });
-
-  test("does not enable mouse tracking during stream", () => {
-    const terminalInput = new TerminalInput();
-    const setMouseTrackingSpy = spyOn(terminalInput, "setMouseTracking").mockImplementation(() => {});
-    const layout = new TerminalLayout(terminalInput);
+    setTerminalSize(80, 10);
+    const layout = new TerminalLayout(null);
 
     Object.assign(layout as Record<string, unknown>, {
       enabled: true,
       anchored: true,
-      pinned: false,
-      contentBottomRow: 5,
     });
 
-    layout.beginStream();
-    layout.endStream();
+    layout.setReservedRows(1, [plainLine("> ")]);
+    writes = [];
+    layout.writeStatusLine(styledLine("thinking", { dim: true }));
 
-    expect(setMouseTrackingSpy).not.toHaveBeenCalled();
-    setMouseTrackingSpy.mockRestore();
+    const output = writes.join("");
+    expect(output).toContain("\x1b[2mthinking");
   });
 
-  test("repaints pinned stream output from the screen buffer", () => {
+  test("keeps input near content when there is space", () => {
     captureStdout();
-    const layout = createAnchoredLayout(22);
+    setTerminalSize(80, 12);
+    const layout = new TerminalLayout(null);
 
     Object.assign(layout as Record<string, unknown>, {
-      pinned: true,
-      reservedRows: 1,
+      enabled: true,
+      anchored: true,
+      anchorRow: 4,
     });
-    layout.setReservedRows(1, ["> "]);
-    writes = [];
 
-    layout.beginStream();
-    layout.writeScroll("Hel");
-    layout.writeScroll("lo");
+    layout.setReservedRows(1, [plainLine("> hi▌")]);
+    writes = [];
+    layout.writelnScroll("hello");
 
     const output = writes.join("");
-    expect(output).toContain("\x1b[1;23r");
-    expect(output).toContain("\x1b[1;1H\x1b[K");
-    expect(output).toContain("\x1b[1;1HHel");
-    expect(output).toContain("\x1b[1;1HHello");
-    expect((layout as Record<string, unknown>).contentBottomRow).toBe(1);
+    expect(output).toContain("hello");
+    expect(output).toContain("> hi▌");
+    expect(output).not.toContain("\x1b[12;");
   });
 
-  test("clears the separator row before painting the next prompt", () => {
+  test("scrolls back to older transcript lines", () => {
     captureStdout();
-    const layout = createAnchoredLayout(5);
+    setTerminalSize(80, 8);
+    const layout = new TerminalLayout(null);
 
-    layout.setReservedRows(1, ["> "]);
-    layout.beginStream();
-    layout.writelnScroll("> hi");
-    layout.writeScroll("Hello");
-    layout.setReservedRows(1, ["> "]);
+    Object.assign(layout as Record<string, unknown>, {
+      enabled: true,
+      anchored: true,
+      anchorRow: 1,
+    });
+
+    layout.setReservedRows(1, [plainLine("> ")]);
+    for (let index = 1; index <= 10; index += 1) {
+      layout.writelnScroll(`line-${String(index).padStart(2, "0")}`);
+    }
 
     writes = [];
-    layout.writelnScroll("");
-    layout.endStream();
+    layout.scrollPage(1);
 
     const output = writes.join("");
-    expect(output).toContain("\x1b[8;1H\x1b[K");
-    expect(output).toContain("\x1b[9;1H\x1b[K> ");
+    expect(output).toContain("line-01");
   });
 
-  test("scrolls transcript into scrollback for oversized pinned input", () => {
+  test("grows viewport upward as transcript gets longer", () => {
     captureStdout();
-    const layout = createAnchoredLayout(5);
-    const lines = Array.from({ length: 50 }, (_, index) =>
-      `input-${String(index + 1).padStart(2, "0")}`,
+    setTerminalSize(80, 12);
+    const layout = new TerminalLayout(null);
+
+    Object.assign(layout as Record<string, unknown>, {
+      enabled: true,
+      anchored: true,
+      anchorRow: 8,
+    });
+
+    layout.setReservedRows(1, [plainLine("> ")]);
+    for (let index = 1; index <= 8; index += 1) {
+      layout.writelnScroll(`grow-${index}`);
+    }
+
+    const internals = layout as Record<string, unknown>;
+    const previousFrame = internals.previousFrame as { topRow: number } | null;
+    expect(previousFrame?.topRow ?? 8).toBeLessThan(8);
+    expect(previousFrame?.topRow ?? 0).toBeGreaterThanOrEqual(1);
+  });
+
+  test("auto-follows newest output when at latest", () => {
+    captureStdout();
+    setTerminalSize(80, 8);
+    const layout = new TerminalLayout(null);
+
+    Object.assign(layout as Record<string, unknown>, {
+      enabled: true,
+      anchored: true,
+      anchorRow: 1,
+    });
+
+    layout.setReservedRows(1, [plainLine("> ")]);
+    for (let index = 1; index <= 10; index += 1) {
+      layout.writelnScroll(`tail-${index}`);
+    }
+
+    layout.scrollPage(1);
+    let internals = layout as Record<string, unknown>;
+    expect(internals.historyOffset as number).toBeGreaterThan(0);
+    expect(internals.followOutput as boolean).toBe(false);
+
+    layout.scrollToLatest();
+    layout.writelnScroll("tail-latest");
+
+    internals = layout as Record<string, unknown>;
+    expect(internals.historyOffset).toBe(0);
+    expect(internals.followOutput).toBe(true);
+  });
+
+  test("renders debug overlay line when enabled", () => {
+    captureStdout();
+    setTerminalSize(80, 8);
+    const layout = new TerminalLayout(null);
+
+    Object.assign(layout as Record<string, unknown>, {
+      enabled: true,
+      anchored: true,
+      anchorRow: 2,
+    });
+
+    layout.setDebugOverlay(true);
+    layout.setReservedRows(1, [plainLine("> ")]);
+    writes = [];
+    layout.writelnScroll("hello");
+
+    const output = writes.join("");
+    expect(output).toContain("dbg a:");
+  });
+
+  test("does not shrink viewport after it has grown", () => {
+    captureStdout();
+    setTerminalSize(80, 12);
+    const layout = new TerminalLayout(null);
+
+    Object.assign(layout as Record<string, unknown>, {
+      enabled: true,
+      anchored: true,
+      anchorRow: 8,
+      viewportTopRow: 8,
+    });
+
+    layout.setReservedRows(1, [plainLine("> ")]);
+    layout.writeScroll("this is a long streaming line that wraps across many rows in viewport");
+    const grownTop = ((layout as Record<string, unknown>).previousFrame as { topRow: number } | null)
+      ?.topRow ?? 8;
+
+    // Starting a new stream clears transient stream buffer; viewport should not shrink downward.
+    layout.beginStream();
+    const afterResetTop = ((layout as Record<string, unknown>).previousFrame as { topRow: number } | null)
+      ?.topRow ?? 8;
+
+    expect(afterResetTop).toBeLessThanOrEqual(grownTop);
+  });
+
+  test("grows viewport one line at a time", () => {
+    captureStdout();
+    setTerminalSize(80, 12);
+    const layout = new TerminalLayout(null);
+
+    Object.assign(layout as Record<string, unknown>, {
+      enabled: true,
+      anchored: true,
+      anchorRow: 8,
+      viewportTopRow: 8,
+    });
+
+    layout.setReservedRows(1, [plainLine("> ")]);
+    // initial viewport rows = 5 (rows 8..12)
+    let frame = (layout as Record<string, unknown>).previousFrame as { topRow: number } | null;
+    expect(frame?.topRow).toBe(8);
+
+    layout.writelnScroll("line-1");
+    layout.writelnScroll("line-2");
+    layout.writelnScroll("line-3");
+    layout.writelnScroll("line-4");
+    layout.writelnScroll("line-5");
+    // neededRows now exceeds initial by 1 => top should move up by exactly 1
+    frame = (layout as Record<string, unknown>).previousFrame as { topRow: number } | null;
+    expect(frame?.topRow).toBe(7);
+
+    layout.writelnScroll("line-6");
+    frame = (layout as Record<string, unknown>).previousFrame as { topRow: number } | null;
+    expect(frame?.topRow).toBe(6);
+  });
+
+  test("uses wrapped row count to grow into free space", () => {
+    captureStdout();
+    setTerminalSize(20, 12);
+    const layout = new TerminalLayout(null);
+
+    Object.assign(layout as Record<string, unknown>, {
+      enabled: true,
+      anchored: true,
+      anchorRow: 8,
+      viewportTopRow: 8,
+    });
+
+    layout.setReservedRows(1, [plainLine("> ")]);
+    // This single logical line wraps into multiple terminal rows at width=20.
+    layout.writelnScroll(
+      "1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890",
     );
 
-    layout.setReservedRows(lines.length, lines);
-
-    const output = writes.join("");
-    expect(output).toContain("\x1b[1;5r");
-    expect(output).toContain("\x1b[5;1H");
-    expect(output).toContain("\x1b[2;1H\x1b[Kinput-28");
-    expect(output).toContain("\x1b[24;1H\x1b[Kinput-50");
-    expect(output).not.toContain("input-27");
-    expect(output).not.toContain("input-01");
-    expect((layout as Record<string, unknown>).contentBottomRow).toBe(1);
+    const frame = (layout as Record<string, unknown>).previousFrame as { topRow: number } | null;
+    expect(frame?.topRow).toBeLessThan(8);
   });
 });

@@ -61,15 +61,15 @@ export function formatPendingDisplayLines(
       const segment = wrapped[index] ?? "";
       lines.push(
         index === 0
-          ? `\x1b[2m${PENDING_PREFIX}${segment}\x1b[0m`
-          : `\x1b[2m${" ".repeat(prefixLength)}${segment}\x1b[0m`,
+          ? `${PENDING_PREFIX}${segment}`
+          : `${" ".repeat(prefixLength)}${segment}`,
       );
 
       if (lines.length >= maxLines) {
         const remaining = messages.length - messageIndex - 1;
 
         if (remaining > 0) {
-          lines[maxLines - 1] = `\x1b[2m${PENDING_PREFIX}… and ${remaining} more\x1b[0m`;
+          lines[maxLines - 1] = `${PENDING_PREFIX}… and ${remaining} more`;
         }
 
         return lines;

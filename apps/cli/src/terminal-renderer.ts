@@ -1,11 +1,14 @@
 import type { TerminalInput } from "./terminal-input";
 import { getTerminalColumns, TerminalLayout } from "./terminal-layout";
-import {
-  formatPendingDisplayLines,
-  type PendingMessage,
-} from "./message-queue";
+import { formatPendingDisplayLines, type PendingMessage } from "./message-queue";
 import { formatInputForDisplay, splitInputDisplayLines } from "./prompt-display";
 import { truncateText, visibleLength } from "./text-measure";
+import {
+  cloneStyledLine,
+  plainLine,
+  styledLine,
+  type StyledLine,
+} from "./styled-text";
 
 export interface ComposerRenderer {
   setComposerState(state: ComposerState): void;
@@ -13,7 +16,7 @@ export interface ComposerRenderer {
 
 export interface StatusRenderer {
   isEnabled(): boolean;
-  setStatusLine(text: string | null): void;
+  setStatusLine(text: StyledLine | null): void;
 }
 
 export interface ComposerSuggestion {
@@ -48,19 +51,21 @@ export interface TerminalRendererState {
   composer: ComposerState;
   pendingMessages: PendingMessage[];
   transcript: TranscriptEntry[];
-  statusLine: string | null;
+  statusLine: StyledLine | null;
   stream: StreamState;
 }
 
 export function buildComposerLines(
   state: Pick<TerminalRendererState, "composer" | "pendingMessages">,
   width = getTerminalColumns(),
-): string[] {
-  const pendingLines = formatPendingDisplayLines(state.pendingMessages, width);
+): StyledLine[] {
+  const pendingLines = formatPendingDisplayLines(state.pendingMessages, width).map((line) =>
+    styledLine(line, { dim: true }),
+  );
   const display = formatInputForDisplay(state.composer.value);
   const inputLines = splitInputDisplayLines(display, state.composer.prefix.length, width);
   const continuationPrefix = " ".repeat(state.composer.prefix.length);
-  const lines: string[] = [...pendingLines];
+  const lines: StyledLine[] = [...pendingLines];
 
   for (let index = 0; index < inputLines.length; index += 1) {
     const lineText = inputLines[index] ?? "";
@@ -68,11 +73,11 @@ export function buildComposerLines(
     const isLastInputLine = index === inputLines.length - 1;
     const cursor = state.composer.cursorVisible && isLastInputLine ? "▌" : "";
 
-    lines.push(`${linePrefix}${lineText}${cursor}`);
+    lines.push(plainLine(`${linePrefix}${lineText}${cursor}`));
   }
 
   const labelWidth = 14;
-  const suggestionPrefixWidth = labelWidth + 3; // marker + space + label + space
+  const suggestionPrefixWidth = labelWidth + 3;
 
   for (let index = 0; index < state.composer.suggestions.length; index += 1) {
     const suggestion = state.composer.suggestions[index];
@@ -84,16 +89,12 @@ export function buildComposerLines(
     const description = truncateText(suggestion.description, descriptionWidth);
     const content = `${marker} ${label}${" ".repeat(labelPadding)} ${description}`;
 
-    if (selected) {
-      lines.push(`\x1b[36m${content}\x1b[0m`);
-    } else {
-      lines.push(content);
-    }
+    lines.push(selected ? styledLine(content, { color: "cyan" }) : plainLine(content));
   }
 
   if (lines.length === 0) {
     const cursor = state.composer.cursorVisible ? "▌" : "";
-    return [`${state.composer.prefix}${cursor}`];
+    return [plainLine(`${state.composer.prefix}${cursor}`)];
   }
 
   return lines;
@@ -182,8 +183,8 @@ export class TerminalRenderer implements ComposerRenderer, StatusRenderer {
     this.renderComposer();
   }
 
-  setStatusLine(text: string | null): void {
-    this.state.statusLine = text;
+  setStatusLine(text: StyledLine | null): void {
+    this.state.statusLine = text ? cloneStyledLine(text) : null;
 
     if (text === null) {
       this.layout.clearStatusLine();
@@ -223,10 +224,20 @@ export class TerminalRenderer implements ComposerRenderer, StatusRenderer {
     this.layout.writeScroll(text);
   }
 
-  appendOutputLine(text: string): void {
+  appendOutputLine(text: string | StyledLine): void {
+    if (typeof text === "string") {
+      this.state.transcript.push({
+        kind: "output",
+        text,
+      });
+      this.layout.writelnScroll(text);
+      return;
+    }
+
+    const plainText = text.segments.map((segment) => segment.text).join("");
     this.state.transcript.push({
       kind: "output",
-      text,
+      text: plainText,
     });
     this.layout.writelnScroll(text);
   }
@@ -258,9 +269,29 @@ export class TerminalRenderer implements ComposerRenderer, StatusRenderer {
       composer: cloneComposerState(this.state.composer),
       pendingMessages: clonePendingMessages(this.state.pendingMessages),
       transcript: cloneTranscript(this.state.transcript),
-      statusLine: this.state.statusLine,
+      statusLine: this.state.statusLine ? cloneStyledLine(this.state.statusLine) : null,
       stream: { ...this.state.stream },
     };
+  }
+
+  scrollPage(deltaPages: number): void {
+    this.layout.scrollPage(deltaPages);
+  }
+
+  scrollLines(deltaLines: number): void {
+    this.layout.scrollLines(deltaLines);
+  }
+
+  scrollToLatest(): void {
+    this.layout.scrollToLatest();
+  }
+
+  setDebugOverlay(enabled: boolean): void {
+    this.layout.setDebugOverlay(enabled);
+  }
+
+  isDebugOverlayEnabled(): boolean {
+    return this.layout.isDebugOverlayEnabled();
   }
 
   private renderComposer(): void {

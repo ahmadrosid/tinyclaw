@@ -12,7 +12,7 @@ import {
 import type { RemoteChatSession, StreamHandlers } from "@tinyclaw/client";
 import type { TinyClawClient } from "@tinyclaw/client";
 import { mergeSendInput, parseImageLine } from "./image-input";
-import { formatSlashCommands, resolveSuggestions } from "./commands";
+import { formatSlashCommands, effectiveModelState, isActiveModelOption, resolveModelSwitchTarget, resolveSuggestions } from "./commands";
 import { saveCliProfileId } from "./cli-config";
 import {
   resolveProfileInput,
@@ -26,8 +26,9 @@ import { sendStreamCancellable } from "./stream-abort";
 import { ThinkingIndicator } from "./thinking-indicator";
 import { TerminalRenderer } from "./terminal-renderer";
 import { TerminalInput } from "./terminal-input";
+import { styledLine } from "./styled-text";
 
-const HELP_TEXT = `${formatSlashCommands()}\n\n@/path/to/image.png [message]   attach an image from file\n/paste                            attach image from clipboard (recommended)\nCtrl+V / Cmd+V (empty paste)      attach image when terminal supports it`;
+const HELP_TEXT = `${formatSlashCommands()}\n\n@/path/to/image.png [message]   attach an image from file\n/paste                            attach image from clipboard (recommended)\nCtrl+V / Cmd+V (empty paste)      attach image when terminal supports it\nPageUp/PageDown                   scroll conversation history\nHome/End                          jump to oldest/newest visible history`;
 
 interface RunChatOptions {
   client: TinyClawClient;
@@ -174,10 +175,10 @@ async function runStickyChat(
       },
       onToolStart: (event) => {
         thinkingIndicator.stop();
-        renderer.appendOutputLine(`\x1b[2m[tool: ${event.tool}]\x1b[0m`);
+        renderer.appendOutputLine(styledLine(`[tool: ${event.tool}]`, { dim: true }));
       },
       onToolEnd: (event) => {
-        renderer.appendOutputLine(`\x1b[2m[tool: ${event.tool} done]\x1b[0m`);
+        renderer.appendOutputLine(styledLine(`[tool: ${event.tool} done]`, { dim: true }));
       },
     };
   }
@@ -186,7 +187,7 @@ async function runStickyChat(
     thinkingIndicator.stop();
 
     if (aborted) {
-      renderer.appendOutputLine("\x1b[2m[stopped]\x1b[0m");
+      renderer.appendOutputLine(styledLine("[stopped]", { dim: true }));
     }
   }
 
@@ -266,6 +267,7 @@ async function runStickyChat(
 
     lastUserMessage = sendInput.message || line;
     const pending: PendingMessage = { line, images: promptResult.images, sendInput };
+    renderer.scrollToLatest();
 
     if (isStreaming) {
       renderer.appendUserMessage(line, { placement: "below_status" });
@@ -342,12 +344,16 @@ async function runStickyChat(
     }
 
     if (line === "/models") {
-      await printModels(options.client, writeOutput);
+      await printModels(options.client, writeOutput, currentProfile, modelsCache);
       return "handled";
     }
 
     if (line === "/thinking" || line.startsWith("/thinking ")) {
       return handleThinkingCommand(line);
+    }
+
+    if (line === "/debug" || line.startsWith("/debug ")) {
+      return handleDebugCommand(line);
     }
 
     if (line === "/model" || line.startsWith("/model ")) {
@@ -426,11 +432,29 @@ async function runStickyChat(
     return "handled";
   }
 
-  async function handleModelCommand(line: string): Promise<"handled"> {
-    const modelId = line.slice("/model".length).trim();
+  async function handleDebugCommand(line: string): Promise<"handled"> {
+    const arg = line.slice("/debug".length).trim().toLowerCase();
 
-    if (!modelId) {
-      await printCurrentModel(options.client, writeOutput);
+    if (!arg) {
+      writeOutput(`Debug overlay: ${renderer.isDebugOverlayEnabled() ? "on" : "off"}`);
+      return "handled";
+    }
+
+    if (arg !== "on" && arg !== "off") {
+      writeOutput("Usage: /debug [on|off]");
+      return "handled";
+    }
+
+    renderer.setDebugOverlay(arg === "on");
+    writeOutput(`Debug overlay ${arg}.`);
+    return "handled";
+  }
+
+  async function handleModelCommand(line: string): Promise<"handled"> {
+    const modelArg = line.slice("/model".length).trim();
+
+    if (!modelArg) {
+      await printCurrentModel(options.client, writeOutput, currentProfile, modelsCache);
       return "handled";
     }
 
@@ -441,15 +465,28 @@ async function runStickyChat(
 
     try {
       const cached = modelsCache ?? (await options.client.getModels());
-      const match = cached.models.find((model) => model.id === modelId);
-      const providerId = match?.providerId ?? cached.currentProviderId;
+      const target = resolveModelSwitchTarget(cached, modelArg);
 
-      if (!providerId) {
-        writeOutput(`Unknown model: ${modelId}`);
+      if (target === "unknown") {
+        writeOutput(`Unknown model: ${modelArg}`);
         return "handled";
       }
 
-      const result = await options.client.setModel({ providerId, model: modelId });
+      if (target === "ambiguous") {
+        writeOutput(
+          `Ambiguous model: ${modelArg}. Use /model <provider-id>::<model-id> (see /models).`,
+        );
+        return "handled";
+      }
+
+      const result = await options.client.setModel({
+        providerId: target.providerId,
+        model: target.modelId,
+      });
+      const profileResponse = await options.client.updateProfile(currentProfileId, {
+        model: target.modelId,
+      });
+      currentProfile = profileResponse.profile;
       session = await options.client.createSession(options.channel, {
         profileId: currentProfileId,
       });
@@ -595,18 +632,50 @@ async function runStickyChat(
   const prompt = new PersistentPrompt({
     renderer,
     terminalInput,
-    getSuggestions: (input) =>
-      resolveSuggestions({
+    getSuggestions: (input) => {
+      const active = effectiveModelState(currentProfile, modelsCache);
+
+      return resolveSuggestions({
         input,
         models: modelsCache?.models,
-        currentModel: modelsCache?.currentModel,
+        currentModel: active.modelId,
+        currentProviderId: active.providerId,
         profiles: profilesCache,
         currentProfileId,
-      }),
+      });
+    },
     onAbortStream: () => {
       if (isStreaming && abortController) {
         abortController.abort();
       }
+    },
+    onScrollHistory: (event) => {
+      if (event === "line_up") {
+        renderer.scrollLines(1);
+        return;
+      }
+
+      if (event === "line_down") {
+        renderer.scrollLines(-1);
+        return;
+      }
+
+      if (event === "page_up") {
+        renderer.scrollPage(1);
+        return;
+      }
+
+      if (event === "page_down") {
+        renderer.scrollPage(-1);
+        return;
+      }
+
+      if (event === "home") {
+        renderer.scrollPage(10_000);
+        return;
+      }
+
+      renderer.scrollToLatest();
     },
     onCancel: () => {
       exiting = true;
@@ -753,14 +822,23 @@ async function runBlockingChat(context: ChatContext): Promise<void> {
 
       try {
         promptResult = await promptLine("> ", {
-          getSuggestions: (input) =>
-            resolveSuggestions({
+          getSuggestions: (input) => {
+            const profile =
+              profilesCache.find((entry) => entry.id === currentProfileId) ?? null;
+            const active = effectiveModelState(
+              profile ?? { id: currentProfileId, name: "", model: null, isSuper: false, toolCount: 0, mcpServerCount: 0, soulActive: false, hasAvatar: false, createdAt: "", updatedAt: "" },
+              modelsCache,
+            );
+
+            return resolveSuggestions({
               input,
               models: modelsCache?.models,
-              currentModel: modelsCache?.currentModel,
+              currentModel: active.modelId,
+              currentProviderId: active.providerId,
               profiles: profilesCache,
               currentProfileId,
-            }),
+            });
+          },
         });
       } catch (error) {
         if (error instanceof PromptCancelledError) {
@@ -825,44 +903,57 @@ async function runBlockingChat(context: ChatContext): Promise<void> {
 async function printCurrentModel(
   client: TinyClawClient,
   write: (text: string) => void = (text) => console.log(text),
+  profile: ProfileSummary | null = null,
+  cachedModels: ModelsResponse | null = null,
 ): Promise<void> {
-  const models = await client.getModels();
+  const models = cachedModels ?? (await client.getModels());
+  const active = profile
+    ? effectiveModelState(profile, models)
+    : { modelId: models.currentModel, providerId: models.currentProviderId };
 
-  if (!models.provider || !models.currentModel) {
+  if (!models.provider || !active.modelId) {
     write("No model configured.");
     return;
   }
 
   write(`Provider: ${models.provider}`);
-  write(`Model: ${models.currentModel}`);
+  write(`Model: ${active.modelId}`);
 }
 
 async function printModels(
   client: TinyClawClient,
   write: (text: string) => void = (text) => console.log(text),
+  profile: ProfileSummary | null = null,
+  cachedModels: ModelsResponse | null = null,
 ): Promise<void> {
-  const models = await client.getModels();
+  const models = cachedModels ?? (await client.getModels());
 
   if (!models.provider || models.models.length === 0) {
     write("No models available.");
     return;
   }
 
+  const active = profile
+    ? effectiveModelState(profile, models)
+    : { modelId: models.currentModel, providerId: models.currentProviderId };
+
   write(`Provider: ${models.provider}`);
-  write(`Current: ${models.currentModel ?? "none"}`);
+  write(`Current: ${active.modelId ?? "none"}`);
 
   for (const model of models.models) {
     const markers = [
-      model.id === models.currentModel ? "*" : " ",
+      isActiveModelOption(model, active) ? "*" : " ",
       model.default ? "(default)" : "",
     ]
       .filter(Boolean)
       .join(" ");
 
-    write(`${markers} ${model.name} [${model.provider}] (${model.id})`);
+    write(
+      `${markers} ${model.name} [${model.providerLabel ?? model.provider}] (${model.id})`,
+    );
   }
 
-  write("Use /model <id> to switch.");
+  write("Use /model <id> or /model <provider-id>::<id> to switch.");
 }
 
 function formatError(error: unknown): string {

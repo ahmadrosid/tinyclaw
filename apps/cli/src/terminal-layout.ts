@@ -1,6 +1,19 @@
 import type { TerminalInput } from "./terminal-input";
-import { ScreenBuffer } from "./screen-buffer";
-import { tokenizeText, visibleLength } from "./text-measure";
+import {
+  clampFrameCursor,
+  cursorColFromLine,
+  diffFrames,
+  serializeDiffOps,
+  type FrameModel,
+} from "./terminal-frame";
+import {
+  normalizeStyledLine,
+  plainLine,
+  styledLine,
+  styledLineText,
+  type StyledLine,
+} from "./styled-text";
+import { wrapText } from "./text-measure";
 
 export function computeReservedRows(options: {
   pendingLineCount: number;
@@ -48,20 +61,44 @@ export function getTerminalColumns(): number {
   return process.stdout.columns ?? 80;
 }
 
+function wrapPlainTextToLines(text: string, width: number): string[] {
+  const normalized = text.replace(/\r\n?/g, "\n");
+  const logicalLines = normalized.split("\n");
+  const wrappedLines: string[] = [];
+
+  for (const logicalLine of logicalLines) {
+    if (logicalLine === "") {
+      wrappedLines.push("");
+      continue;
+    }
+
+    wrappedLines.push(...wrapText(logicalLine, Math.max(1, width)));
+  }
+
+  return wrappedLines.length > 0 ? wrappedLines : [""];
+}
+
+function wrapStyledLineToPlainRows(line: StyledLine, width: number): StyledLine[] {
+  const text = styledLineText(line);
+  const rows = wrapPlainTextToLines(text, width);
+  return rows.map((row) => plainLine(row));
+}
+
 export class TerminalLayout {
   private enabled = false;
-  private pinned = false;
   private reservedRows = 1;
-  private readonly buffer = new ScreenBuffer();
-  private contentBottomRow = 0;
-  private statusAbsoluteRow: number | null = null;
-  private streamAbsoluteRow: number | null = null;
-  private streamColumn = 1;
-  private streaming = false;
   private anchored = false;
-  private previousInputStartRow: number | null = null;
-  private previousInputRowCount = 0;
-  private reconciledOverflow = 0;
+  private anchorRow = 1;
+  private viewportTopRow = 1;
+  private transcriptLines: StyledLine[] = [];
+  private streamBuffer = "";
+  private statusLine: StyledLine | null = null;
+  private inputLines: StyledLine[] = [plainLine("")];
+  private previousFrame: FrameModel | null = null;
+  private historyOffset = 0;
+  private followOutput = true;
+  private debugOverlay = false;
+  private contentWindowRows = 1;
   private resizeHandler: (() => void) | null = null;
 
   constructor(private readonly terminalInput: TerminalInput | null = null) {}
@@ -72,32 +109,28 @@ export class TerminalLayout {
     }
 
     this.enabled = true;
-    this.pinned = false;
     this.anchored = false;
-    this.contentBottomRow = 0;
+    this.previousFrame = null;
+    this.viewportTopRow = 1;
 
     this.resizeHandler = () => {
-      this.syncPinState();
-      if (this.pinned) {
-        this.updateScrollRegion();
-      }
-
-      this.paintInput();
-      this.paintStatus();
+      this.render();
     };
     process.stdout.on("resize", this.resizeHandler);
-
     return true;
   }
 
   async anchorFromCursor(): Promise<void> {
     const row = await this.terminalInput?.requestCursorRow();
-
     if (row !== null && row > 0) {
-      this.contentBottomRow = row - 1;
+      this.anchorRow = row;
+    } else {
+      // Fall back to a compact inline start near the bottom when cursor probing fails.
+      this.anchorRow = getTerminalRows();
     }
-
+    this.viewportTopRow = this.anchorRow;
     this.anchored = true;
+    this.render();
   }
 
   isAnchored(): boolean {
@@ -105,7 +138,7 @@ export class TerminalLayout {
   }
 
   getLastOutputLine(): number {
-    return this.contentBottomRow;
+    return this.transcriptLines.length;
   }
 
   reset(): void {
@@ -121,521 +154,273 @@ export class TerminalLayout {
     process.stdout.write("\x1b[r");
     process.stdout.write("\x1b[?25h");
     this.enabled = false;
-    this.pinned = false;
     this.anchored = false;
-    this.streaming = false;
-    this.statusAbsoluteRow = null;
-    this.streamAbsoluteRow = null;
+    this.anchorRow = 1;
+    this.viewportTopRow = 1;
+    this.historyOffset = 0;
+    this.followOutput = true;
+    this.contentWindowRows = 1;
+    this.previousFrame = null;
   }
 
   isEnabled(): boolean {
     return this.enabled;
   }
 
-  setBottomLines(lines: string[]): void {
-    this.buffer.setInputLines(lines);
-    this.reservedRows = Math.max(1, lines.length);
-    this.syncPinState();
-    this.paintInput();
-    this.paintStatus();
+  setDebugOverlay(enabled: boolean): void {
+    this.debugOverlay = enabled;
+    this.render();
   }
 
-  setReservedRows(rows: number, lines: string[]): void {
+  isDebugOverlayEnabled(): boolean {
+    return this.debugOverlay;
+  }
+
+  setBottomLines(lines: Array<StyledLine | string>): void {
+    this.setReservedRows(lines.length, lines);
+  }
+
+  setReservedRows(rows: number, lines: Array<StyledLine | string>): void {
     this.reservedRows = Math.max(1, rows);
-    this.buffer.setInputLines(lines);
-    this.syncPinState();
-    this.paintInput();
-    this.paintStatus();
+    this.inputLines = (lines.length > 0 ? lines : [plainLine("")]).map((line) =>
+      normalizeStyledLine(line),
+    );
+    this.render();
   }
 
   beginStream(): void {
-    this.streaming = false;
-    this.reconciledOverflow = 0;
-    this.buffer.setStatus(null);
-    this.statusAbsoluteRow = null;
-    this.streamAbsoluteRow = this.pinned ? this.getScrollBottom() : this.getInlineInputStartRow();
-    this.streamColumn = 1;
+    this.streamBuffer = "";
+    this.statusLine = null;
+    if (this.followOutput) {
+      this.historyOffset = 0;
+    }
+    this.render();
   }
 
   endStream(): void {
-    this.streaming = false;
-    this.buffer.setStatus(null);
-    this.statusAbsoluteRow = null;
-    this.buffer.finalizeStream();
-    this.reconciledOverflow = 0;
-
-    if (this.pinned) {
-      this.reconcilePinnedContent();
-    } else if (this.streamAbsoluteRow !== null) {
-      this.contentBottomRow = Math.max(this.contentBottomRow, this.streamAbsoluteRow);
+    this.flushStreamBuffer();
+    this.statusLine = null;
+    if (this.followOutput) {
+      this.historyOffset = 0;
     }
-
-    this.streamAbsoluteRow = null;
-    this.syncPinState();
-    this.paintInput();
+    this.render();
   }
 
-  writeStatusLine(text: string): void {
-    if (!this.enabled) {
-      process.stdout.write(`\r\x1b[K${text}`);
+  writeStatusLine(text: StyledLine | string): void {
+    if (!this.enabled || !this.anchored) {
+      process.stdout.write(`\r\x1b[K${styledLineText(normalizeStyledLine(text))}`);
       return;
     }
 
-    this.buffer.setStatus(text);
-
-    if (this.pinned) {
-      this.statusAbsoluteRow = this.getScrollBottom();
-      this.paintInput();
-      this.paintStatus();
-      return;
-    }
-
-    if (this.statusAbsoluteRow === null) {
-      const row = this.getInlineInputStartRow();
-      process.stdout.write(`\x1b[${row};1H\x1b[K${text}`);
-      this.statusAbsoluteRow = row;
-      this.streamAbsoluteRow = row;
-      this.streamColumn = text.length + 1;
-    } else {
-      process.stdout.write(`\x1b[${this.statusAbsoluteRow};1H\x1b[K${text}`);
-      this.streamAbsoluteRow = this.statusAbsoluteRow;
-      this.streamColumn = text.length + 1;
-    }
-
-    this.paintInput();
+    this.statusLine = normalizeStyledLine(text);
+    this.render();
   }
 
   clearStatusLine(): void {
-    let clearedInlineStatus = false;
-
-    if (this.statusAbsoluteRow !== null) {
-      if (this.pinned) {
-        process.stdout.write(`\x1b[${this.statusAbsoluteRow};1H\x1b[K`);
-        this.streaming = false;
-      } else {
-        const row = this.statusAbsoluteRow;
-        process.stdout.write(`\x1b[${row};1H\x1b[K`);
-        this.streamAbsoluteRow = row;
-        this.streamColumn = 1;
-        clearedInlineStatus = true;
-      }
-    }
-
-    this.buffer.setStatus(null);
-    this.statusAbsoluteRow = null;
-
-    if (clearedInlineStatus) {
-      this.paintInput();
-    }
+    this.statusLine = null;
+    this.render();
   }
 
-  writelnBelowStatus(text: string): void {
-    if (!this.enabled) {
-      process.stdout.write(`${text}\n`);
-      return;
-    }
-
-    if (this.pinned) {
-      const baseRow = this.statusAbsoluteRow ?? this.contentBottomRow;
-      const row = baseRow + 1;
-      process.stdout.write(`\x1b[${row};1H\x1b[K${text}\n`);
-      this.contentBottomRow = row;
-      this.buffer.appendLine(text);
-
-      if (this.statusAbsoluteRow !== null && this.buffer.getStatusLine() !== null) {
-        this.statusAbsoluteRow = row + 1;
-        process.stdout.write(`\x1b[${this.statusAbsoluteRow};1H\x1b[K${this.buffer.getStatusLine()}`);
-      }
-
-      this.streaming = false;
-      this.syncPinState();
-      this.paintInput();
-      this.paintStatus();
-      return;
-    }
-
-    const row = (this.statusAbsoluteRow ?? this.contentBottomRow) + 1;
-    process.stdout.write(`\x1b[${row};1H\x1b[K${text}\n`);
-    this.contentBottomRow = row;
-    this.buffer.appendLine(text);
-    this.streamAbsoluteRow = row + 1;
-    this.streamColumn = 1;
-    this.syncPinState();
-    this.paintInput();
-    this.paintStatus();
+  writelnBelowStatus(text: StyledLine | string): void {
+    this.writelnScroll(text);
   }
 
   hasStatusLine(): boolean {
-    return this.buffer.getStatusLine() !== null;
+    return this.statusLine !== null;
   }
 
-  writeScroll(text: string): void {
-    if (!this.enabled) {
-      process.stdout.write(text);
+  writeScroll(text: StyledLine | string): void {
+    const line = normalizeStyledLine(text);
+    const plain = styledLineText(line);
+
+    if (!this.enabled || !this.anchored) {
+      process.stdout.write(plain);
       return;
     }
 
-    if (this.pinned) {
-      if (!this.streaming) {
-        this.streaming = true;
-      }
-
-      this.buffer.appendStream(text, getTerminalColumns());
-      this.reconcilePinnedContent();
-      return;
+    this.streamBuffer += plain;
+    if (this.followOutput) {
+      this.historyOffset = 0;
     }
-
-    this.writeInlineStream(text);
+    this.render();
   }
 
-  writelnScroll(text: string): void {
-    if (!this.enabled) {
-      process.stdout.write(`${text}\n`);
+  writelnScroll(text: StyledLine | string): void {
+    const line = normalizeStyledLine(text);
+    const plain = styledLineText(line);
+
+    if (!this.enabled || !this.anchored) {
+      process.stdout.write(`${plain}\n`);
       return;
     }
 
-    if (!this.anchored) {
-      process.stdout.write(`${text}\n`);
-      return;
+    this.flushStreamBuffer();
+    this.transcriptLines.push(line);
+    if (this.followOutput) {
+      this.historyOffset = 0;
     }
-
-    if (this.pinned) {
-      this.writeScroll(`${text}\n`);
-      return;
-    }
-
-    if (text === "") {
-      this.appendContentNewline();
-      return;
-    }
-
-    this.writeInlineLine(text);
-    this.streamAbsoluteRow = this.contentBottomRow + 1;
-    this.streamColumn = 1;
-    this.syncPinState();
-    this.paintInput();
+    this.render();
   }
 
   writelnIntro(text: string): void {
     process.stdout.write(`${text}\n`);
   }
 
-  private writeInlineLine(text: string): void {
-    this.syncPinState();
-
-    if (this.pinned) {
-      this.writeScroll(`${text}\n`);
-      return;
-    }
-
-    const row = this.getInlineInputStartRow();
-    process.stdout.write(`\x1b[${row};1H\x1b[K${text}\n`);
-    this.contentBottomRow = row;
-    this.buffer.appendLine(text);
-    this.previousInputStartRow = null;
-    this.previousInputRowCount = 0;
-    this.syncPinState();
-  }
-
-  private writeInlineStream(text: string): void {
-    this.syncPinState();
-
-    if (this.pinned) {
-      if (!this.streaming) {
-        this.streaming = true;
-      }
-
-      this.buffer.appendStream(text, getTerminalColumns());
-      this.reconcilePinnedContent();
-      return;
-    }
-
-    if (this.streamAbsoluteRow === null) {
-      this.streamAbsoluteRow = this.getInlineInputStartRow();
-      this.streamColumn = 1;
-    }
-
-    process.stdout.write(`\x1b[${this.streamAbsoluteRow};${this.streamColumn}H`);
-    process.stdout.write(text);
-    this.buffer.appendStream(text, getTerminalColumns());
-
-    const width = getTerminalColumns();
-    for (const token of tokenizeText(text)) {
-      if (token.type === "ansi") {
-        continue;
-      }
-
-      if (token.value === "\n") {
-        this.streamAbsoluteRow += 1;
-        this.streamColumn = 1;
-        this.contentBottomRow = Math.max(this.contentBottomRow, this.streamAbsoluteRow);
-        continue;
-      }
-
-      this.streamColumn += token.width;
-
-      if (this.streamColumn > width) {
-        this.streamAbsoluteRow += 1;
-        this.streamColumn = token.width;
-        this.contentBottomRow = Math.max(this.contentBottomRow, this.streamAbsoluteRow);
-      }
-    }
-
-    this.contentBottomRow = Math.max(
-      this.contentBottomRow,
-      this.streamAbsoluteRow ?? 0,
-    );
-
-    this.syncPinState();
-  }
-
-  private appendContentNewline(): void {
-    const nextRow = (this.streamAbsoluteRow ?? this.contentBottomRow) + 1;
-    process.stdout.write(`\x1b[${nextRow};1H\x1b[K`);
-    this.contentBottomRow = nextRow;
-    this.streamAbsoluteRow = nextRow;
-    this.streamColumn = 1;
-    this.syncPinState();
-  }
-
-  private syncPinState(): void {
-    if (!this.anchored) {
-      return;
-    }
-
-    const inputStart = this.getInlineInputStartRow();
-    const nextPinned = shouldPinToBottom(
-      inputStart - 1,
-      this.buffer.inputRowCount(),
-      getTerminalRows(),
-    );
-
-    if (nextPinned === this.pinned) {
-      return;
-    }
-
-    this.pinned = nextPinned;
-    this.previousInputStartRow = null;
-    this.previousInputRowCount = 0;
-    this.reconciledOverflow = 0;
-
-    if (this.pinned) {
-      this.updateScrollRegion();
-      this.streaming = false;
-      return;
-    }
-
-    process.stdout.write("\x1b[r");
-    this.streaming = false;
-    this.statusAbsoluteRow = null;
-  }
-
-  private getScrollBottom(): number {
-    return Math.max(1, getTerminalRows() - this.getVisiblePinnedInputRowCount());
-  }
-
-  private getInlineInputStartRow(): number {
-    const anchor = this.statusAbsoluteRow ?? this.contentBottomRow;
-    return anchor + 1;
-  }
-
-  private getVisiblePinnedInputRowCount(): number {
-    return getVisiblePinnedInputRows(this.reservedRows, getTerminalRows());
-  }
-
-  private paintStatus(): void {
-    if (!this.anchored) {
-      return;
-    }
-
-    const status = this.buffer.getStatusLine();
-
-    if (status === null || this.statusAbsoluteRow === null) {
-      return;
-    }
-
-    const row = this.pinned ? this.getScrollBottom() : this.statusAbsoluteRow;
-    this.statusAbsoluteRow = row;
-    process.stdout.write(`\x1b[${row};1H\x1b[K${status}`);
-  }
-
-  private paintInput(): void {
+  scrollPage(deltaPages: number): void {
     if (!this.enabled || !this.anchored) {
       return;
     }
 
-    if (this.pinned) {
-      this.paintPinnedInput();
+    const step = Math.max(1, this.contentWindowRows - 1);
+    this.historyOffset += deltaPages * step;
+    this.followOutput = false;
+    this.render();
+  }
+
+  scrollLines(deltaLines: number): void {
+    if (!this.enabled || !this.anchored) {
       return;
     }
 
-    const lines = this.buffer.getInputLines();
-
-    if (this.contentBottomRow === 0) {
-      for (let index = 0; index < lines.length; index += 1) {
-        if (index === 0) {
-          process.stdout.write(`\r\x1b[K${lines[index] ?? ""}`);
-        } else {
-          process.stdout.write(`\n\x1b[K${lines[index] ?? ""}`);
-        }
-      }
-
-      process.stdout.write("\x1b[?25l");
+    if (deltaLines === 0) {
       return;
     }
 
-    const startRow = this.getInlineInputStartRow();
-
-    if (this.previousInputStartRow !== null) {
-      if (this.previousInputStartRow === startRow) {
-        const clearCount = Math.max(lines.length, this.previousInputRowCount);
-
-        for (let index = 0; index < clearCount; index += 1) {
-          process.stdout.write(`\x1b[${startRow + index};1H\x1b[K`);
-        }
-      } else if (this.previousInputStartRow > this.contentBottomRow) {
-        for (let index = 0; index < this.previousInputRowCount; index += 1) {
-          process.stdout.write(`\x1b[${this.previousInputStartRow + index};1H\x1b[K`);
-        }
-      }
-    }
-
-    for (let index = 0; index < lines.length; index += 1) {
-      const row = startRow + index;
-      process.stdout.write(`\x1b[${row};1H\x1b[K${lines[index] ?? ""}`);
-    }
-
-    this.previousInputStartRow = startRow;
-    this.previousInputRowCount = lines.length;
-
-    const inputRow = startRow + lines.length - 1;
-    const lastLine = lines[lines.length - 1] ?? "";
-    process.stdout.write(`\x1b[${inputRow};${visibleLength(lastLine) + 1}H`);
-    process.stdout.write("\x1b[?25l");
+    this.historyOffset += deltaLines;
+    this.followOutput = false;
+    this.render();
   }
 
-  private paintPinnedInput(): void {
-    const rows = getTerminalRows();
-    const lines = this.buffer.getInputLines();
-    const visibleRows = this.getVisiblePinnedInputRowCount();
-    const visibleLines = lines.slice(-visibleRows);
-    const startRow = getPinnedInputStartLine(this.reservedRows, rows);
-    const contentLimit = this.getPinnedContentBottomLimit(startRow);
-    const overflow = this.contentBottomRow - contentLimit;
-
-    this.updateScrollRegion();
-
-    if (overflow > 0) {
-      this.scrollContentUp(this.contentBottomRow, overflow);
-      this.updateScrollRegion();
-    }
-
-    if (this.previousInputStartRow !== null) {
-      const previousEndRow = this.previousInputStartRow + this.previousInputRowCount - 1;
-      const currentEndRow = startRow + visibleRows - 1;
-      const clearFrom = Math.min(this.previousInputStartRow, startRow);
-      const clearTo = Math.max(previousEndRow, currentEndRow);
-
-      for (let row = clearFrom; row <= clearTo; row += 1) {
-        process.stdout.write(`\x1b[${row};1H\x1b[K`);
-      }
-    }
-
-    for (let index = 0; index < visibleRows; index += 1) {
-      const row = startRow + index;
-      process.stdout.write(`\x1b[${row};1H\x1b[K${visibleLines[index] ?? ""}`);
-    }
-
-    this.previousInputStartRow = startRow;
-    this.previousInputRowCount = visibleRows;
-
-    const inputRow = startRow + visibleLines.length - 1;
-    const lastLine = visibleLines[visibleLines.length - 1] ?? "";
-    process.stdout.write(`\x1b[${inputRow};${visibleLength(lastLine) + 1}H`);
-    process.stdout.write("\x1b[?25l");
-  }
-
-  private getPinnedContentBottomLimit(startRow: number): number {
-    const hasPinnedStatus = this.statusAbsoluteRow !== null && this.buffer.getStatusLine() !== null;
-
-    if (hasPinnedStatus) {
-      return Math.max(0, startRow - 2);
-    }
-
-    return Math.max(0, startRow - 1);
-  }
-
-  private scrollContentUp(scrollBottom: number, lines: number): void {
-    if (scrollBottom < 1 || lines <= 0) {
+  scrollToLatest(): void {
+    if (!this.enabled || !this.anchored) {
       return;
     }
 
-    process.stdout.write(`\x1b[1;${scrollBottom}r`);
-    process.stdout.write(`\x1b[${scrollBottom};1H`);
-
-    for (let index = 0; index < lines; index += 1) {
-      process.stdout.write("\n");
-    }
-
-    this.contentBottomRow = Math.max(0, this.contentBottomRow - lines);
-
-    if (this.pinned && this.streamAbsoluteRow !== null) {
-      this.streamAbsoluteRow = this.getScrollBottom();
-    }
+    this.historyOffset = 0;
+    this.followOutput = true;
+    this.render();
   }
 
-  private reconcilePinnedContent(): void {
-    if (!this.pinned || !this.anchored) {
+  private flushStreamBuffer(): void {
+    if (!this.streamBuffer) {
+      return;
+    }
+
+    const lines = wrapPlainTextToLines(this.streamBuffer, getTerminalColumns());
+    for (const line of lines) {
+      this.transcriptLines.push(plainLine(line));
+    }
+    this.streamBuffer = "";
+  }
+
+  private streamLines(): StyledLine[] {
+    if (!this.streamBuffer) {
+      return [];
+    }
+
+    return wrapPlainTextToLines(this.streamBuffer, getTerminalColumns()).map((line) =>
+      plainLine(line),
+    );
+  }
+
+  private render(): void {
+    if (!this.enabled || !this.anchored) {
       return;
     }
 
     const rows = getTerminalRows();
-    const startRow = getPinnedInputStartLine(this.reservedRows, rows);
-    const scrollBottom = this.getScrollBottom();
-    const maxContentRows = Math.max(1, this.getPinnedContentBottomLimit(startRow));
-    const allLines = this.buffer.getVisibleContentLines();
-    const overflow = Math.max(0, allLines.length - maxContentRows);
-    const newScroll = overflow - this.reconciledOverflow;
+    const cols = getTerminalColumns();
+    const fullContent = [...this.transcriptLines, ...this.streamLines()].flatMap((line) =>
+      wrapStyledLineToPlainRows(line, cols),
+    );
+    const statusRows = this.statusLine ? 1 : 0;
+    const debugRows = this.debugOverlay ? 1 : 0;
+    const neededRows = Math.max(1, fullContent.length + statusRows + this.reservedRows + debugRows);
+    const anchor = Math.min(rows, Math.max(1, this.anchorRow));
+    const initialViewportRows = Math.max(1, rows - anchor + 1);
+    const targetViewportRows = Math.min(rows, Math.max(initialViewportRows, neededRows));
+    const desiredTop = Math.max(1, rows - targetViewportRows + 1);
+    // Keep viewport growth monotonic within a session: once grown upward, do not shrink down.
+    this.viewportTopRow = Math.max(1, Math.min(anchor, this.viewportTopRow, desiredTop));
+    const viewportTop = this.viewportTopRow;
+    const viewportRows = Math.max(1, rows - viewportTop + 1);
+    const visibleInputRows = getVisiblePinnedInputRows(this.reservedRows, viewportRows);
+    const visibleInput = this.inputLines.slice(-visibleInputRows);
+    const pinned = fullContent.length + statusRows + debugRows + visibleInput.length > viewportRows;
+    const contentCapacity = pinned
+      ? Math.max(0, viewportRows - visibleInput.length - statusRows - debugRows)
+      : fullContent.length;
+    this.contentWindowRows = Math.max(1, contentCapacity);
+    const maxOffset = Math.max(0, fullContent.length - contentCapacity);
+    this.historyOffset = Math.max(0, Math.min(maxOffset, this.historyOffset));
+    if (this.historyOffset === 0) {
+      this.followOutput = true;
+    }
+    const endExclusive = Math.max(0, fullContent.length - this.historyOffset);
+    const startInclusive = Math.max(0, endExclusive - contentCapacity);
+    const visibleContent = fullContent.slice(startInclusive, endExclusive);
 
-    this.updateScrollRegion();
+    const lines: StyledLine[] = Array.from({ length: viewportRows }, () => plainLine(""));
+    let row = 0;
 
-    if (newScroll > 0) {
-      this.scrollContentUp(scrollBottom, newScroll);
-      this.updateScrollRegion();
+    if (this.debugOverlay && viewportRows > 0) {
+      const debugText =
+        `dbg a:${anchor} top:${viewportTop} vr:${viewportRows} ` +
+        `cap:${contentCapacity} full:${fullContent.length} off:${this.historyOffset} ` +
+        `follow:${this.followOutput ? "1" : "0"} pin:${pinned ? "1" : "0"} dtop:${desiredTop} ` +
+        `sr:${viewportTop}-${pinned ? Math.max(viewportTop, rows - visibleInput.length) : rows}`;
+      lines[0] = styledLine(debugText.slice(0, Math.max(1, cols)), { dim: true, color: "yellow" });
+      row = 1;
     }
 
-    this.reconciledOverflow = overflow;
-
-    const visibleLines = allLines.slice(-maxContentRows);
-
-    for (let row = 1; row <= scrollBottom; row += 1) {
-      process.stdout.write(`\x1b[${row};1H\x1b[K`);
+    for (const line of visibleContent.slice(-viewportRows)) {
+      if (row >= viewportRows) break;
+      lines[row] = line;
+      row += 1;
     }
 
-    for (let index = 0; index < visibleLines.length; index += 1) {
-      process.stdout.write(`\x1b[${index + 1};1H${visibleLines[index] ?? ""}`);
+    if (this.statusLine) {
+      const statusRow = pinned
+        ? Math.max(0, viewportRows - visibleInput.length - 1)
+        : Math.min(viewportRows - 1, row);
+      lines[statusRow] = this.statusLine;
     }
 
-    this.contentBottomRow = visibleLines.length;
-
-    const status = this.buffer.getStatusLine();
-
-    if (status !== null) {
-      this.statusAbsoluteRow = scrollBottom;
-      process.stdout.write(`\x1b[${scrollBottom};1H\x1b[K${status}`);
-    } else {
-      this.statusAbsoluteRow = null;
+    const inputStart = pinned
+      ? Math.max(0, viewportRows - visibleInput.length)
+      : Math.min(viewportRows - visibleInput.length, row + statusRows);
+    for (let index = 0; index < visibleInput.length; index += 1) {
+      lines[inputStart + index] = visibleInput[index] ?? plainLine("");
     }
 
-    if (this.streaming) {
-      this.streamAbsoluteRow = scrollBottom;
-      this.streamColumn = (visibleLines[visibleLines.length - 1] ?? "").length + 1;
+    const cursorLine = visibleInput[visibleInput.length - 1] ?? plainLine("");
+    const cursorRow = viewportTop + Math.max(1, inputStart + visibleInput.length) - 1;
+    const scrollBottom = pinned
+      ? Math.max(viewportTop, rows - visibleInput.length)
+      : rows;
+    const frame = clampFrameCursor(
+      {
+        lines,
+        topRow: viewportTop,
+        scrollTop: viewportTop,
+        scrollBottom,
+        cursor: {
+          row: cursorRow,
+          col: cursorColFromLine(cursorLine, cols),
+          visible: false,
+        },
+      },
+      rows,
+      cols,
+    );
+    const operations = diffFrames(this.previousFrame, frame);
+    const output = serializeDiffOps(operations);
+
+    if (output) {
+      process.stdout.write(output);
     }
+
+    this.previousFrame = frame;
   }
 
-  private updateScrollRegion(): void {
-    const scrollBottom = this.getScrollBottom();
-    process.stdout.write(`\x1b[1;${scrollBottom}r`);
-    process.stdout.write(`\x1b[${scrollBottom};1H`);
-  }
 }
