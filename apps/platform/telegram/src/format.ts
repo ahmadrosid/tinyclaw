@@ -159,7 +159,7 @@ export const HELP_TEXT = `TinyClaw Telegram commands:
 
 /start — welcome and show this message
 /help — show this message
-/stop — stop the current reply while it is streaming
+/stop — stop the agent's current reply (works during tool runs)
 /clear — clear chat history
 /compact — compact conversation history
 /new — start a new conversation

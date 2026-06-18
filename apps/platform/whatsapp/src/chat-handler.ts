@@ -47,20 +47,20 @@ export function createChatHandler(deps: ChatHandlerDeps) {
 
     const trimmed = text.trim();
 
+    if (isStopCommand(trimmed)) {
+      if (!stopActiveStream(jid)) {
+        await sendText(jid, "Nothing to stop.");
+      }
+
+      return;
+    }
+
     await withChatLock(jid, async () => {
       await authStore.reload();
       const authorized = authStore.isAuthorized(jid);
 
       if (!authorized) {
         await handlePairing(jid, trimmed);
-        return;
-      }
-
-      if (isStopCommand(trimmed)) {
-        if (!stopActiveStream(jid)) {
-          await sendText(jid, "Nothing to stop.");
-        }
-
         return;
       }
 
@@ -137,13 +137,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       case "/status":
         await replyStatus(jid);
         return;
-
-      case "/stop": {
-        if (!stopActiveStream(jid)) {
-          await sendText(jid, "Nothing to stop.");
-        }
-        return;
-      }
 
       default:
         await sendText(jid, "Unknown command. Try /help");

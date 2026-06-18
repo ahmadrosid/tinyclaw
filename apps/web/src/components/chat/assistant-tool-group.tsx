@@ -8,6 +8,7 @@ import {
   formatToolCommand,
   formatToolResult,
 } from "@/lib/chat-stream";
+import { ThinkingContent } from "@/components/chat/thinking-content";
 import { cn } from "@/lib/utils";
 
 export type AssistantTurnSegment =
@@ -191,9 +192,7 @@ function ThinkingBlock({ message }: { message: ChatListItem }) {
         label={isStreaming ? "Thinking…" : "Thought"}
       />
       {open && text ? (
-        <p className="mt-2 whitespace-pre-wrap pl-5 text-sm leading-relaxed text-muted-foreground">
-          {text}
-        </p>
+        <ThinkingContent className="mt-2 pl-5">{text}</ThinkingContent>
       ) : null}
     </div>
   );
@@ -214,7 +213,7 @@ function ThinkingInline({
 
   return (
     <div className={cn("relative", !isLast && "pb-3")}>
-      <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{text}</p>
+      <ThinkingContent>{text}</ThinkingContent>
     </div>
   );
 }

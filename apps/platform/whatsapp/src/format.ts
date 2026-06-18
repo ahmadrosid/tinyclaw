@@ -150,7 +150,7 @@ function formatWhatsAppTodoLine(todo: AgentTodo): string {
 export const HELP_TEXT = `TinyClaw WhatsApp commands:
 
 /help \u2014 show this message
-/stop \u2014 stop the current reply while it is streaming
+/stop \u2014 stop the agent's current reply (works during tool runs)
 /clear \u2014 clear chat history
 /compact \u2014 compact conversation history
 /new \u2014 start a new conversation

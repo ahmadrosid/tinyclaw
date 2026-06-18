@@ -281,6 +281,43 @@ describe("createChatHandler", () => {
     });
   });
 
+  test("/stop aborts an in-flight stream without waiting for the chat lock", async () => {
+    await withTempHome(async (homeDir) => {
+      await writeWhatsAppConfigIni(homeDir, {
+        phoneNumber: "1234567890",
+        pairedJid: PAIRED_JID,
+      });
+
+      const authStore = new WhatsAppAuthStore();
+      await authStore.reload();
+      const { client, calls, getStreamControl } = createMockClient({ streaming: true });
+      const sessionStore = new SessionStore(
+        path.join(homeDir, ".tinyclaw", "whatsapp", "chat-sessions.json"),
+      );
+      const { socket, sent } = createMockSocket();
+
+      const handleMessage = createChatHandler({
+        client,
+        config: { phoneNumber: "1234567890", profileId: "profile_default" },
+        authStore,
+        sessionStore,
+        getSocket: () => socket as any,
+      });
+
+      const chatPromise = handleMessage({ jid: PAIRED_JID, text: "hello agent" });
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(getStreamControl()?.signal).toBeDefined();
+
+      await handleMessage({ jid: PAIRED_JID, text: "/stop" });
+
+      await chatPromise;
+
+      expect(calls.sendStream).toBe(1);
+      expect(sent.map((message) => message.text)).toEqual(["Stopped."]);
+    });
+  });
+
   test("/stop with no active stream replies nothing to stop", async () => {
     await withTempHome(async (homeDir) => {
       await writeWhatsAppConfigIni(homeDir, {
