@@ -88,27 +88,22 @@ export function StatusPage() {
 function StatusDashboard({ status }: { status: SystemStatusResponse }) {
   const summary = useMemo(() => deriveSummary(status), [status]);
   const services = useMemo(() => buildServiceColumns(status), [status]);
-  const { automationWorker, taskWorker, telegramWorker, whatsappWorker } = status;
+  const { automationWorker, telegramWorker, whatsappWorker } = status;
 
   return (
     <section className={cn(sectionClass, "min-w-0 overflow-hidden")}>
       <SummaryStrip status={status} summary={summary} />
 
-      <div className="grid grid-cols-1 divide-y divide-border border-b border-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <div className="grid grid-cols-1 divide-y divide-border border-b border-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         <QuickStat label="Scheduled jobs" value={automationWorker.scheduledJobs} />
         <QuickStat
           label="Automation runs"
           value={automationWorker.activeRuns}
           active={automationWorker.activeRuns > 0}
         />
-        <QuickStat
-          label="Task runs"
-          value={taskWorker.activeRuns}
-          active={taskWorker.activeRuns > 0}
-        />
       </div>
 
-      <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+      <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         {services.map((service) => {
           if (service.title === "Telegram") {
             return (

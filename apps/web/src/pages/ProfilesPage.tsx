@@ -29,7 +29,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -1005,6 +1004,20 @@ export function ProfilesPage() {
                 <PlusIcon className="size-4" aria-hidden />
                 New
               </Button>
+
+              {selectedId && detail && !detail.isSuper ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  className="shrink-0 text-destructive hover:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2Icon className="size-4" aria-hidden />
+                  Delete
+                </Button>
+              ) : null}
             </div>
 
             {profiles.length > 0 ? (
@@ -1073,6 +1086,22 @@ export function ProfilesPage() {
                 </div>
               )}
 
+              {selectedId && detail && !detail.isSuper ? (
+                <div className="mt-4 border-t border-border pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    className="w-full text-destructive hover:text-destructive"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2Icon className="size-4" aria-hidden />
+                    Delete
+                  </Button>
+                </div>
+              ) : null}
+
             </aside>
 
             <div className="min-w-0 p-4 sm:p-5">
@@ -1091,58 +1120,6 @@ export function ProfilesPage() {
               ) : (
                 <>
                   <div className="mb-3">
-                    {!detail.isSuper ? (
-                      <div className="mb-3 flex justify-end">
-                        <Dialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
-                          <DialogTrigger
-                            render={
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={busy}
-                                className="shrink-0 text-destructive hover:text-destructive"
-                              />
-                            }
-                          >
-                            <Trash2Icon className="size-4" aria-hidden />
-                            Delete
-                          </DialogTrigger>
-                          <DialogContent className="gap-6 p-6 sm:max-w-md">
-                            <DialogHeader className="gap-3">
-                              <DialogTitle>Delete profile?</DialogTitle>
-                              <DialogDescription>
-                                This removes {detail.name} and its chat history. This cannot be
-                                undone.
-                              </DialogDescription>
-                            </DialogHeader>
-
-                            <DialogFooter className="gap-3 border-t-0 bg-transparent p-0 pt-2 pb-2 sm:justify-end">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                disabled={busy}
-                                onClick={() => setDeleteOpen(false)}
-                              >
-                                Cancel
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                disabled={busy}
-                                onClick={() => void handleDeleteConfirm()}
-                              >
-                                {deleteMutation.isPending ? (
-                                  <Spinner className="size-4" />
-                                ) : (
-                                  "Delete"
-                                )}
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    ) : null}
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                     <input
                       ref={avatarInputRef}
@@ -1706,6 +1683,38 @@ export function ProfilesPage() {
         }}
         onSubmit={handleCreateMcpServer}
       />
+
+      <Dialog open={deleteOpen} onOpenChange={handleDeleteOpenChange}>
+        <DialogContent className="gap-6 p-6 sm:max-w-md">
+          <DialogHeader className="gap-3">
+            <DialogTitle>Delete profile?</DialogTitle>
+            <DialogDescription>
+              {detail
+                ? `This removes ${detail.name} and its chat history. This cannot be undone.`
+                : "This removes the profile and its chat history. This cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-3 border-t-0 bg-transparent p-0 pt-2 pb-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void handleDeleteConfirm()}
+            >
+              {deleteMutation.isPending ? <Spinner className="size-4" /> : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={removeConfirm !== null}
