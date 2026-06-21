@@ -4,7 +4,6 @@ import { AuthService } from "../services/auth-service";
 import { OrgService } from "../services/org-service";
 import { createInMemoryDatabaseAdapter } from "@tinyclaw/db";
 import {
-  buildSetupAuthBody,
   createPlatformAdminUser,
   withOrgId,
 } from "./test-org-helpers";
@@ -99,6 +98,17 @@ describe("platform org routes", () => {
         createdAt: expect.any(String),
         updatedAt: expect.any(String),
       },
+      adminMember: {
+        member: {
+          createdAt: expect.any(String),
+          email: "platform@example.com",
+          name: null,
+          phone: null,
+          role: "admin",
+          userId: expect.stringMatching(/^user_/),
+        },
+        temporaryPassword: null,
+      },
     });
 
     const listResponse = await app.fetch(
@@ -115,26 +125,54 @@ describe("platform org routes", () => {
 
   test("non-platform users cannot manage organizations", async () => {
     const { app, authService, databaseAdapter } = createPlatformApp();
-    const setupResponse = await app.fetch(
-      new Request("http://localhost:4310/v1/auth/setup", {
+    const platformSession = await loginPlatformAdmin(app, authService, databaseAdapter);
+
+    const createResponse = await app.fetch(
+      new Request("http://localhost:4310/v1/platform/orgs", {
         method: "POST",
-        body: JSON.stringify(buildSetupAuthBody()),
+        headers: platformSession.headers({
+          "X-CSRF-Token": cookieValue(platformSession.setCookies, "tinyclaw_csrf"),
+        }),
+        body: JSON.stringify({
+          name: "Acme Corp",
+          slug: "acme-corp",
+          admin: {
+            name: "Acme Admin",
+            email: "admin@acme.com",
+            phone: "+628123456789",
+          },
+        }),
       }),
     );
-    const setupBody = (await setupResponse.json()) as { activeOrgId: string };
-    const setCookies = extractSetCookies(setupResponse);
+    expect(createResponse.status).toBe(201);
+    const created = (await createResponse.json()) as {
+      organization: { id: string };
+      adminMember: { temporaryPassword: string };
+    };
+
+    const orgAdminLogin = await app.fetch(
+      new Request("http://localhost:4310/v1/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "admin@acme.com",
+          password: created.adminMember.temporaryPassword,
+        }),
+      }),
+    );
+    expect(orgAdminLogin.status).toBe(200);
+    const orgAdminCookies = extractSetCookies(orgAdminLogin);
 
     const response = await app.fetch(
       new Request("http://localhost:4310/v1/platform/orgs", {
         method: "POST",
         headers: withOrgId(
           {
-            Cookie: cookieHeaderFromSetCookies(setCookies),
-            "X-CSRF-Token": cookieValue(setCookies, "tinyclaw_csrf"),
+            Cookie: cookieHeaderFromSetCookies(orgAdminCookies),
+            "X-CSRF-Token": cookieValue(orgAdminCookies, "tinyclaw_csrf"),
           },
-          setupBody.activeOrgId,
+          created.organization.id,
         ),
-        body: JSON.stringify({ name: "Acme Corp", slug: "acme-corp" }),
+        body: JSON.stringify({ name: "Beta Corp", slug: "beta-corp" }),
       }),
     );
 

@@ -21,6 +21,7 @@ function createMockApp(webDistDir: string | null) {
     workerManager: {} as any,
     mcpService: {} as any,
     authService,
+    orgService: {} as any,
     databaseAdapter: {
       countUsers: async () => 1,
       getUserByEmail: async () => null,
@@ -202,7 +203,16 @@ describe("browser session auth", () => {
     );
 
     expect(meResponse.status).toBe(200);
-    await expect(meResponse.json()).resolves.toEqual({ email: "admin@example.com" });
+    const meBody = (await meResponse.json()) as {
+      email: string;
+      activeOrgId?: string;
+      isPlatformAdmin?: boolean;
+      orgId?: string;
+    };
+    expect(meBody.email).toBe("admin@example.com");
+    expect(meBody.activeOrgId).toStartWith("org_");
+    expect(meBody.orgId).toBe(meBody.activeOrgId);
+    expect(meBody.isPlatformAdmin).toBe(true);
   });
 
   test("login sets a fresh session and logout revokes it", async () => {
