@@ -18,4 +18,5 @@ data/logs/*
 apps/data/*
 .cursor/
 docs/plans/*
+docs/brainstorms/*
 .worktrees/
