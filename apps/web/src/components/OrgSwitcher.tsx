@@ -161,54 +161,59 @@ export function OrgSwitcher({ collapsed = false }: OrgSwitcherProps) {
       <DropdownMenu>
         <DropdownMenuTrigger render={trigger} />
 
-        <DropdownMenuContent align="start" className="w-64">
-          {orgs.map((org) => (
-            <DropdownMenuItem
-              key={org.id}
-              className="pr-1"
-              onClick={() => {
-                if (org.id !== activeOrg?.id) {
-                  void switchOrg(org.id);
-                }
-              }}
-            >
-              <span className="min-w-0 flex-1 truncate">{org.name}</span>
-              {canEditOrg(org, Boolean(user.isPlatformAdmin)) ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="pointer-events-none shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/dropdown-menu-item:pointer-events-auto group-hover/dropdown-menu-item:opacity-100 hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100"
-                  aria-label={`Edit ${org.name}`}
-                  onPointerDown={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                  }}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    openEditDialog(org);
-                  }}
-                >
-                  <PencilIcon className="size-3.5" aria-hidden />
-                </Button>
-              ) : null}
-            </DropdownMenuItem>
-          ))}
+        <DropdownMenuContent align="start" className="w-64 p-0">
+          <div className="p-1">
+            {orgs.map((org) => (
+              <DropdownMenuItem
+                key={org.id}
+                className="pr-1"
+                onClick={() => {
+                  if (org.id !== activeOrg?.id) {
+                    void switchOrg(org.id);
+                  }
+                }}
+              >
+                <span className="min-w-0 flex-1 truncate">{org.name}</span>
+                {canEditOrg(org, Boolean(user.isPlatformAdmin)) ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="pointer-events-none shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/dropdown-menu-item:pointer-events-auto group-hover/dropdown-menu-item:opacity-100 hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100"
+                    aria-label={`Edit ${org.name}`}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      openEditDialog(org);
+                    }}
+                  >
+                    <PencilIcon className="size-3.5" aria-hidden />
+                  </Button>
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </div>
 
           {user.isPlatformAdmin ? (
-            <DropdownMenuItem
-              onClick={() => {
-                setError(null);
-                setName("");
-                setSlug("");
-                setSlugEdited(false);
-                setCreateOpen(true);
-              }}
-            >
-              <PlusIcon className="size-4" />
-              Create organization
-            </DropdownMenuItem>
+            <div className="border-t border-border/50 bg-muted/30 p-1">
+              <DropdownMenuItem
+                className="text-muted-foreground"
+                onClick={() => {
+                  setError(null);
+                  setName("");
+                  setSlug("");
+                  setSlugEdited(false);
+                  setCreateOpen(true);
+                }}
+              >
+                <PlusIcon className="size-4" />
+                Create organization
+              </DropdownMenuItem>
+            </div>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
