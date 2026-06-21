@@ -90,11 +90,13 @@ function TodoRow({ todo }: { todo: AgentTodo }) {
     <li className="flex items-start gap-2.5 text-xs">
       <TodoStatusIcon status={todo.status} />
       <span
-        className={
+        className={cn(
           todo.status === "completed" || todo.status === "cancelled"
             ? "text-muted-foreground line-through"
-            : "text-foreground"
-        }
+            : todo.status === "in_progress"
+              ? "todo-shimmer-text"
+              : "text-foreground",
+        )}
       >
         {todo.content}
       </span>

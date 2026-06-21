@@ -83,6 +83,47 @@ describe("OpenAI-compatible provider", () => {
     expect(result.content).toBe("Answer");
   });
 
+  test("preserves leading spaces in streamed reasoning_content deltas", async () => {
+    const fetchMock = mock(async () => {
+      return new Response(
+        streamFromChunks([
+          'data: {"choices":[{"delta":{"reasoning_content":"The"}}]}\n\n',
+          'data: {"choices":[{"delta":{"reasoning_content":" user"}}]}\n\n',
+          'data: {"choices":[{"delta":{"reasoning_content":" wants"}}]}\n\n',
+          'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n',
+          "data: [DONE]\n\n",
+        ]),
+        { status: 200, headers: { "Content-Type": "text/event-stream" } },
+      );
+    });
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = createOpenAICompatibleProvider({
+      apiKey: "",
+      baseUrl: "https://opencode.ai/zen/v1",
+      model: "big-pickle",
+      displayName: "OpenCode Zen",
+      supportsThinking: true,
+    });
+
+    const thinking: string[] = [];
+    const result = await provider.streamChat(
+      {
+        system: "You are helpful.",
+        messages: [{ role: "user", content: "Think then answer" }],
+        providerOptions: { thinking: { enabled: true, effort: "medium" } },
+      },
+      {
+        onChunk: () => {},
+        onThinking: (delta) => thinking.push(delta),
+      },
+    );
+
+    expect(thinking).toEqual(["The", " user", " wants"]);
+    expect(result.assistantMessage.thinking).toBe("The user wants");
+  });
+
   test("streams reasoning deltas when thinking is enabled for a supported model", async () => {
     const fetchMock = mock(async () => {
       return new Response(

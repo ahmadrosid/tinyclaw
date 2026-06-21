@@ -75,7 +75,7 @@ export function SkillCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-6 p-6 sm:max-w-xl">
+      <DialogContent className="gap-6 p-6 sm:max-w-2xl">
         <form className="space-y-6" onSubmit={handleSubmit}>
           <DialogHeader className="gap-2">
             <DialogTitle>Add skill</DialogTitle>
@@ -138,7 +138,7 @@ export function SkillCreateDialog({
                 value={body}
                 disabled={busy}
                 rows={8}
-                className="min-h-40 font-mono text-sm"
+                className="min-h-40 max-h-64 overflow-y-auto font-mono text-sm"
                 onChange={(event) => setBody(event.target.value)}
               />
             </div>

@@ -4,6 +4,7 @@ import type {
   GenerateChatInput,
   GenerateTextInput,
   LlmToolDefinition,
+  ProviderChatOptions,
   ProviderClient,
   StreamChatHandlers,
   ToolCall,
@@ -111,11 +112,17 @@ function formatSdkError(label: string, error: unknown): Error {
   return new Error(`${label} request failed.`);
 }
 
-async function buildMessages(system: string, messages: ChatMessage[]) {
-  return toOpenAIMessages(system, messages, "openai_compatible") as OpenAI.Chat.ChatCompletionMessageParam[];
+async function buildMessages(
+  system: string,
+  messages: ChatMessage[],
+): Promise<OpenAI.Chat.ChatCompletionMessageParam[]> {
+  return (await toOpenAIMessages(system, messages, "openai_compatible")) as OpenAI.Chat.ChatCompletionMessageParam[];
 }
 
-function readReasoningText(value: unknown): string | undefined {
+function readReasoningText(
+  value: unknown,
+  options?: { preserveWhitespace?: boolean },
+): string | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
   }
@@ -128,7 +135,15 @@ function readReasoningText(value: unknown): string | undefined {
         ? record.reasoning_content
         : undefined;
 
-  const trimmed = direct?.trim();
+  if (direct === undefined) {
+    return undefined;
+  }
+
+  if (options?.preserveWhitespace) {
+    return direct.length > 0 ? direct : undefined;
+  }
+
+  const trimmed = direct.trim();
   return trimmed ? trimmed : undefined;
 }
 
@@ -140,7 +155,7 @@ async function requestChatCompletion(
     system: string;
     messages: ChatMessage[];
     tools?: LlmToolDefinition[];
-    thinking?: GenerateChatInput["providerOptions"]["thinking"];
+    thinking?: ProviderChatOptions["thinking"];
   },
 ): Promise<ChatCompletionResult> {
   try {
@@ -156,7 +171,7 @@ async function requestChatCompletion(
             tool_choice: "auto" as const,
           }
         : {}),
-    });
+    } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming);
 
     const message = completion.choices[0]?.message;
     const toolCalls = parseOpenAIToolCalls(
@@ -188,7 +203,7 @@ async function streamChatCompletion(options: {
   system: string;
   messages: ChatMessage[];
   tools?: LlmToolDefinition[];
-  thinking?: GenerateChatInput["providerOptions"]["thinking"];
+  thinking?: ProviderChatOptions["thinking"];
   handlers: StreamChatHandlers;
 }): Promise<ChatCompletionResult> {
   const response = await fetch(`${options.baseUrl}/chat/completions`, {
@@ -262,7 +277,7 @@ async function streamChatCompletion(options: {
       options.handlers.onChunk(delta.content);
     }
 
-    const reasoningDelta = readReasoningText(delta);
+    const reasoningDelta = readReasoningText(delta, { preserveWhitespace: true });
 
     if (reasoningDelta) {
       thinking += reasoningDelta;
