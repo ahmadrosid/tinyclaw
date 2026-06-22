@@ -9,11 +9,7 @@ export default withMermaid(
     head: [['link', { rel: 'icon', href: '/tinyclaw/favicon.ico' }]],
     themeConfig: {
       nav: [
-        { text: 'Guide', link: '/getting-started' },
-        {
-          text: 'GitHub',
-          link: 'https://github.com/ahmadrosid/tinyclaw',
-        },
+        { text: 'Docs', link: '/getting-started' },
       ],
       sidebar: [
         {
