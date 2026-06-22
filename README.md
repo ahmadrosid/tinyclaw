@@ -10,7 +10,7 @@ Inspired by [OpenClaw](https://github.com/openclaw/openclaw) and [Hermes Agent](
 
 ![Demo](./tinyclaw-demo.png)
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for system design and data flows.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for system design, or the [docs site](https://ahmadrosid.github.io/tinyclaw/) for the full guide.
 
 ## Quick start
 
