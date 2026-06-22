@@ -1,7 +1,7 @@
 export interface SoulStackFiles {
   soul?: string;
   style?: string;
-  skill?: string;
+  instructions?: string;
   memory?: string;
   examples?: string;
 }
@@ -15,7 +15,7 @@ export interface LoadedSoulStack {
 export interface SoulFileStatus {
   soul: boolean;
   style: boolean;
-  skill: boolean;
+  instructions: boolean;
   memory: boolean;
   examples: boolean;
 }

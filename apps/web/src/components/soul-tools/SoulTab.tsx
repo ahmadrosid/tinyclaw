@@ -54,8 +54,8 @@ const SOUL_FILES = [
     writable: true,
   },
   {
-    key: "skill" as const,
-    label: "SKILL.md",
+    key: "instructions" as const,
+    label: "INSTRUCTIONS.md",
     description: "Operating instructions and workflows",
     writable: true,
   },

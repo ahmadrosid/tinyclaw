@@ -93,7 +93,7 @@ Things that make output sound *wrong* for you:
 - [Tone that isn't you]
 `;
 
-export const SKILL_TEMPLATE = `# Operating Instructions
+export const INSTRUCTIONS_TEMPLATE = `# Operating Instructions
 
 How the agent should embody your identity.
 

@@ -7,8 +7,8 @@ import {
 import {
   BAD_OUTPUTS_TEMPLATE,
   GOOD_OUTPUTS_TEMPLATE,
+  INSTRUCTIONS_TEMPLATE,
   MEMORY_TEMPLATE,
-  SKILL_TEMPLATE,
   SOUL_TEMPLATE,
   STYLE_TEMPLATE,
 } from "./templates";
@@ -17,7 +17,7 @@ import type { InitSoulResult } from "./types";
 const INIT_FILES = [
   { path: "SOUL.md", content: SOUL_TEMPLATE },
   { path: "STYLE.md", content: STYLE_TEMPLATE },
-  { path: "SKILL.md", content: SKILL_TEMPLATE },
+  { path: "INSTRUCTIONS.md", content: INSTRUCTIONS_TEMPLATE },
   { path: "MEMORY.md", content: MEMORY_TEMPLATE },
   { path: "examples/good-outputs.md", content: GOOD_OUTPUTS_TEMPLATE },
   { path: "examples/bad-outputs.md", content: BAD_OUTPUTS_TEMPLATE },

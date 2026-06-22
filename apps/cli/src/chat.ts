@@ -991,7 +991,7 @@ function formatSoulStatusLines(status: SoulStatusResponse): string[] {
     "Files:",
     `  SOUL.md     ${status.files.soul ? "✓" : "—"}`,
     `  STYLE.md    ${status.files.style ? "✓" : "—"}`,
-    `  SKILL.md    ${status.files.skill ? "✓" : "—"}`,
+    `  INSTRUCTIONS.md ${status.files.instructions ? "✓" : "—"}`,
     `  MEMORY.md   ${status.files.memory ? "✓" : "—"}`,
     `  examples/   ${status.files.examples ? "✓" : "—"}`,
   );
@@ -1018,7 +1018,7 @@ function formatSoulInitLines(result: InitSoulResponse): string[] {
     lines.push(`  ${file}`);
   }
 
-  lines.push("Edit SOUL.md, STYLE.md, and SKILL.md, then start a new session.");
+  lines.push("Edit SOUL.md, STYLE.md, and INSTRUCTIONS.md, then start a new session.");
   return lines;
 }
 

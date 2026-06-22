@@ -5,7 +5,7 @@ import type { SoulStackFiles } from "./types";
 const WRITABLE_SOUL_FILES = {
   soul: "SOUL.md",
   style: "STYLE.md",
-  skill: "SKILL.md",
+  instructions: "INSTRUCTIONS.md",
   memory: "MEMORY.md",
 } as const;
 

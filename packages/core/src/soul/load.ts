@@ -10,7 +10,7 @@ import type { LoadedSoulStack, SoulFileStatus, SoulStatus } from "./types";
 const SOUL_FILES = {
   soul: "SOUL.md",
   style: "STYLE.md",
-  skill: "SKILL.md",
+  instructions: "INSTRUCTIONS.md",
   memory: "MEMORY.md",
 } as const;
 
@@ -71,7 +71,7 @@ export function toSoulStatus(stack: LoadedSoulStack): SoulStatus {
   const files: SoulFileStatus = {
     soul: Boolean(stack.files.soul),
     style: Boolean(stack.files.style),
-    skill: Boolean(stack.files.skill),
+    instructions: Boolean(stack.files.instructions),
     memory: Boolean(stack.files.memory),
     examples: Boolean(stack.files.examples),
   };

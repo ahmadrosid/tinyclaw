@@ -24,8 +24,8 @@ export function composeSoulSystemPrompt(
     sections.push("", "# Voice & Style (STYLE.md)", stack.files.style);
   }
 
-  if (stack.files.skill) {
-    sections.push("", "# Operating Instructions (SKILL.md)", stack.files.skill);
+  if (stack.files.instructions) {
+    sections.push("", "# Operating Instructions (INSTRUCTIONS.md)", stack.files.instructions);
   }
 
   if (stack.files.memory) {

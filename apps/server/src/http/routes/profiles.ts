@@ -32,7 +32,7 @@ export function registerProfileRoutes(app: HonoApp, options: ServerOptions): voi
   });
   const soulFileParam = z.object({
     profileId: z.string().openapi({ param: { name: "profileId", in: "path" } }),
-    fileKey: z.enum(["soul", "style", "skill", "memory"]).openapi({ param: { name: "fileKey", in: "path" } }),
+    fileKey: z.enum(["soul", "style", "instructions", "memory"]).openapi({ param: { name: "fileKey", in: "path" } }),
   });
   const contentsQuery = z.object({
     contents: z.enum(["true", "false"]).optional(),

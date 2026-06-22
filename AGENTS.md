@@ -60,7 +60,7 @@ The system prompt is built in three layers. Know which one to edit:
 | What you want to change | File | Function |
 |---|---|---|
 | Static chat structure (identity, USER.md, tools, timezone, channel rules) | `packages/agent/src/chat-prompt.ts` | `buildChatSystemPrompt` |
-| Soul/identity content (SOUL.md, STYLE.md, SKILL.md, MEMORY.md) | `packages/core/src/soul/compose.ts` | `composeSoulSystemPrompt` |
+| Soul/identity content (SOUL.md, STYLE.md, INSTRUCTIONS.md, MEMORY.md) | `packages/core/src/soul/compose.ts` | `composeSoulSystemPrompt` |
 | Dynamic per-turn context (current date, etc.) | `packages/agent/src/chat.ts` | `generateReply` |
 
 `generateReply` is the final dispatch point — it calls `provider.generateChat()` / `provider.streamChat()` with the assembled system prompt string.
@@ -73,7 +73,7 @@ Each profile's soul lives at `~/.tinyclaw/profiles/{profileId}/`:
 |---|---|
 | `SOUL.md` | Identity |
 | `STYLE.md` | Voice and writing style |
-| `SKILL.md` | Operating instructions |
+| `INSTRUCTIONS.md` | Operating instructions |
 | `MEMORY.md` | Cross-session continuity (facts/preferences) |
 | `examples/*.md` | Calibration examples |
 
