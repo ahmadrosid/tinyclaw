@@ -6,7 +6,6 @@ coverage
 .env
 .env.*
 !.env.example
-
 data/sqlite/*
 !data/sqlite/.gitkeep
 packages/db/data/
@@ -20,3 +19,6 @@ apps/data/*
 docs/plans/*
 docs/brainstorms/*
 .worktrees/
+scripts/
+outputs/
+

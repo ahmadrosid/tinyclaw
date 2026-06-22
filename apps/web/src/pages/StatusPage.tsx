@@ -630,7 +630,7 @@ function StatusSkeleton() {
   );
 }
 
-function buildServiceColumns(status: SystemStatusResponse) {
+export function buildServiceColumns(status: SystemStatusResponse) {
   const { telegramWorker, whatsappWorker } = status;
 
   return [
@@ -683,7 +683,7 @@ function whatsappServiceStatus(
   return { status: "Healthy", tone: "ok" };
 }
 
-function deriveSummary(status: SystemStatusResponse): {
+export function deriveSummary(status: SystemStatusResponse): {
   tone: StatusTone;
   title: string;
   description: string;
