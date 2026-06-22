@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   PathGuardError,
   runDeleteFile,
+  runReadFile,
   runWriteFile,
   setDefaultFileGuardOptions,
 } from "./builtin";
@@ -99,10 +100,81 @@ describe("file builtin tools", () => {
     await expect(readFile(targetPath, "utf8")).rejects.toThrow();
   });
 
+  test("read_file reads an existing file", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-"));
+    const targetPath = path.join(tempDir, "sample.txt");
+    await writeFile(targetPath, "hello world", "utf8");
+
+    const result = await runReadFile(
+      { path: targetPath },
+      PROFILE_CONTEXT,
+      { workspaceRoot: tempDir },
+    );
+
+    expect(result.path).toBe(await realpath(targetPath));
+    expect(result.content).toBe("hello world");
+    expect(result.bytesRead).toBe(11);
+    expect(result.startLine).toBe(1);
+    expect(result.endLine).toBe(1);
+    expect(result.totalLines).toBe(1);
+    expect(result.truncated).toBe(false);
+  });
+
+  test("read_file resolves relative paths from profile workspace", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-"));
+    await writeFile(path.join(tempDir, "notes.txt"), "relative", "utf8");
+
+    const result = await runReadFile(
+      { path: "notes.txt" },
+      PROFILE_CONTEXT,
+      { workspaceRoot: tempDir },
+    );
+
+    expect(result.path).toBe(path.join(await realpath(tempDir), "notes.txt"));
+    expect(result.content).toBe("relative");
+  });
+
+  test("read_file allows custom tool modules outside profile workspace", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-"));
+    toolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-tools-"));
+    process.env.TINYCLAW_TOOLS_DIR = toolsDir;
+
+    const targetPath = path.join(toolsDir, "echo.js");
+    await writeFile(targetPath, "export async function run() {}", "utf8");
+
+    const result = await runReadFile(
+      { path: targetPath },
+      PROFILE_CONTEXT,
+      { workspaceRoot: tempDir },
+    );
+
+    expect(result.path).toBe(await realpath(targetPath));
+    expect(result.content).toContain("export async function run");
+  });
+
+  test("read_file supports offset and limit", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-"));
+    const targetPath = path.join(tempDir, "lines.txt");
+    await writeFile(targetPath, "one\ntwo\nthree\nfour", "utf8");
+
+    const result = await runReadFile(
+      { path: targetPath, offset: 2, limit: 2 },
+      PROFILE_CONTEXT,
+      { workspaceRoot: tempDir },
+    );
+
+    expect(result.content).toBe("two\nthree");
+    expect(result.startLine).toBe(2);
+    expect(result.endLine).toBe(3);
+    expect(result.totalLines).toBe(4);
+    expect(result.truncated).toBe(true);
+  });
+
   test("requires profileId", async () => {
     await expect(runWriteFile({ path: "a.txt", content: "x" }, {})).rejects.toThrow(
       "profileId is required.",
     );
+    await expect(runReadFile({ path: "a.txt" }, {})).rejects.toThrow("profileId is required.");
   });
 
   // -----------------------------------------------------------------------
@@ -218,6 +290,76 @@ describe("file builtin tools", () => {
         PROFILE_CONTEXT,
         { workspaceRoot: tempDir },
       ),
+    ).rejects.toThrow(PathGuardError);
+  });
+
+  test("read_file rejects path traversal via ../ escape", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-sec-"));
+    const escapePath = path.join(tempDir, "../../../etc/tinyclaw-exploit-test");
+
+    await expect(
+      runReadFile({ path: escapePath }, PROFILE_CONTEXT, { workspaceRoot: tempDir }),
+    ).rejects.toThrow(PathGuardError);
+  });
+
+  test("read_file rejects path outside allowed dirs", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-sec-"));
+
+    await expect(
+      runReadFile({ path: "/etc/tinyclaw-should-fail" }, PROFILE_CONTEXT, {
+        workspaceRoot: tempDir,
+      }),
+    ).rejects.toThrow(PathGuardError);
+  });
+
+  test("read_file rejects null byte in path", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-sec-"));
+
+    await expect(
+      runReadFile(
+        { path: path.join(tempDir, "safe.txt\0.sh") },
+        PROFILE_CONTEXT,
+        { workspaceRoot: tempDir },
+      ),
+    ).rejects.toThrow(PathGuardError);
+  });
+
+  test("read_file rejects missing file", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-sec-"));
+
+    await expect(
+      runReadFile({ path: path.join(tempDir, "missing.txt") }, PROFILE_CONTEXT, {
+        workspaceRoot: tempDir,
+      }),
+    ).rejects.toThrow("File not found");
+  });
+
+  test("read_file rejects directory path", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-sec-"));
+
+    await expect(
+      runReadFile({ path: tempDir }, PROFILE_CONTEXT, { workspaceRoot: tempDir }),
+    ).rejects.toThrow("Path is not a file");
+  });
+
+  test("read_file rejects config.ini", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-sec-"));
+    const targetPath = path.join(tempDir, "config.ini");
+    await writeFile(targetPath, "secret=value", "utf8");
+
+    await expect(
+      runReadFile({ path: targetPath }, PROFILE_CONTEXT, { workspaceRoot: tempDir }),
+    ).rejects.toThrow(PathGuardError);
+  });
+
+  test("read_file rejects oversized file", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-sec-"));
+    setDefaultFileGuardOptions({ maxFileBytes: 100 });
+    const targetPath = path.join(tempDir, "big.txt");
+    await writeFile(targetPath, "A".repeat(200), "utf8");
+
+    await expect(
+      runReadFile({ path: targetPath }, PROFILE_CONTEXT, { workspaceRoot: tempDir }),
     ).rejects.toThrow(PathGuardError);
   });
 });

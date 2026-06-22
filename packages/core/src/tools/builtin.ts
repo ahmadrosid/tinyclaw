@@ -1,4 +1,4 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { ToolContext, ToolDefinition } from "../contract";
 import { getProfileSoulDir } from "../soul/resolve";
@@ -30,6 +30,23 @@ export interface DeleteFileOutput {
   deleted: true;
 }
 
+export interface ReadFileInput {
+  path: string;
+  cwd?: string;
+  offset?: number;
+  limit?: number;
+}
+
+export interface ReadFileOutput {
+  path: string;
+  content: string;
+  bytesRead: number;
+  startLine: number;
+  endLine: number;
+  totalLines: number;
+  truncated: boolean;
+}
+
 export interface CreateSkillInput {
   name: string;
   description: string;
@@ -42,6 +59,8 @@ interface FileToolRunOptions {
 }
 
 let defaultGuardOptions: PathGuardOptions = {};
+
+const BLOCKED_READ_BASENAMES = ["config.ini"];
 
 export function setDefaultFileGuardOptions(options: PathGuardOptions): void {
   defaultGuardOptions = { ...options };
@@ -152,6 +171,101 @@ export async function runDeleteFile(
   return { path: guarded.resolved, deleted: true };
 }
 
+export const readFileTool: ToolDefinition<ReadFileInput, ReadFileOutput> = {
+  name: "read_file",
+  description:
+    "Read text from a file in the active profile workspace. Use offset/limit for large files.",
+  parameters: {
+    type: "object",
+    properties: {
+      path: {
+        type: "string",
+        description: "File path to read, relative to the profile workspace unless absolute.",
+      },
+      cwd: {
+        type: "string",
+        description:
+          "Optional base directory within the profile workspace for relative paths. Defaults to the profile workspace root.",
+      },
+      offset: {
+        type: "number",
+        description: "Optional 1-based line number to start reading from. Defaults to 1.",
+      },
+      limit: {
+        type: "number",
+        description: "Optional maximum number of lines to return.",
+      },
+    },
+    required: ["path"],
+    additionalProperties: false,
+  },
+  run(input, context) {
+    return runReadFile(input, context);
+  },
+};
+
+export async function runReadFile(
+  input: unknown,
+  context: ToolContext,
+  options: FileToolRunOptions = {},
+): Promise<ReadFileOutput> {
+  const rawPath = readRequiredString(input, "path");
+  const rawCwd = readOptionalString(input, "cwd");
+  const offset = readOptionalPositiveInt(input, "offset") ?? 1;
+  const limit = readOptionalPositiveInt(input, "limit");
+  const guardOptions = buildFileGuardOptions(context, options);
+  const maxBytes = guardOptions.maxFileBytes ?? 10 * 1024 * 1024;
+
+  const guarded = await guardFilePath(rawPath, rawCwd, undefined, guardOptions);
+  const filePath = guarded.resolved;
+
+  if (BLOCKED_READ_BASENAMES.includes(path.basename(filePath).toLowerCase())) {
+    throw new PathGuardError(
+      `Reading ${path.basename(filePath)} is not allowed`,
+      "SPECIAL_FILE",
+    );
+  }
+
+  let fileStat;
+  try {
+    fileStat = await stat(filePath);
+  } catch {
+    throw new Error(`File not found: ${filePath}`);
+  }
+
+  if (!fileStat.isFile()) {
+    throw new Error(`Path is not a file: ${filePath}`);
+  }
+
+  if (fileStat.size > maxBytes) {
+    throw new PathGuardError(
+      `File content exceeds max ${maxBytes} bytes (got ${fileStat.size})`,
+      "TOO_LARGE",
+    );
+  }
+
+  const rawContent = await readFile(filePath, "utf8");
+  const lines = rawContent.length === 0 ? [] : rawContent.split("\n");
+  const totalLines = lines.length;
+  const startLine = Math.min(Math.max(1, offset), totalLines === 0 ? 1 : totalLines + 1);
+  const startIndex = startLine - 1;
+  const endIndex =
+    limit != null ? Math.min(startIndex + limit, totalLines) : totalLines;
+  const slice = lines.slice(startIndex, endIndex);
+  const content = slice.join("\n");
+  const endLine = slice.length > 0 ? startLine + slice.length - 1 : Math.max(0, startLine - 1);
+
+  return {
+    path: filePath,
+    content,
+    bytesRead: Buffer.byteLength(content, "utf8"),
+    startLine,
+    endLine,
+    totalLines,
+    truncated: endIndex < totalLines,
+  };
+}
+
 export const createSkillTool: ToolDefinition<CreateSkillInput> = {
   name: "create_skill",
   description:
@@ -187,6 +301,7 @@ export const createSkillTool: ToolDefinition<CreateSkillInput> = {
 export const builtinTools: ToolDefinition[] = [
   writeFileTool,
   deleteFileTool,
+  readFileTool,
   createSkillTool,
   searchFilesTool,
   knowledgeBaseSearchTool,
@@ -212,6 +327,15 @@ function readOptionalString(input: unknown, key: string): string | null {
 
   const value = (input as Record<string, unknown>)[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function readOptionalPositiveInt(input: unknown, key: string): number | null {
+  if (typeof input !== "object" || input === null || !(key in input)) {
+    return null;
+  }
+
+  const value = (input as Record<string, unknown>)[key];
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
 }
 
 export { PathGuardError };

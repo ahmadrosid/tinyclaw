@@ -135,6 +135,10 @@ export function formatToolActionLabel(
     return `Deleted ${basename(input.path)}`;
   }
 
+  if (tool === "read_file" && typeof input?.path === "string") {
+    return `Read ${basename(input.path)}`;
+  }
+
   if (tool === "search_files") {
     const query = typeof input?.query === "string" ? input.query.trim() : null;
     const path = typeof input?.path === "string" ? basename(input.path) : null;

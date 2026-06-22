@@ -76,7 +76,7 @@ export function ToolDetailDialog({
   const showSharedBuiltinNote =
     source?.path === SHARED_BUILTIN_FILE &&
     tool !== undefined &&
-    (tool.name === "write_file" || tool.name === "delete_file");
+    (tool.name === "write_file" || tool.name === "delete_file" || tool.name === "read_file");
 
   return (
     <Dialog open={Boolean(toolId)} onOpenChange={onOpenChange}>
