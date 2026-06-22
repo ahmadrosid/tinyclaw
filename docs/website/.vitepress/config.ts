@@ -10,10 +10,6 @@ export default withMermaid(
     themeConfig: {
       nav: [
         { text: 'Guide', link: '/getting-started' },
-        { text: 'Overview', link: '/overview' },
-        { text: 'Architecture', link: '/architecture' },
-        { text: 'Multi-tenancy', link: '/multi-tenancy' },
-        { text: 'Development', link: '/development' },
         {
           text: 'GitHub',
           link: 'https://github.com/ahmadrosid/tinyclaw',
@@ -32,6 +28,7 @@ export default withMermaid(
             { text: 'Overview', link: '/overview' },
             { text: 'Architecture', link: '/architecture' },
             { text: 'Multi-tenancy', link: '/multi-tenancy' },
+            { text: 'Builtin tools', link: '/builtin-tools' },
           ],
         },
         {

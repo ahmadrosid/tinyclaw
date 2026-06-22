@@ -10,9 +10,6 @@ hero:
       text: Get Started
       link: /getting-started
     - theme: alt
-      text: Architecture
-      link: /architecture
-    - theme: alt
       text: View on GitHub
       link: https://github.com/ahmadrosid/tinyclaw
 

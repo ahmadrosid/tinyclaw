@@ -100,7 +100,7 @@ At a high level:
 
 **Server ↔ database.** Organizations, memberships, invites, and tenant-owned rows (profiles, tools, sessions, automations, etc.) persist in SQLite with `org_id` scoping. Live chat state does not cross this boundary.
 
-**Agent ↔ tools.** The harness asks the model; the server resolves and runs handlers. Builtin tools come from `@tinyclaw/core`; server-specific handlers (bash, Super Bot meta-tools) are registered in `apps/server`.
+**Agent ↔ tools.** The harness asks the model; the server resolves and runs handlers. Builtin tools come from `@tinyclaw/core`; server-specific handlers (bash, Super Bot meta-tools) are registered in `apps/server`. See [Builtin tools](/builtin-tools) for the full reference.
 
 ## Request lifecycle
 
@@ -124,3 +124,9 @@ Deployment mailbox settings for the built-in `email` tool live in the `[email]` 
 **OpenAPI** — The HTTP surface is generated from Hono route registration in `apps/server/src/http/routes/*` via `apps/server/src/http/openapi.ts` and served at `/openapi.json`. Treat route code as source of truth.
 
 **Offline-friendly startup** — The server starts without an API key. Chat and automation drafting degrade to heuristic fallbacks when no provider is configured.
+
+## Next steps
+
+- [Builtin tools](/builtin-tools) — tool reference, defaults, and availability gates
+- [Multi-tenancy](/multi-tenancy) — org model, roles, and onboarding
+- [Development](/development) — contributor workflow and package layout

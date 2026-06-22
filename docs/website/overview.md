@@ -50,3 +50,4 @@ tinyclaw/
 
 - [Architecture](/architecture) — full system diagram and codemap
 - [Multi-tenancy](/multi-tenancy) — org model, roles, and onboarding
+- [Builtin tools](/builtin-tools) — allowlisted tools, defaults, and availability
