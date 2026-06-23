@@ -320,6 +320,7 @@ export interface DatabaseAdapter {
   deleteMessagesForSession(sessionId: string): Promise<void>;
 
   listTasks(): Promise<StoredTaskRecord[]>;
+  listTasksForOrg(orgId: string): Promise<StoredTaskRecord[]>;
   getTask(id: string): Promise<StoredTaskRecord | null>;
   upsertTask(record: StoredTaskRecord): Promise<void>;
   deleteTask(id: string): Promise<boolean>;

@@ -103,6 +103,7 @@ interface TaskRow {
   description: string;
   prompt: string;
   profile_id: string;
+  org_id: string | null;
   status: string;
   position: number;
   session_id: string | null;
@@ -406,15 +407,21 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
   `);
 
   const listTasksStmt = db.prepare("SELECT * FROM tasks ORDER BY status ASC, position ASC");
+  const listTasksForOrgStmt = db.prepare(`
+    SELECT * FROM tasks
+    WHERE org_id = ?
+    ORDER BY status ASC, position ASC
+  `);
   const getTaskStmt = db.prepare("SELECT * FROM tasks WHERE id = ?");
   const upsertTaskStmt = db.prepare(`
-    INSERT INTO tasks (id, title, description, prompt, profile_id, status, position, session_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (id, title, description, prompt, profile_id, org_id, status, position, session_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       title = excluded.title,
       description = excluded.description,
       prompt = excluded.prompt,
       profile_id = excluded.profile_id,
+      org_id = excluded.org_id,
       status = excluded.status,
       position = excluded.position,
       session_id = excluded.session_id,
@@ -1146,6 +1153,10 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
       return listTasksStmt.all().map((row) => toTaskRecord(row as TaskRow));
     },
 
+    async listTasksForOrg(orgId) {
+      return listTasksForOrgStmt.all(orgId).map((row) => toTaskRecord(row as TaskRow));
+    },
+
     async getTask(id) {
       const row = getTaskStmt.get(id) as TaskRow | null;
       return row ? toTaskRecord(row) : null;
@@ -1160,6 +1171,7 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
         record.description,
         record.prompt,
         record.profileId,
+        record.orgId ?? null,
         record.status,
         record.position,
         record.sessionId ?? null,
@@ -1482,6 +1494,7 @@ function toTaskRecord(row: TaskRow): StoredTaskRecord {
     description: row.description,
     prompt: row.prompt,
     profileId: row.profile_id,
+    orgId: row.org_id ?? null,
     status: row.status,
     position: row.position,
     sessionId: row.session_id,

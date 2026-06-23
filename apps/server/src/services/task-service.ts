@@ -6,7 +6,7 @@ import type {
   UpdateTaskRequest,
 } from "@tinyclaw/core";
 import { createId } from "@tinyclaw/core";
-import { DEFAULT_PROFILE_ID, type DatabaseAdapter, type StoredTaskRecord } from "@tinyclaw/db";
+import type { DatabaseAdapter, StoredTaskRecord } from "@tinyclaw/db";
 import { isValidTaskStatus, validateTaskInput } from "./task-validate";
 import type { TaskRunner } from "./task-runner";
 
@@ -19,19 +19,24 @@ export class TaskService {
     this.taskRunner = taskRunner;
   }
 
-  async list(): Promise<StoredTask[]> {
-    const records = await this.db.listTasks();
+  async listForOrg(orgId: string): Promise<StoredTask[]> {
+    const records = await this.db.listTasksForOrg(orgId);
     return records.map((record) => this.toStoredTask(record));
   }
 
-  async get(id: string): Promise<StoredTask | null> {
+  async get(id: string, orgId?: string): Promise<StoredTask | null> {
     const record = await this.db.getTask(id);
-    return record ? this.toStoredTask(record) : null;
+    if (!record || (orgId && record.orgId !== orgId)) {
+      return null;
+    }
+
+    return this.toStoredTask(record);
   }
 
   async create(
+    orgId: string,
     input: CreateTaskRequest,
-    profileId = DEFAULT_PROFILE_ID,
+    profileIdOverride?: string,
   ): Promise<StoredTask> {
     const status = input.status ?? "backlog";
     validateTaskInput({
@@ -40,11 +45,10 @@ export class TaskService {
       status,
     });
 
-    const profile = await this.db.getProfile(profileId);
-
-    if (!profile) {
-      throw new Error("Profile not found.");
-    }
+    const profileId = await this.resolveProfileId(
+      orgId,
+      profileIdOverride ?? input.profileId,
+    );
 
     const now = new Date().toISOString();
     const task: StoredTaskRecord = {
@@ -53,9 +57,9 @@ export class TaskService {
       description: input.description?.trim() ?? "",
       prompt: input.prompt.trim(),
       profileId,
-      orgId: profile.orgId ?? null,
+      orgId,
       status,
-      position: await this.nextPosition(status),
+      position: await this.nextPosition(orgId, status),
       createdAt: now,
       updatedAt: now,
     };
@@ -66,12 +70,13 @@ export class TaskService {
 
   async update(
     id: string,
+    orgId: string,
     input: UpdateTaskRequest,
     options?: { triggerRun?: boolean },
   ): Promise<StoredTask> {
     const existing = await this.db.getTask(id);
 
-    if (!existing) {
+    if (!existing || existing.orgId !== orgId) {
       throw new Error("Task not found.");
     }
 
@@ -85,19 +90,17 @@ export class TaskService {
 
     validateTaskInput({ title, prompt, status });
 
-    if (input.profileId !== undefined) {
-      const profile = await this.db.getProfile(input.profileId);
+    let profileId = existing.profileId;
 
-      if (!profile) {
-        throw new Error("Profile not found.");
-      }
+    if (input.profileId !== undefined) {
+      profileId = await this.resolveProfileId(orgId, input.profileId);
     }
 
     const statusChanged = status !== existing.status;
     let position = input.position;
 
     if (statusChanged && position === undefined) {
-      position = await this.nextPosition(status as TaskStatus);
+      position = await this.nextPosition(orgId, status as TaskStatus);
     } else if (position === undefined) {
       position = existing.position;
     }
@@ -108,7 +111,7 @@ export class TaskService {
       description:
         input.description !== undefined ? input.description.trim() : existing.description,
       prompt,
-      profileId: input.profileId ?? existing.profileId,
+      profileId,
       status,
       position,
       updatedAt: new Date().toISOString(),
@@ -130,7 +133,12 @@ export class TaskService {
     return this.toStoredTask(updated);
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, orgId: string): Promise<boolean> {
+    const existing = await this.db.getTask(id);
+    if (!existing || existing.orgId !== orgId) {
+      return false;
+    }
+
     return this.db.deleteTask(id);
   }
 
@@ -170,27 +178,53 @@ export class TaskService {
     });
   }
 
-  async listRuns(taskId: string, limit = 20): Promise<TaskRunRecord[]> {
+  async listRuns(taskId: string, orgId?: string, limit = 20): Promise<TaskRunRecord[]> {
+    const task = orgId ? await this.get(taskId, orgId) : await this.db.getTask(taskId);
+
+    if (!task) {
+      throw new Error("Task not found.");
+    }
+
     return this.db.listTaskRuns(taskId, limit);
   }
 
   async setTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
     const existing = await this.db.getTask(taskId);
 
-    if (!existing) {
+    if (!existing?.orgId) {
       return;
     }
 
     await this.db.upsertTask({
       ...existing,
       status,
-      position: await this.nextPosition(status),
+      position: await this.nextPosition(existing.orgId, status),
       updatedAt: new Date().toISOString(),
     });
   }
 
-  private async nextPosition(status: TaskStatus): Promise<number> {
-    const tasks = await this.db.listTasks();
+  private async resolveProfileId(orgId: string, profileId?: string): Promise<string> {
+    const trimmed = profileId?.trim();
+
+    if (trimmed) {
+      const profile = await this.db.getProfileForOrg(trimmed, orgId);
+      if (profile) {
+        return profile.id;
+      }
+
+      throw new Error("Profile not found.");
+    }
+
+    const defaultProfile = await this.db.getDefaultProfileForOrg(orgId);
+    if (!defaultProfile) {
+      throw new Error("No default profile exists for this organization.");
+    }
+
+    return defaultProfile.id;
+  }
+
+  private async nextPosition(orgId: string, status: TaskStatus): Promise<number> {
+    const tasks = await this.db.listTasksForOrg(orgId);
     const inColumn = tasks.filter((task) => task.status === status);
 
     if (inColumn.length === 0) {

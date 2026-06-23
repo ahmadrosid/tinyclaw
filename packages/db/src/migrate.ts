@@ -384,6 +384,14 @@ function migrateProfileOrgColumns(db: Database): void {
     )
     WHERE org_id IS NULL
   `).run();
+
+  db.prepare(`
+    UPDATE tasks
+    SET org_id = (
+      SELECT org_id FROM profiles WHERE profiles.id = tasks.profile_id
+    )
+    WHERE org_id IS NULL
+  `).run();
 }
 
 function addOrgIdColumnIfMissing(db: Database, tableName: string): void {

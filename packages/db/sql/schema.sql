@@ -93,12 +93,14 @@ CREATE TABLE IF NOT EXISTS tasks (
   description TEXT DEFAULT '' NOT NULL,
   prompt TEXT NOT NULL,
   profile_id TEXT NOT NULL,
+  org_id TEXT,
   status TEXT NOT NULL DEFAULT 'backlog',
   position INTEGER NOT NULL DEFAULT 0,
   session_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE,
+  FOREIGN KEY (org_id) REFERENCES organizations (id) ON DELETE CASCADE,
   FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL
 );
 

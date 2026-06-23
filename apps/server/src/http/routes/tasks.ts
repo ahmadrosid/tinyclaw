@@ -11,6 +11,7 @@ import type {
   UpdateTaskRequest,
 } from "@tinyclaw/core";
 import { errorResponse, json, readJson } from "../shared";
+import { requireActiveOrgIdFromContext } from "../org-guards";
 import type { HonoApp } from "../types";
 import type { ServerOptions } from "../context";
 
@@ -141,8 +142,9 @@ export function registerTaskRoutes(app: HonoApp, options: ServerOptions): void {
     },
   }));
 
-  app.get("/v1/tasks", async () => {
-    const tasks = await taskService.list();
+  app.get("/v1/tasks", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
+    const tasks = await taskService.listForOrg(orgId);
     return json<ListTasksResponse>({ tasks });
   });
 
@@ -161,10 +163,11 @@ export function registerTaskRoutes(app: HonoApp, options: ServerOptions): void {
   });
 
   app.post("/v1/tasks", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const body = await readJson<CreateTaskRequest>(c.req.raw);
 
     try {
-      const task = await taskService.create(body, body.profileId);
+      const task = await taskService.create(orgId, body, body.profileId);
       return json<TaskResponse>({ task }, 201);
     } catch (error) {
       if (error instanceof Error) {
@@ -185,7 +188,8 @@ export function registerTaskRoutes(app: HonoApp, options: ServerOptions): void {
   });
 
   app.get("/v1/tasks/:taskId", async (c) => {
-    const task = await taskService.get(decodeURIComponent(c.req.param("taskId")));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const task = await taskService.get(decodeURIComponent(c.req.param("taskId")), orgId);
     if (!task) {
       return errorResponse("Task not found.", 404);
     }
@@ -193,11 +197,12 @@ export function registerTaskRoutes(app: HonoApp, options: ServerOptions): void {
   });
 
   app.put("/v1/tasks/:taskId", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const taskId = decodeURIComponent(c.req.param("taskId"));
     const body = await readJson<UpdateTaskRequest>(c.req.raw);
 
     try {
-      const task = await taskService.update(taskId, body);
+      const task = await taskService.update(taskId, orgId, body);
       return json<TaskResponse>({ task });
     } catch (error) {
       if (error instanceof Error) {
@@ -219,7 +224,11 @@ export function registerTaskRoutes(app: HonoApp, options: ServerOptions): void {
   });
 
   app.delete("/v1/tasks/:taskId", async (c) => {
-    const deleted = await taskService.delete(decodeURIComponent(c.req.param("taskId")));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const deleted = await taskService.delete(
+      decodeURIComponent(c.req.param("taskId")),
+      orgId,
+    );
     if (!deleted) {
       return errorResponse("Task not found.", 404);
     }
@@ -227,15 +236,16 @@ export function registerTaskRoutes(app: HonoApp, options: ServerOptions): void {
   });
 
   app.post("/v1/tasks/:taskId/run", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const taskId = decodeURIComponent(c.req.param("taskId"));
-    const task = await taskService.get(taskId);
+    const task = await taskService.get(taskId, orgId);
 
     if (!task) {
       return errorResponse("Task not found.", 404);
     }
 
     if (task.status !== "in_progress") {
-      await taskService.update(taskId, { status: "in_progress" }, { triggerRun: false });
+      await taskService.update(taskId, orgId, { status: "in_progress" }, { triggerRun: false });
     }
 
     const result = await agent.runTask(taskId);
@@ -243,7 +253,7 @@ export function registerTaskRoutes(app: HonoApp, options: ServerOptions): void {
       return errorResponse(result.error ?? "Task run skipped.", 409);
     }
 
-    const runs = await taskService.listRuns(taskId, 1);
+    const runs = await taskService.listRuns(taskId, orgId, 1);
     const run = runs[0];
     if (!run) {
       return errorResponse("Task run record not found.", 500);
@@ -253,19 +263,24 @@ export function registerTaskRoutes(app: HonoApp, options: ServerOptions): void {
   });
 
   app.get("/v1/tasks/:taskId/runs", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const taskId = decodeURIComponent(c.req.param("taskId"));
-    const task = await taskService.get(taskId);
 
-    if (!task) {
-      return errorResponse("Task not found.", 404);
+    try {
+      const runs = await taskService.listRuns(taskId, orgId);
+      return json<ListTaskRunsResponse>({ runs });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Task not found.") {
+        return errorResponse(error.message, 404);
+      }
+      throw error;
     }
-
-    const runs = await taskService.listRuns(taskId);
-    return json<ListTaskRunsResponse>({ runs });
   });
 
   app.get("/v1/tasks/:taskId/messages", async (c) => {
-    const result = await agent.getTaskChatMessages(decodeURIComponent(c.req.param("taskId")));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const taskId = decodeURIComponent(c.req.param("taskId"));
+    const result = await agent.getTaskChatMessages(taskId, orgId);
     if (!result) {
       return errorResponse("Task not found.", 404);
     }

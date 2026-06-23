@@ -475,6 +475,15 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
       });
     },
 
+    async listTasksForOrg(orgId) {
+      return Array.from(tasks.values())
+        .filter((task) => task.orgId === orgId)
+        .sort((left, right) => {
+          const statusCompare = left.status.localeCompare(right.status);
+          return statusCompare !== 0 ? statusCompare : left.position - right.position;
+        });
+    },
+
     async getTask(id) {
       return tasks.get(id) ?? null;
     },

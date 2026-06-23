@@ -118,12 +118,18 @@ function createServerOptions() {
         limit ? [{ id: "automation_run_1" }] : [{ id: "automation_run_1" }],
     } as any,
     taskService: {
-      list: async () => [{ id: "task_1", status: "pending" }],
-      create: async (_body: unknown, _profileId?: string) => ({ id: "task_1", status: "pending" }),
-      get: async (_taskId: string) => ({ id: "task_1", status: "pending" }),
-      update: async (_taskId: string, body: any, _opts?: unknown) => ({ id: "task_1", status: body.status ?? "pending" }),
-      delete: async (_taskId: string) => true,
-      listRuns: async (_taskId: string, limit?: number) =>
+      listForOrg: async (_orgId: string) => [{ id: "task_1", status: "pending" }],
+      create: async (_orgId: string, _body: unknown, _profileId?: string) => ({
+        id: "task_1",
+        status: "pending",
+      }),
+      get: async (_taskId: string, _orgId?: string) => ({ id: "task_1", status: "pending" }),
+      update: async (_taskId: string, _orgId: string, body: any, _opts?: unknown) => ({
+        id: "task_1",
+        status: body.status ?? "pending",
+      }),
+      delete: async (_taskId: string, _orgId: string) => true,
+      listRuns: async (_taskId: string, _orgId?: string, limit?: number) =>
         limit ? [{ id: "task_run_1" }] : [{ id: "task_run_1" }],
     } as any,
     systemStatus: {

@@ -611,10 +611,11 @@ export class AgentService {
 
   async getTaskChatMessages(
     taskId: string,
+    orgId?: string,
   ): Promise<{ sessionId: string; messages: ChatMessage[] } | null> {
     const record = await this.db.getTask(taskId);
 
-    if (!record) {
+    if (!record || (orgId && record.orgId !== orgId)) {
       return null;
     }
 
