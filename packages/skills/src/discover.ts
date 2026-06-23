@@ -10,6 +10,7 @@ import { parseSkillMarkdown } from "./parse";
 import type { DiscoveredSkill } from "./types";
 
 export interface DiscoverSkillsOptions {
+  orgId?: string;
   profileId?: string;
 }
 

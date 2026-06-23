@@ -1,18 +1,31 @@
 import { describe, expect, test } from "bun:test";
-import { createInMemoryDatabaseAdapter, DEFAULT_PROFILE_ID } from "@tinyclaw/db";
+import { createInMemoryDatabaseAdapter } from "@tinyclaw/db";
 import { AutomationService } from "./automation-service";
 import { AutomationRunner } from "./automation-runner";
+
+const ORG_ID = "org_test";
+const PROFILE_ID = "profile_default";
 
 async function createTestDb() {
   const db = createInMemoryDatabaseAdapter();
   const now = new Date().toISOString();
 
+  await db.upsertOrganization({
+    id: ORG_ID,
+    name: "Test Org",
+    slug: "test-org",
+    createdAt: now,
+    updatedAt: now,
+  });
+
   await db.upsertProfile({
-    id: DEFAULT_PROFILE_ID,
+    id: PROFILE_ID,
     name: "Default Bot",
     systemPrompt: "",
     model: null,
     isSuper: false,
+    orgId: ORG_ID,
+    isDefault: true,
     createdAt: now,
     updatedAt: now,
   });
@@ -28,13 +41,14 @@ describe("AutomationService", () => {
     });
 
     const automation = await service.create(
+      ORG_ID,
       {
         name: "HN digest",
         description: "Morning news",
         prompt: "Fetch Hacker News headlines",
         trigger: { type: "schedule", cron: "0 8 * * *" },
       },
-      "default",
+      PROFILE_ID,
     );
 
     expect(automation.trigger).toEqual({
@@ -46,6 +60,64 @@ describe("AutomationService", () => {
       service.computeNextRunAt(automation.trigger, "Asia/Jakarta"),
     );
   });
+
+  test("lists automations only for the active org", async () => {
+    const db = await createTestDb();
+    const service = new AutomationService(db, {
+      getUserTimezone: async () => "UTC",
+    });
+    const now = new Date().toISOString();
+    const otherOrgId = "org_other";
+    const otherProfileId = "profile_other";
+
+    await db.upsertOrganization({
+      id: otherOrgId,
+      name: "Other Org",
+      slug: "other-org",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await db.upsertProfile({
+      id: otherProfileId,
+      name: "Other Bot",
+      systemPrompt: "",
+      model: null,
+      isSuper: false,
+      orgId: otherOrgId,
+      isDefault: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const orgAutomation = await service.create(
+      ORG_ID,
+      {
+        name: "Org task",
+        description: "Scoped",
+        prompt: "Run",
+        trigger: { type: "manual" },
+      },
+      PROFILE_ID,
+    );
+
+    await service.create(
+      otherOrgId,
+      {
+        name: "Other org task",
+        description: "Hidden",
+        prompt: "Run",
+        trigger: { type: "manual" },
+      },
+      otherProfileId,
+    );
+
+    const listed = await service.listForOrg(ORG_ID);
+    expect(listed.map((entry) => entry.id)).toEqual([orgAutomation.id]);
+
+    expect(await service.get(orgAutomation.id, ORG_ID)).not.toBeNull();
+    expect(await service.get(orgAutomation.id, otherOrgId)).toBeNull();
+  });
 });
 
 describe("AutomationRunner", () => {
@@ -56,13 +128,14 @@ describe("AutomationRunner", () => {
     });
 
     const automation = await service.create(
+      ORG_ID,
       {
         name: "Manual task",
         description: "Run once",
         prompt: "Say hello",
         trigger: { type: "manual" },
       },
-      "default",
+      PROFILE_ID,
     );
 
     const agentService = {
@@ -87,13 +160,14 @@ describe("AutomationRunner", () => {
     });
 
     const automation = await service.create(
+      ORG_ID,
       {
         name: "Manual task",
         description: "Run once",
         prompt: "Say hello",
         trigger: { type: "manual" },
       },
-      "default",
+      PROFILE_ID,
     );
 
     const agentService = {

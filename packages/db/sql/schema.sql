@@ -8,8 +8,11 @@ CREATE TABLE IF NOT EXISTS profiles (
   thinking_enabled INTEGER,
   thinking_effort TEXT,
   is_super INTEGER DEFAULT 0 NOT NULL,
+  org_id TEXT,
+  is_default INTEGER DEFAULT 0 NOT NULL,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (org_id) REFERENCES organizations (id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS tools (
@@ -61,11 +64,13 @@ CREATE TABLE IF NOT EXISTS automations (
   name TEXT NOT NULL,
   version INTEGER NOT NULL,
   definition TEXT NOT NULL,
-  profile_id TEXT NOT NULL DEFAULT 'default',
+  profile_id TEXT NOT NULL,
+  org_id TEXT,
   enabled INTEGER DEFAULT 1 NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE
+  FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE,
+  FOREIGN KEY (org_id) REFERENCES organizations (id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS automation_runs (

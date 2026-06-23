@@ -9,7 +9,7 @@ import type {
   CreateMcpServerRequest,
 } from "@tinyclaw/core";
 import { json, readJson } from "../shared";
-import { requirePlatformAdminFromContext } from "../org-guards";
+import { requirePlatformAdminFromContext, requireActiveOrgIdFromContext } from "../org-guards";
 import type { ServerOptions } from "../context";
 import type { HonoApp } from "../types";
 
@@ -208,16 +208,19 @@ export function registerMcpRoutes(app: HonoApp, options: ServerOptions): void {
 
   app.post("/v1/profiles/:profileId/mcp-servers", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
     const body = await readJson<AssignMcpServerRequest>(c.req.raw);
     return json<ProfileResponse>(
-      await agent.assignMcpServer(decodeURIComponent(c.req.param("profileId")), body),
+      await agent.assignMcpServer(orgId, decodeURIComponent(c.req.param("profileId")), body),
     );
   });
 
   app.delete("/v1/profiles/:profileId/mcp-servers/:serverId", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
     return json<ProfileResponse>(
       await agent.unassignMcpServer(
+        orgId,
         decodeURIComponent(c.req.param("profileId")),
         decodeURIComponent(c.req.param("serverId")),
       ),

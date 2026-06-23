@@ -1,53 +1,14 @@
 import { builtinTools } from "@tinyclaw/core";
-import { BASH_TOOL_ID, BUILTIN_TOOL_IDS } from "@tinyclaw/core/tools/protected";
-import {
-  DEFAULT_PROFILE_ID,
-  SUPER_BOT_PROFILE_ID,
-  SUPER_BOT_SYSTEM_PROMPT,
-} from "./constants";
+import { BUILTIN_TOOL_IDS } from "@tinyclaw/core/tools/protected";
 import type { DatabaseAdapter } from "./types";
 
 const LEGACY_BUILTIN_TOOL_NAMES = new Set(["echo", "log", "delay", "search_workspace"]);
 const SUPPORTED_TOOL_HANDLER_TYPES = new Set(["builtin", "bash", "javascript"]);
 
 export async function seedDatabase(db: DatabaseAdapter): Promise<void> {
-  await ensureSystemProfiles(db);
-
   await removeLegacyBuiltinTools(db);
   await removeUnsupportedTools(db);
-  await ensureBuiltinTools(db);
-  await ensureBashToolForSuperBot(db);
-  await ensureSuperBotSystemPrompt(db);
-}
-
-async function ensureSystemProfiles(db: DatabaseAdapter): Promise<void> {
-  const existingProfiles = await db.listProfiles();
-  const existingProfileIds = new Set(existingProfiles.map((profile) => profile.id));
-  const now = new Date().toISOString();
-
-  if (!existingProfileIds.has(SUPER_BOT_PROFILE_ID)) {
-    await db.upsertProfile({
-      id: SUPER_BOT_PROFILE_ID,
-      name: "Super Bot",
-      systemPrompt: SUPER_BOT_SYSTEM_PROMPT,
-      model: null,
-      isSuper: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-
-  if (!existingProfileIds.has(DEFAULT_PROFILE_ID)) {
-    await db.upsertProfile({
-      id: DEFAULT_PROFILE_ID,
-      name: "Default Bot",
-      systemPrompt: "You are a helpful personal assistant.",
-      model: null,
-      isSuper: false,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+  await ensureBuiltinToolDefinitions(db);
 }
 
 export async function removeLegacyBuiltinTools(db: DatabaseAdapter): Promise<void> {
@@ -84,16 +45,8 @@ export async function removeUnsupportedTools(db: DatabaseAdapter): Promise<void>
   }
 }
 
-export async function ensureBuiltinTools(db: DatabaseAdapter): Promise<void> {
+export async function ensureBuiltinToolDefinitions(db: DatabaseAdapter): Promise<void> {
   const now = new Date().toISOString();
-  const profiles = await db.listProfiles();
-  const defaultProfileIds = profiles
-    .filter(
-      (profile) =>
-        profile.id === SUPER_BOT_PROFILE_ID || profile.id === DEFAULT_PROFILE_ID,
-    )
-    .map((profile) => profile.id);
-  const allProfileIds = profiles.map((profile) => profile.id);
 
   for (const tool of builtinTools) {
     const toolId = BUILTIN_TOOL_IDS[tool.name as keyof typeof BUILTIN_TOOL_IDS];
@@ -113,53 +66,5 @@ export async function ensureBuiltinTools(db: DatabaseAdapter): Promise<void> {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     });
-
-    const profileIds =
-      tool.name === "create_skill" ? allProfileIds : defaultProfileIds;
-
-    for (const profileId of profileIds) {
-      await db.assignToolToProfile(profileId, toolId);
-    }
   }
-}
-
-export async function ensureBashToolForSuperBot(db: DatabaseAdapter): Promise<void> {
-  const now = new Date().toISOString();
-  const existing = await db.getTool(BASH_TOOL_ID);
-
-  await db.upsertTool({
-    id: BASH_TOOL_ID,
-    name: "bash",
-    description:
-      "Run a shell command and return stdout, stderr, and exit code. Super Bot only.",
-    handlerType: "bash",
-    handlerConfig: {},
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  });
-
-  await db.assignToolToProfile(SUPER_BOT_PROFILE_ID, BASH_TOOL_ID);
-}
-
-export async function ensureSuperBotSystemPrompt(db: DatabaseAdapter): Promise<void> {
-  const profile = await db.getProfile(SUPER_BOT_PROFILE_ID);
-
-  if (!profile) {
-    return;
-  }
-
-  const currentPrompt = profile.systemPrompt.trim();
-
-  if (
-    currentPrompt !== SUPER_BOT_SYSTEM_PROMPT &&
-    !currentPrompt.includes("TinyClaw orchestrator")
-  ) {
-    return;
-  }
-
-  await db.upsertProfile({
-    ...profile,
-    systemPrompt: SUPER_BOT_SYSTEM_PROMPT,
-    updatedAt: new Date().toISOString(),
-  });
 }

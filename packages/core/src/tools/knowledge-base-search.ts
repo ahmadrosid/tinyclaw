@@ -76,9 +76,10 @@ export async function runKnowledgeBaseSearch(
   context: ToolContext,
   options: KnowledgeBaseSearchOptions = {},
 ): Promise<KnowledgeBaseSearchOutput> {
+  const orgId = context.orgId?.trim();
   const profileId = context.profileId?.trim();
-  if (!profileId) {
-    throw new Error("profileId is required.");
+  if (!orgId || !profileId) {
+    throw new Error("orgId and profileId are required.");
   }
 
   const query = readRequiredString(input, "query");
@@ -86,12 +87,12 @@ export async function runKnowledgeBaseSearch(
   const regex = readOptionalBoolean(input, "regex") ?? true;
   const maxResults = readMaxResults(input);
 
-  await ensureKnowledgeBaseDirs(profileId);
+  await ensureKnowledgeBaseDirs(orgId, profileId);
 
   const workspaceRoot = await resolveWorkspaceRoot(
-    options.workspaceRoot ?? getProfileSoulDir(profileId),
+    options.workspaceRoot ?? getProfileSoulDir(orgId, profileId),
   );
-  const searchTarget = await resolveSearchTarget(profileId, filename);
+  const searchTarget = await resolveSearchTarget(orgId, profileId, filename);
 
   if (searchTarget.kind === "missing") {
     return {
@@ -132,16 +133,17 @@ type SearchTarget =
   | { kind: "missing"; root: string };
 
 async function resolveSearchTarget(
+  orgId: string,
   profileId: string,
   filename: string | null,
 ): Promise<SearchTarget> {
-  const knowledgeBaseDir = getKnowledgeBaseDir(profileId);
+  const knowledgeBaseDir = getKnowledgeBaseDir(orgId, profileId);
 
   if (!filename) {
     return { kind: "dir", root: knowledgeBaseDir, glob: "*" };
   }
 
-  const documents = await listKnowledgeBaseDocuments(profileId);
+  const documents = await listKnowledgeBaseDocuments(orgId, profileId);
   const normalized = filename.trim().toLowerCase();
   const document = documents.find(
     (entry) => entry.filename.trim().toLowerCase() === normalized && entry.status === "ready",
@@ -153,7 +155,7 @@ async function resolveSearchTarget(
 
   return {
     kind: "file",
-    root: getKnowledgeBaseExtractedPath(profileId, document.id),
+    root: getKnowledgeBaseExtractedPath(orgId, profileId, document.id),
     glob: null,
   };
 }

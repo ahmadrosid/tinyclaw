@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { runUpdateProfileMemory, MEMORY_MAX_BYTES } from "./profile-memory";
 
-const PROFILE_CONTEXT = { profileId: "profile_test" };
+const PROFILE_CONTEXT = { orgId: "org_test", profileId: "profile_test" };
 const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
 
 describe("update_profile_memory tool", () => {
@@ -29,7 +29,9 @@ describe("update_profile_memory tool", () => {
 
   async function setupProfileDir(): Promise<string> {
     const dir = setupTempDir();
-    await mkdir(path.join(dir, "profiles", "profile_test"), { recursive: true });
+    await mkdir(path.join(dir, "orgs", "org_test", "profiles", "profile_test"), {
+      recursive: true,
+    });
     process.env.TINYCLAW_CONFIG_DIR = dir;
     return dir;
   }
@@ -71,7 +73,7 @@ describe("update_profile_memory tool", () => {
     await runUpdateProfileMemory({ content: "Second fact." }, PROFILE_CONTEXT);
 
     const content = await readFile(
-      path.join(configDir, "profiles", "profile_test", "MEMORY.md"),
+      path.join(configDir, "orgs", "org_test", "profiles", "profile_test", "MEMORY.md"),
       "utf8",
     );
     const todaySectionMatch = content.match(
@@ -90,7 +92,7 @@ describe("update_profile_memory tool", () => {
     await runUpdateProfileMemory({ content: "Fact three." }, PROFILE_CONTEXT);
 
     const content = await readFile(
-      path.join(tempDir, "profiles", "profile_test", "MEMORY.md"),
+      path.join(tempDir, "orgs", "org_test", "profiles", "profile_test", "MEMORY.md"),
       "utf8",
     );
     const bulletCount = (content.match(/- Fact/g) || []).length;
@@ -110,7 +112,7 @@ describe("update_profile_memory tool", () => {
   test("throws when profileId is missing from context", async () => {
     await expect(
       runUpdateProfileMemory({ content: "test" }, {}),
-    ).rejects.toThrow("profileId is required.");
+    ).rejects.toThrow("orgId and profileId are required.");
   });
 
   test("throws when content is empty", async () => {
@@ -130,7 +132,7 @@ describe("update_profile_memory tool", () => {
     );
 
     expect(result.path).toBe(
-      path.join(configDir, "profiles", "profile_test", "MEMORY.md"),
+      path.join(configDir, "orgs", "org_test", "profiles", "profile_test", "MEMORY.md"),
     );
   });
 });

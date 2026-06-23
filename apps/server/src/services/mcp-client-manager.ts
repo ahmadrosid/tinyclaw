@@ -23,8 +23,9 @@ export class McpClientManager {
     serverId: string,
     transport: McpTransport,
     profileId?: string,
+    orgId?: string,
   ): boolean {
-    return this.connections.has(connectionKey(serverId, transport, profileId));
+    return this.connections.has(connectionKey(serverId, transport, profileId, orgId));
   }
 
   getConnectedCount(): number {
@@ -33,25 +34,24 @@ export class McpClientManager {
 
   async ensureConnected(
     server: StoredMcpServerRecord,
+    orgId: string,
     profileId: string,
   ): Promise<void> {
-    if (this.isConnected(server.id, server.transport, profileId)) {
+    if (this.isConnected(server.id, server.transport, profileId, orgId)) {
       return;
     }
 
-    await this.connect(server, { profileId });
+    await this.connect(server, { orgId, profileId });
   }
 
   async connect(
     server: StoredMcpServerRecord,
-    options?: { profileId?: string },
+    options?: { orgId?: string; profileId?: string },
   ): Promise<CachedMcpTool[]> {
-    const key = connectionKey(server.id, server.transport, options?.profileId);
+    const key = connectionKey(server.id, server.transport, options?.profileId, options?.orgId);
     await this.disconnectKey(key);
 
-    const transport = createTransport(server.transport, server.config, {
-      profileId: options?.profileId,
-    });
+    const transport = createTransport(server.transport, server.config, options);
     const client = new Client({
       name: "tinyclaw",
       version: "1.0.0",
@@ -100,8 +100,9 @@ export class McpClientManager {
     toolName: string,
     input: unknown,
     profileId?: string,
+    orgId?: string,
   ): Promise<unknown> {
-    const client = this.requireClient(serverId, transport, profileId);
+    const client = this.requireClient(serverId, transport, profileId, orgId);
     const result = await client.callTool({
       name: toolName,
       arguments: asToolArguments(input),
@@ -154,8 +155,9 @@ export class McpClientManager {
     serverId: string,
     transport: McpTransport,
     profileId?: string,
+    orgId?: string,
   ): Client {
-    const connection = this.connections.get(connectionKey(serverId, transport, profileId));
+    const connection = this.connections.get(connectionKey(serverId, transport, profileId, orgId));
 
     if (!connection) {
       throw new Error(`MCP server "${serverId}" is not connected.`);
@@ -185,9 +187,10 @@ function connectionKey(
   serverId: string,
   transport: McpTransport,
   profileId?: string,
+  orgId?: string,
 ): string {
-  if (transport === "stdio" && profileId) {
-    return `${serverId}:${profileId}`;
+  if (transport === "stdio" && profileId && orgId) {
+    return `${serverId}:${orgId}:${profileId}`;
   }
 
   return serverId;
@@ -196,7 +199,7 @@ function connectionKey(
 function createTransport(
   transport: McpTransport,
   config: unknown,
-  options?: { profileId?: string },
+  options?: { orgId?: string; profileId?: string },
 ): Transport {
   if (transport === "http") {
     const http = readHttpConfig(config);
@@ -210,7 +213,10 @@ function createTransport(
 
   if (transport === "stdio") {
     const stdio = readStdioConfig(config);
-    const cwd = options?.profileId ? getProfileSoulDir(options.profileId) : undefined;
+    const cwd =
+      options?.orgId && options?.profileId
+        ? getProfileSoulDir(options.orgId, options.profileId)
+        : undefined;
 
     return new StdioClientTransport({
       ...stdio,

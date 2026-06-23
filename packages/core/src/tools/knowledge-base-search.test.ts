@@ -8,6 +8,7 @@ import { runKnowledgeBaseSearch } from "./knowledge-base-search";
 describe("knowledge_base_search tool", () => {
   let tempConfigDir = "";
   const previousConfigDir = process.env.TINYCLAW_CONFIG_DIR;
+  const orgId = "org_test";
   const profileId = "profile_kb_search";
 
   afterEach(async () => {
@@ -23,7 +24,7 @@ describe("knowledge_base_search tool", () => {
     tempConfigDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-kb-search-"));
     process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
 
-    const profileDir = path.join(tempConfigDir, "profiles", profileId);
+    const profileDir = path.join(tempConfigDir, "orgs", orgId, "profiles", profileId);
     const extractedDir = path.join(profileDir, "data", "knowledge-base", "extracted");
     const uploadsDir = path.join(profileDir, "data", "knowledge-base", "uploads");
     await mkdir(extractedDir, { recursive: true });
@@ -60,17 +61,17 @@ describe("knowledge_base_search tool", () => {
   test("searches all knowledge base files", async () => {
     await setupExtractedFile("notes.txt", "alpha project fact\nbeta line\n");
 
-    const profileDir = path.join(tempConfigDir, "profiles", profileId);
+    const profileDir = path.join(tempConfigDir, "orgs", orgId, "profiles", profileId);
     await writeFile(path.join(profileDir, "SOUL.md"), "alpha soul content\n", "utf8");
 
     const result = await runKnowledgeBaseSearch(
       { query: "project fact" },
-      { profileId },
+      { orgId, profileId },
     );
 
     expect(result.matchCount).toBe(1);
     expect(result.matches[0]?.text).toContain("alpha project fact");
-    expect(result.root).toBe(getKnowledgeBaseDir(profileId));
+    expect(result.root).toBe(getKnowledgeBaseDir(orgId, profileId));
   });
 
   test("filters by source filename", async () => {
@@ -78,13 +79,13 @@ describe("knowledge_base_search tool", () => {
 
     const missing = await runKnowledgeBaseSearch(
       { query: "unique-token", filename: "missing.txt" },
-      { profileId },
+      { orgId, profileId },
     );
     expect(missing.matchCount).toBe(0);
 
     const found = await runKnowledgeBaseSearch(
       { query: "unique-token", filename: "notes.txt" },
-      { profileId },
+      { orgId, profileId },
     );
     expect(found.matchCount).toBe(1);
   });

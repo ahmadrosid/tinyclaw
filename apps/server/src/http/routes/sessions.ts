@@ -19,6 +19,7 @@ import {
   streamMessage,
   getRequestAuth,
 } from "../shared";
+import { requireActiveOrgIdFromContext } from "../org-guards";
 import type { ServerOptions } from "../context";
 import type { HonoApp } from "../types";
 
@@ -173,8 +174,10 @@ export function registerSessionRoutes(app: HonoApp, options: ServerOptions): voi
 
   app.post("/v1/sessions", async (c) => {
     const auth = getRequestAuth(c);
+    const orgId = requireActiveOrgIdFromContext(c);
     const body = await readJson<CreateSessionRequest>(c.req.raw);
     const sessionId = await agent.createSession(
+      orgId,
       parseChannel(body.channel),
       body.profileId,
       auth.user.id,
@@ -183,6 +186,7 @@ export function registerSessionRoutes(app: HonoApp, options: ServerOptions): voi
   });
 
   app.get("/v1/sessions", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const profileId = c.req.query("profileId")?.trim();
     const channel = parseChannel(c.req.query("channel") ?? "web");
 
@@ -190,7 +194,7 @@ export function registerSessionRoutes(app: HonoApp, options: ServerOptions): voi
       return errorResponse("profileId is required.", 400);
     }
 
-    return json<ListSessionsResponse>(await agent.listSessions(profileId, channel));
+    return json<ListSessionsResponse>(await agent.listSessions(orgId, profileId, channel));
   });
 
   app.delete("/v1/sessions/:sessionId", async (c) => {

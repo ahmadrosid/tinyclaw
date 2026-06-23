@@ -38,7 +38,6 @@ import {
 import { isProtectedToolId } from "@tinyclaw/core/tools/protected";
 import { BUILTIN_TOOL_IDS } from "@tinyclaw/core/tools/protected";
 import type { DatabaseAdapter, StoredProfileRecord, StoredToolRecord } from "@tinyclaw/db";
-import { SUPER_BOT_PROFILE_ID } from "@tinyclaw/db";
 import { validateJavascriptToolModule } from "./javascript-tool-loader";
 import { toMcpServerSummaries } from "./mcp-service";
 import { toSkillSummaries } from "./skills-service";
@@ -47,8 +46,8 @@ import { readToolSource } from "./tool-source";
 export class ProfileService {
   constructor(private readonly db: DatabaseAdapter) {}
 
-  async listProfiles(): Promise<ListProfilesResponse> {
-    const profiles = await this.db.listProfiles();
+  async listProfiles(orgId: string): Promise<ListProfilesResponse> {
+    const profiles = await this.db.listProfilesForOrg(orgId);
     const summaries = await Promise.all(
       profiles.map((profile) => this.toProfileSummary(profile)),
     );
@@ -56,8 +55,8 @@ export class ProfileService {
     return { profiles: summaries };
   }
 
-  async getProfile(profileId: string): Promise<ProfileResponse> {
-    const profile = await this.requireProfile(profileId);
+  async getProfile(orgId: string, profileId: string): Promise<ProfileResponse> {
+    const profile = await this.requireProfile(orgId, profileId);
     const tools = await this.db.listToolsForProfile(profileId);
     const mcpServers = await this.db.listMcpServersForProfile(profileId);
     const skills = await this.db.listSkillsForProfile(profileId);
@@ -73,7 +72,7 @@ export class ProfileService {
     };
   }
 
-  async createProfile(request: CreateProfileRequest): Promise<ProfileResponse> {
+  async createProfile(orgId: string, request: CreateProfileRequest): Promise<ProfileResponse> {
     const now = new Date().toISOString();
     const profile: StoredProfileRecord = {
       id: nanoid(),
@@ -81,6 +80,8 @@ export class ProfileService {
       systemPrompt: request.systemPrompt?.trim() ?? "You are a helpful personal assistant.",
       model: request.model ?? null,
       isSuper: request.isSuper ?? false,
+      orgId,
+      isDefault: false,
       createdAt: now,
       updatedAt: now,
     };
@@ -90,17 +91,18 @@ export class ProfileService {
     }
 
     await this.db.upsertProfile(profile);
-    await initSoulDirectory(getProfileSoulDir(profile.id));
+    await initSoulDirectory(getProfileSoulDir(orgId, profile.id));
     await this.assignDefaultTools(profile.id);
 
-    return this.getProfile(profile.id);
+    return this.getProfile(orgId, profile.id);
   }
 
   async updateProfile(
+    orgId: string,
     profileId: string,
     request: UpdateProfileRequest,
   ): Promise<ProfileResponse> {
-    const profile = await this.requireProfile(profileId);
+    const profile = await this.requireProfile(orgId, profileId);
     const now = new Date().toISOString();
 
     await this.db.upsertProfile({
@@ -111,12 +113,14 @@ export class ProfileService {
       updatedAt: now,
     });
 
-    return this.getProfile(profileId);
+    return this.getProfile(orgId, profileId);
   }
 
-  async deleteProfile(profileId: string): Promise<void> {
-    if (profileId === SUPER_BOT_PROFILE_ID) {
-      throw new Error("The Super Bot profile cannot be deleted.");
+  async deleteProfile(orgId: string, profileId: string): Promise<void> {
+    const profile = await this.requireProfile(orgId, profileId);
+
+    if (profile.isDefault) {
+      throw new Error("The default profile for an organization cannot be deleted.");
     }
 
     const deleted = await this.db.deleteProfile(profileId);
@@ -141,8 +145,8 @@ export class ProfileService {
     return readToolSource(tool);
   }
 
-  async listProfileTools(profileId: string): Promise<ListToolsResponse> {
-    await this.requireProfile(profileId);
+  async listProfileTools(orgId: string, profileId: string): Promise<ListToolsResponse> {
+    await this.requireProfile(orgId, profileId);
     const tools = await this.db.listToolsForProfile(profileId);
     return { tools: tools.map(toToolSummary) };
   }
@@ -204,8 +208,12 @@ export class ProfileService {
     return toToolDetail(record);
   }
 
-  async assignTool(profileId: string, request: AssignToolRequest): Promise<ProfileResponse> {
-    await this.requireProfile(profileId);
+  async assignTool(
+    orgId: string,
+    profileId: string,
+    request: AssignToolRequest,
+  ): Promise<ProfileResponse> {
+    await this.requireProfile(orgId, profileId);
 
     const tool = await this.db.getTool(request.toolId);
 
@@ -215,11 +223,15 @@ export class ProfileService {
 
     await this.db.assignToolToProfile(profileId, request.toolId);
 
-    return this.getProfile(profileId);
+    return this.getProfile(orgId, profileId);
   }
 
-  async unassignTool(profileId: string, toolId: string): Promise<ProfileResponse> {
-    await this.requireProfile(profileId);
+  async unassignTool(
+    orgId: string,
+    profileId: string,
+    toolId: string,
+  ): Promise<ProfileResponse> {
+    await this.requireProfile(orgId, profileId);
 
     const removed = await this.db.unassignToolFromProfile(profileId, toolId);
 
@@ -227,14 +239,15 @@ export class ProfileService {
       throw new Error("Tool is not assigned to this profile.");
     }
 
-    return this.getProfile(profileId);
+    return this.getProfile(orgId, profileId);
   }
 
   async assignMcpServer(
+    orgId: string,
     profileId: string,
     request: AssignMcpServerRequest,
   ): Promise<ProfileResponse> {
-    await this.requireProfile(profileId);
+    await this.requireProfile(orgId, profileId);
 
     const server = await this.db.getMcpServer(request.serverId);
 
@@ -244,11 +257,15 @@ export class ProfileService {
 
     await this.db.assignMcpServerToProfile(profileId, request.serverId);
 
-    return this.getProfile(profileId);
+    return this.getProfile(orgId, profileId);
   }
 
-  async unassignMcpServer(profileId: string, serverId: string): Promise<ProfileResponse> {
-    await this.requireProfile(profileId);
+  async unassignMcpServer(
+    orgId: string,
+    profileId: string,
+    serverId: string,
+  ): Promise<ProfileResponse> {
+    await this.requireProfile(orgId, profileId);
 
     const removed = await this.db.unassignMcpServerFromProfile(profileId, serverId);
 
@@ -256,14 +273,15 @@ export class ProfileService {
       throw new Error("MCP server is not assigned to this profile.");
     }
 
-    return this.getProfile(profileId);
+    return this.getProfile(orgId, profileId);
   }
 
   async assignSkill(
+    orgId: string,
     profileId: string,
     request: AssignSkillRequest,
   ): Promise<ProfileResponse> {
-    await this.requireProfile(profileId);
+    await this.requireProfile(orgId, profileId);
 
     const skill = await this.db.getSkill(request.skillId);
 
@@ -273,11 +291,15 @@ export class ProfileService {
 
     await this.db.assignSkillToProfile(profileId, request.skillId);
 
-    return this.getProfile(profileId);
+    return this.getProfile(orgId, profileId);
   }
 
-  async unassignSkill(profileId: string, skillId: string): Promise<ProfileResponse> {
-    await this.requireProfile(profileId);
+  async unassignSkill(
+    orgId: string,
+    profileId: string,
+    skillId: string,
+  ): Promise<ProfileResponse> {
+    await this.requireProfile(orgId, profileId);
 
     const removed = await this.db.unassignSkillFromProfile(profileId, skillId);
 
@@ -285,16 +307,17 @@ export class ProfileService {
       throw new Error("Skill is not assigned to this profile.");
     }
 
-    return this.getProfile(profileId);
+    return this.getProfile(orgId, profileId);
   }
 
   async uploadProfileAvatar(
+    orgId: string,
     profileId: string,
     attachment: ImageAttachment,
   ): Promise<ProfileResponse> {
-    const profile = await this.requireProfile(profileId);
+    const profile = await this.requireProfile(orgId, profileId);
 
-    await saveProfileAvatar(profileId, attachment);
+    await saveProfileAvatar(orgId, profileId, attachment);
 
     const now = new Date().toISOString();
     await this.db.upsertProfile({
@@ -302,13 +325,16 @@ export class ProfileService {
       updatedAt: now,
     });
 
-    return this.getProfile(profileId);
+    return this.getProfile(orgId, profileId);
   }
 
-  async getProfileAvatar(profileId: string): Promise<{ mediaType: string; bytes: Buffer }> {
-    await this.requireProfile(profileId);
+  async getProfileAvatar(
+    orgId: string,
+    profileId: string,
+  ): Promise<{ mediaType: string; bytes: Buffer }> {
+    await this.requireProfile(orgId, profileId);
 
-    const avatar = await readProfileAvatar(profileId);
+    const avatar = await readProfileAvatar(orgId, profileId);
 
     if (!avatar) {
       throw new TinyClawApiError("Profile avatar not found.", 404);
@@ -317,9 +343,9 @@ export class ProfileService {
     return avatar;
   }
 
-  async deleteProfileAvatar(profileId: string): Promise<void> {
-    const profile = await this.requireProfile(profileId);
-    const removed = await deleteProfileAvatar(profileId);
+  async deleteProfileAvatar(orgId: string, profileId: string): Promise<void> {
+    const profile = await this.requireProfile(orgId, profileId);
+    const removed = await deleteProfileAvatar(orgId, profileId);
 
     if (!removed) {
       throw new TinyClawApiError("Profile avatar not found.", 404);
@@ -332,20 +358,21 @@ export class ProfileService {
     });
   }
 
-  async listKnowledgeBase(profileId: string): Promise<ListKnowledgeBaseResponse> {
-    await this.requireProfile(profileId);
-    const documents = await listKnowledgeBaseDocuments(profileId);
+  async listKnowledgeBase(orgId: string, profileId: string): Promise<ListKnowledgeBaseResponse> {
+    await this.requireProfile(orgId, profileId);
+    const documents = await listKnowledgeBaseDocuments(orgId, profileId);
     return { documents, profileId };
   }
 
   async uploadKnowledgeBaseDocument(
+    orgId: string,
     profileId: string,
     document: DocumentAttachment,
   ): Promise<UploadKnowledgeBaseResponse> {
-    await this.requireProfile(profileId);
+    await this.requireProfile(orgId, profileId);
 
     try {
-      const uploaded = await persistKnowledgeBaseDocument(profileId, document);
+      const uploaded = await persistKnowledgeBaseDocument(orgId, profileId, document);
       return { document: uploaded, profileId };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to upload knowledge base document.";
@@ -354,11 +381,12 @@ export class ProfileService {
   }
 
   async deleteKnowledgeBaseDocument(
+    orgId: string,
     profileId: string,
     documentId: string,
   ): Promise<DeleteKnowledgeBaseResponse> {
-    await this.requireProfile(profileId);
-    const deleted = await removeKnowledgeBaseDocument(profileId, documentId);
+    await this.requireProfile(orgId, profileId);
+    const deleted = await removeKnowledgeBaseDocument(orgId, profileId, documentId);
 
     if (!deleted) {
       throw new TinyClawApiError("Knowledge base document not found.", 404);
@@ -367,11 +395,11 @@ export class ProfileService {
     return { deleted: true, profileId, documentId };
   }
 
-  private async requireProfile(profileId: string): Promise<StoredProfileRecord> {
-    const profile = await this.db.getProfile(profileId);
+  private async requireProfile(orgId: string, profileId: string): Promise<StoredProfileRecord> {
+    const profile = await this.db.getProfileForOrg(profileId, orgId);
 
     if (!profile) {
-      throw new Error("Profile not found.");
+      throw new TinyClawApiError("Profile not found.", 404);
     }
 
     return profile;
@@ -396,19 +424,26 @@ export class ProfileService {
   }
 
   private async toProfileSummary(profile: StoredProfileRecord): Promise<ProfileSummary> {
+    const orgId = profile.orgId;
+
+    if (!orgId) {
+      throw new Error("Profile is missing orgId.");
+    }
+
     const tools = await this.db.listToolsForProfile(profile.id);
     const mcpServers = await this.db.listMcpServersForProfile(profile.id);
-    const soulStack = await resolveSoulStackForProfile(profile.id);
+    const soulStack = await resolveSoulStackForProfile(orgId, profile.id);
 
     return {
       id: profile.id,
       name: profile.name,
       model: profile.model,
       isSuper: profile.isSuper,
+      isDefault: profile.isDefault ?? false,
       toolCount: tools.length,
       mcpServerCount: mcpServers.length,
       soulActive: soulStack !== null,
-      hasAvatar: await hasProfileAvatar(profile.id),
+      hasAvatar: await hasProfileAvatar(orgId, profile.id),
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
     };

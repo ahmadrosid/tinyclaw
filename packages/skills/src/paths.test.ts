@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { resolveSkillDiscoveryDirs } from "./paths";
 
+const ORG_ID = "org_test";
+
 describe("skill paths", () => {
   let configDir: string | undefined;
 
@@ -25,22 +27,28 @@ describe("skill paths", () => {
     configDir = await mkdtemp(path.join(tmpdir(), "tinyclaw-paths-test-"));
     process.env.TINYCLAW_CONFIG_DIR = configDir;
 
-    await expect(resolveSkillDiscoveryDirs({ profileId: "default" })).resolves.toEqual([
+    await expect(
+      resolveSkillDiscoveryDirs({ orgId: ORG_ID, profileId: "profile_default" }),
+    ).resolves.toEqual([
       path.join(configDir, "agent", "skills"),
-      path.join(configDir, "profiles", "default", "skills"),
+      path.join(configDir, "orgs", ORG_ID, "profiles", "profile_default", "skills"),
     ]);
   });
 
   test("resolveSkillDiscoveryDirs scans all profile skill dirs when no profileId", async () => {
     configDir = await mkdtemp(path.join(tmpdir(), "tinyclaw-paths-test-"));
     process.env.TINYCLAW_CONFIG_DIR = configDir;
-    await mkdir(path.join(configDir, "profiles", "profile_a", "skills"), { recursive: true });
-    await mkdir(path.join(configDir, "profiles", "profile_b", "skills"), { recursive: true });
+    await mkdir(path.join(configDir, "orgs", ORG_ID, "profiles", "profile_a", "skills"), {
+      recursive: true,
+    });
+    await mkdir(path.join(configDir, "orgs", ORG_ID, "profiles", "profile_b", "skills"), {
+      recursive: true,
+    });
 
     await expect(resolveSkillDiscoveryDirs()).resolves.toEqual([
       path.join(configDir, "agent", "skills"),
-      path.join(configDir, "profiles", "profile_a", "skills"),
-      path.join(configDir, "profiles", "profile_b", "skills"),
+      path.join(configDir, "orgs", ORG_ID, "profiles", "profile_a", "skills"),
+      path.join(configDir, "orgs", ORG_ID, "profiles", "profile_b", "skills"),
     ]);
   });
 });

@@ -12,6 +12,7 @@ export * from "./ids";
 export * from "./knowledge-base";
 export * from "./local-auth";
 export * from "./profile-avatar";
+export * from "./profiles";
 export * from "./compatible-provider-config";
 export * from "./provider-label";
 export * from "./provider-setup-prompt";

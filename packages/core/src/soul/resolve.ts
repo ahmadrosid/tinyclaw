@@ -3,18 +3,22 @@ import { getUserConfigDir } from "../user-config";
 import { getSoulStatus, loadSoulStack } from "./load";
 import type { LoadedSoulStack, SoulStatus } from "./types";
 
-/** Per-profile soul stack: ~/.tinyclaw/profiles/{profileId}/ */
-export function getProfileSoulDir(profileId: string): string {
-  return join(getUserConfigDir(), "profiles", profileId);
+/** Per-profile soul stack: ~/.tinyclaw/orgs/{orgId}/profiles/{profileId}/ */
+export function getProfileSoulDir(orgId: string, profileId: string): string {
+  return join(getUserConfigDir(), "orgs", orgId, "profiles", profileId);
 }
 
 export async function resolveSoulStackForProfile(
+  orgId: string,
   profileId: string,
 ): Promise<LoadedSoulStack | null> {
-  const stack = await loadSoulStack(getProfileSoulDir(profileId));
+  const stack = await loadSoulStack(getProfileSoulDir(orgId, profileId));
   return stack.loaded.length > 0 ? stack : null;
 }
 
-export async function getResolvedSoulStatus(profileId: string): Promise<SoulStatus> {
-  return getSoulStatus(getProfileSoulDir(profileId));
+export async function getResolvedSoulStatus(
+  orgId: string,
+  profileId: string,
+): Promise<SoulStatus> {
+  return getSoulStatus(getProfileSoulDir(orgId, profileId));
 }

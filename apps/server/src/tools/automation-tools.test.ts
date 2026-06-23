@@ -1,19 +1,33 @@
 import { describe, expect, test } from "bun:test";
-import { createInMemoryDatabaseAdapter, DEFAULT_PROFILE_ID } from "@tinyclaw/db";
+import { createInMemoryDatabaseAdapter } from "@tinyclaw/db";
 import { AutomationRunner } from "../services/automation-runner";
 import { AutomationService } from "../services/automation-service";
 import { createAutomationTools } from "./automation-tools";
+
+const ORG_ID = "org_test";
+const PROFILE_ID = "profile_default";
+const TOOL_CONTEXT = { orgId: ORG_ID, profileId: PROFILE_ID };
 
 async function createTestDb() {
   const db = createInMemoryDatabaseAdapter();
   const now = new Date().toISOString();
 
+  await db.upsertOrganization({
+    id: ORG_ID,
+    name: "Test Org",
+    slug: "test-org",
+    createdAt: now,
+    updatedAt: now,
+  });
+
   await db.upsertProfile({
-    id: DEFAULT_PROFILE_ID,
+    id: PROFILE_ID,
     name: "Default Bot",
     systemPrompt: "",
     model: null,
     isSuper: false,
+    orgId: ORG_ID,
+    isDefault: true,
     createdAt: now,
     updatedAt: now,
   });
@@ -44,13 +58,14 @@ describe("run_automation tool", () => {
     });
 
     const automation = await service.create(
+      ORG_ID,
       {
         name: "Manual task",
         description: "Run once",
         prompt: "Say hello",
         trigger: { type: "manual" },
       },
-      DEFAULT_PROFILE_ID,
+      PROFILE_ID,
     );
 
     const runner = new AutomationRunner(service, {
@@ -58,7 +73,7 @@ describe("run_automation tool", () => {
     } as never);
     const tool = getRunAutomationTool(service, runner);
 
-    const result = await tool.run({ automationId: automation.id }, {} as never);
+    const result = await tool.run({ automationId: automation.id }, TOOL_CONTEXT as never);
 
     expect(result).toEqual({
       automationId: automation.id,
@@ -80,7 +95,7 @@ describe("run_automation tool", () => {
     const tool = getRunAutomationTool(service, runner);
 
     await expect(
-      tool.run({ automationId: "automation_missing" }, {} as never),
+      tool.run({ automationId: "automation_missing" }, TOOL_CONTEXT as never),
     ).rejects.toThrow("Automation not found.");
   });
 
@@ -91,6 +106,7 @@ describe("run_automation tool", () => {
     });
 
     const automation = await service.create(
+      ORG_ID,
       {
         name: "Disabled task",
         description: "Should not run",
@@ -98,7 +114,7 @@ describe("run_automation tool", () => {
         trigger: { type: "manual" },
         enabled: false,
       },
-      DEFAULT_PROFILE_ID,
+      PROFILE_ID,
     );
 
     const runner = new AutomationRunner(service, {
@@ -107,7 +123,7 @@ describe("run_automation tool", () => {
     const tool = getRunAutomationTool(service, runner);
 
     await expect(
-      tool.run({ automationId: automation.id }, {} as never),
+      tool.run({ automationId: automation.id }, TOOL_CONTEXT as never),
     ).rejects.toThrow("Automation is disabled.");
   });
 
@@ -118,13 +134,14 @@ describe("run_automation tool", () => {
     });
 
     const automation = await service.create(
+      ORG_ID,
       {
         name: "Concurrent task",
         description: "Already running",
         prompt: "Say hello",
         trigger: { type: "manual" },
       },
-      DEFAULT_PROFILE_ID,
+      PROFILE_ID,
     );
 
     let releaseFirstRun: (() => void) | undefined;
@@ -144,11 +161,11 @@ describe("run_automation tool", () => {
     } as never);
     const tool = getRunAutomationTool(service, runner);
 
-    const firstRun = tool.run({ automationId: automation.id }, {} as never);
+    const firstRun = tool.run({ automationId: automation.id }, TOOL_CONTEXT as never);
     await firstRunHasStarted;
 
     await expect(
-      tool.run({ automationId: automation.id }, {} as never),
+      tool.run({ automationId: automation.id }, TOOL_CONTEXT as never),
     ).rejects.toThrow("Automation is already running.");
 
     releaseFirstRun?.();
@@ -162,13 +179,14 @@ describe("run_automation tool", () => {
     });
 
     const automation = await service.create(
+      ORG_ID,
       {
         name: "Failing task",
         description: "Provider offline",
         prompt: "Say hello",
         trigger: { type: "manual" },
       },
-      DEFAULT_PROFILE_ID,
+      PROFILE_ID,
     );
 
     const runner = new AutomationRunner(service, {
@@ -178,7 +196,7 @@ describe("run_automation tool", () => {
     } as never);
     const tool = getRunAutomationTool(service, runner);
 
-    const result = await tool.run({ automationId: automation.id }, {} as never);
+    const result = await tool.run({ automationId: automation.id }, TOOL_CONTEXT as never);
 
     expect(result).toEqual({
       automationId: automation.id,

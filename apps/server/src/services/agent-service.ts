@@ -113,7 +113,6 @@ import {
   writeSoulFile,
 } from "@tinyclaw/core";
 import {
-  DEFAULT_PROFILE_ID,
   SUPER_BOT_TOOL_AUTHORING_RULES,
   WORKSPACE_SETTINGS_ID,
   type DatabaseAdapter,
@@ -519,17 +518,22 @@ export class AgentService {
     return regenerateWhatsAppPairingCode();
   }
 
-  async runAutomationPrompt(profileId: string, prompt: string): Promise<string> {
+  async runAutomationPrompt(
+    orgId: string,
+    profileId: string,
+    prompt: string,
+  ): Promise<string> {
     if (!this._providerConfigured) {
       throw new Error("Provider is not configured.");
     }
 
-    const profile = await this.requireProfile(profileId);
+    const profile = await this.requireProfile(orgId, profileId);
     const tools = await this.resolveProfileTools(profile, {
       includeAutomationTools: false,
       includeTodoTools: false,
     });
     const { systemPrompt, soulActive } = await this.resolveProfileSystemPrompt(
+      orgId,
       profileId,
       profile.systemPrompt,
     );
@@ -546,6 +550,7 @@ export class AgentService {
       soul: soulActive,
       userTimezone,
       toolContext: {
+        orgId,
         profileId,
       },
     });
@@ -558,7 +563,13 @@ export class AgentService {
       throw new Error("Provider is not configured.");
     }
 
-    const sessionId = await this.ensureTaskSession(taskId, profileId);
+    const task = await this.db.getTask(taskId);
+
+    if (!task?.orgId) {
+      throw new Error("Task not found.");
+    }
+
+    const sessionId = await this.ensureTaskSession(taskId, profileId, task.orgId);
     const session = await this.resolveSession(sessionId);
 
     if (!session) {
@@ -568,7 +579,11 @@ export class AgentService {
     return session.send(prompt);
   }
 
-  async ensureTaskSession(taskId: string, profileId: string): Promise<string> {
+  async ensureTaskSession(
+    taskId: string,
+    profileId: string,
+    orgId: string,
+  ): Promise<string> {
     const record = await this.db.getTask(taskId);
 
     if (!record) {
@@ -583,7 +598,7 @@ export class AgentService {
       }
     }
 
-    const sessionId = await this.createSession("task", profileId);
+    const sessionId = await this.createSession(orgId, "task", profileId);
 
     await this.db.upsertTask({
       ...record,
@@ -614,7 +629,13 @@ export class AgentService {
     }
 
     if (!sessionId) {
-      sessionId = await this.ensureTaskSession(taskId, record.profileId);
+      const orgId = record.orgId?.trim();
+
+      if (!orgId) {
+        throw new Error("Task organization is missing.");
+      }
+
+      sessionId = await this.ensureTaskSession(taskId, record.profileId, orgId);
     }
 
     let messages = await loadSessionHistory(this.db, sessionId);
@@ -675,11 +696,12 @@ export class AgentService {
   }
 
   async createSession(
+    orgId: string,
     channel: AgentChannel,
-    profileId = DEFAULT_PROFILE_ID,
+    profileId?: string,
     userId?: string | null,
   ): Promise<string> {
-    const resolvedProfileId = await this.resolveSessionProfile(profileId);
+    const resolvedProfileId = await this.resolveSessionProfile(orgId, profileId);
     const sessionId = nanoid();
 
     await this.db.upsertSession({
@@ -694,6 +716,7 @@ export class AgentService {
 
     const session = await this.buildChatSession(
       channel,
+      orgId,
       resolvedProfileId,
       sessionId,
       userId ?? null,
@@ -783,8 +806,11 @@ export class AgentService {
       throw new Error("Session channel is invalid.");
     }
 
+    const { orgId } = await this.requireProfileRecord(record.profileId);
+
     const session = await this.buildChatSession(
       channel,
+      orgId,
       record.profileId,
       nextSessionId,
       record.userId ?? null,
@@ -799,10 +825,11 @@ export class AgentService {
   }
 
   async listSessions(
+    orgId: string,
     profileId: string,
     channel: AgentChannel,
   ): Promise<ListSessionsResponse> {
-    await this.requireProfile(profileId);
+    await this.requireProfile(orgId, profileId);
 
     const sessions = await this.db.listSessionSummaries(profileId, channel);
 
@@ -857,8 +884,11 @@ export class AgentService {
       return null;
     }
 
+    const { orgId } = await this.requireProfileRecord(record.profileId);
+
     const session = await this.buildChatSession(
       channel,
+      orgId,
       record.profileId,
       sessionId,
       record.userId ?? null,
@@ -1223,23 +1253,24 @@ export class AgentService {
     this.sessions.clear();
   }
 
-  async listProfiles(): Promise<ListProfilesResponse> {
-    return this.profileService.listProfiles();
+  async listProfiles(orgId: string): Promise<ListProfilesResponse> {
+    return this.profileService.listProfiles(orgId);
   }
 
-  async getProfile(profileId: string): Promise<ProfileResponse> {
-    return this.profileService.getProfile(profileId);
+  async getProfile(orgId: string, profileId: string): Promise<ProfileResponse> {
+    return this.profileService.getProfile(orgId, profileId);
   }
 
-  async createProfile(request: CreateProfileRequest): Promise<ProfileResponse> {
-    return this.profileService.createProfile(request);
+  async createProfile(orgId: string, request: CreateProfileRequest): Promise<ProfileResponse> {
+    return this.profileService.createProfile(orgId, request);
   }
 
   async updateProfile(
+    orgId: string,
     profileId: string,
     request: UpdateProfileRequest,
   ): Promise<ProfileResponse> {
-    const response = await this.profileService.updateProfile(profileId, request);
+    const response = await this.profileService.updateProfile(orgId, profileId, request);
 
     if (request.model !== undefined) {
       for (const [sessionId, record] of this.sessions.entries()) {
@@ -1252,8 +1283,8 @@ export class AgentService {
     return response;
   }
 
-  async deleteProfile(profileId: string): Promise<void> {
-    return this.profileService.deleteProfile(profileId);
+  async deleteProfile(orgId: string, profileId: string): Promise<void> {
+    return this.profileService.deleteProfile(orgId, profileId);
   }
 
   async listTools(): Promise<ListToolsResponse> {
@@ -1277,30 +1308,40 @@ export class AgentService {
     return this.profileService.deleteTool(toolId);
   }
 
-  async listProfileTools(profileId: string): Promise<ListToolsResponse> {
-    return this.profileService.listProfileTools(profileId);
+  async listProfileTools(orgId: string, profileId: string): Promise<ListToolsResponse> {
+    return this.profileService.listProfileTools(orgId, profileId);
   }
 
   async assignTool(
+    orgId: string,
     profileId: string,
     request: AssignToolRequest,
   ): Promise<ProfileResponse> {
-    return this.profileService.assignTool(profileId, request);
+    return this.profileService.assignTool(orgId, profileId, request);
   }
 
-  async unassignTool(profileId: string, toolId: string): Promise<ProfileResponse> {
-    return this.profileService.unassignTool(profileId, toolId);
+  async unassignTool(
+    orgId: string,
+    profileId: string,
+    toolId: string,
+  ): Promise<ProfileResponse> {
+    return this.profileService.unassignTool(orgId, profileId, toolId);
   }
 
   async assignMcpServer(
+    orgId: string,
     profileId: string,
     request: { serverId: string },
   ): Promise<ProfileResponse> {
-    return this.profileService.assignMcpServer(profileId, request);
+    return this.profileService.assignMcpServer(orgId, profileId, request);
   }
 
-  async unassignMcpServer(profileId: string, serverId: string): Promise<ProfileResponse> {
-    return this.profileService.unassignMcpServer(profileId, serverId);
+  async unassignMcpServer(
+    orgId: string,
+    profileId: string,
+    serverId: string,
+  ): Promise<ProfileResponse> {
+    return this.profileService.unassignMcpServer(orgId, profileId, serverId);
   }
 
   async listSkills(): Promise<ListSkillsResponse> {
@@ -1311,8 +1352,8 @@ export class AgentService {
     return this.requireSkillsService().getSkill(skillId);
   }
 
-  async createSkill(request: CreateSkillRequest): Promise<SkillResponse> {
-    return this.requireSkillsService().createSkill(request);
+  async createSkill(orgId: string, request: CreateSkillRequest): Promise<SkillResponse> {
+    return this.requireSkillsService().createSkill(orgId, request);
   }
 
   async deleteSkill(skillId: string): Promise<void> {
@@ -1324,63 +1365,73 @@ export class AgentService {
   }
 
   async assignSkill(
+    orgId: string,
     profileId: string,
     request: AssignSkillRequest,
   ): Promise<ProfileResponse> {
-    return this.profileService.assignSkill(profileId, request);
+    return this.profileService.assignSkill(orgId, profileId, request);
   }
 
-  async unassignSkill(profileId: string, skillId: string): Promise<ProfileResponse> {
-    return this.profileService.unassignSkill(profileId, skillId);
+  async unassignSkill(
+    orgId: string,
+    profileId: string,
+    skillId: string,
+  ): Promise<ProfileResponse> {
+    return this.profileService.unassignSkill(orgId, profileId, skillId);
   }
 
   async uploadProfileAvatar(
+    orgId: string,
     profileId: string,
     attachment: ImageAttachment,
   ): Promise<ProfileResponse> {
-    return this.profileService.uploadProfileAvatar(profileId, attachment);
+    return this.profileService.uploadProfileAvatar(orgId, profileId, attachment);
   }
 
   async getProfileAvatar(
+    orgId: string,
     profileId: string,
   ): Promise<{ mediaType: string; bytes: Buffer }> {
-    return this.profileService.getProfileAvatar(profileId);
+    return this.profileService.getProfileAvatar(orgId, profileId);
   }
 
-  async deleteProfileAvatar(profileId: string): Promise<void> {
-    return this.profileService.deleteProfileAvatar(profileId);
+  async deleteProfileAvatar(orgId: string, profileId: string): Promise<void> {
+    return this.profileService.deleteProfileAvatar(orgId, profileId);
   }
 
-  async listKnowledgeBase(profileId: string): Promise<ListKnowledgeBaseResponse> {
-    return this.profileService.listKnowledgeBase(profileId);
+  async listKnowledgeBase(orgId: string, profileId: string): Promise<ListKnowledgeBaseResponse> {
+    return this.profileService.listKnowledgeBase(orgId, profileId);
   }
 
   async uploadKnowledgeBaseDocument(
+    orgId: string,
     profileId: string,
     document: DocumentAttachment,
   ): Promise<UploadKnowledgeBaseResponse> {
-    return this.profileService.uploadKnowledgeBaseDocument(profileId, document);
+    return this.profileService.uploadKnowledgeBaseDocument(orgId, profileId, document);
   }
 
   async deleteKnowledgeBaseDocument(
+    orgId: string,
     profileId: string,
     documentId: string,
   ): Promise<DeleteKnowledgeBaseResponse> {
-    return this.profileService.deleteKnowledgeBaseDocument(profileId, documentId);
+    return this.profileService.deleteKnowledgeBaseDocument(orgId, profileId, documentId);
   }
 
   async getProfileSoulStatus(
+    orgId: string,
     profileId: string,
     includeContents = false,
   ): Promise<SoulStatusResponse> {
-    await this.requireProfile(profileId);
-    const status = await getResolvedSoulStatus(profileId);
+    const profile = await this.requireProfile(orgId, profileId);
+    const status = await getResolvedSoulStatus(orgId, profileId);
 
     if (!includeContents) {
       return { ...status, profileId };
     }
 
-    const stack = await loadSoulStack(getProfileSoulDir(profileId));
+    const stack = await loadSoulStack(getProfileSoulDir(orgId, profileId));
     return { ...status, profileId, contents: stack.files };
   }
 
@@ -1388,34 +1439,39 @@ export class AgentService {
     const profiles = await this.db.listProfiles();
 
     for (const profile of profiles) {
-      await initSoulDirectory(getProfileSoulDir(profile.id));
+      if (!profile.orgId) {
+        continue;
+      }
+
+      await initSoulDirectory(getProfileSoulDir(profile.orgId, profile.id));
     }
   }
 
-  async initProfileSoul(profileId: string): Promise<InitSoulResponse> {
-    await this.requireProfile(profileId);
-    const result = await initSoulDirectory(getProfileSoulDir(profileId));
+  async initProfileSoul(orgId: string, profileId: string): Promise<InitSoulResponse> {
+    await this.requireProfile(orgId, profileId);
+    const result = await initSoulDirectory(getProfileSoulDir(orgId, profileId));
     return { ...result, profileId };
   }
 
-  async getProfileSoulStack(profileId: string): Promise<SoulStackResponse> {
-    await this.requireProfile(profileId);
-    const stack = await loadSoulStack(getProfileSoulDir(profileId));
+  async getProfileSoulStack(orgId: string, profileId: string): Promise<SoulStackResponse> {
+    await this.requireProfile(orgId, profileId);
+    const stack = await loadSoulStack(getProfileSoulDir(orgId, profileId));
     return { ...stack, profileId };
   }
 
   async writeProfileSoulFile(
+    orgId: string,
     profileId: string,
     key: string,
     request: UpdateSoulFileRequest,
   ): Promise<void> {
-    await this.requireProfile(profileId);
+    await this.requireProfile(orgId, profileId);
 
     if (!isWritableSoulFileKey(key)) {
       throw new Error(`Invalid soul file key: ${key}`);
     }
 
-    await writeSoulFile(getProfileSoulDir(profileId), key, request.content);
+    await writeSoulFile(getProfileSoulDir(orgId, profileId), key, request.content);
   }
 
   async getUserContext(
@@ -1513,8 +1569,8 @@ export class AgentService {
     };
   }
 
-  private async requireProfile(profileId: string): Promise<StoredProfileRecord> {
-    const profile = await this.db.getProfile(profileId);
+  private async requireProfile(orgId: string, profileId: string): Promise<StoredProfileRecord> {
+    const profile = await this.db.getProfileForOrg(profileId, orgId);
 
     if (!profile) {
       throw new Error("Profile not found.");
@@ -1523,28 +1579,34 @@ export class AgentService {
     return profile;
   }
 
-  private async resolveSessionProfile(profileId: string): Promise<string> {
-    const requestedProfile = await this.db.getProfile(profileId);
+  private async requireProfileRecord(profileId: string): Promise<StoredProfileRecord> {
+    const profile = await this.db.getProfile(profileId);
 
-    if (requestedProfile) {
-      return profileId;
+    if (!profile?.orgId) {
+      throw new Error("Profile not found.");
     }
 
-    if (profileId !== DEFAULT_PROFILE_ID) {
-      const defaultProfile = await this.db.getProfile(DEFAULT_PROFILE_ID);
+    return profile;
+  }
 
-      if (defaultProfile) {
-        return DEFAULT_PROFILE_ID;
+  private async resolveSessionProfile(orgId: string, profileId?: string): Promise<string> {
+    if (profileId?.trim()) {
+      const requestedProfile = await this.db.getProfileForOrg(profileId.trim(), orgId);
+
+      if (requestedProfile) {
+        return profileId.trim();
       }
     }
 
-    const fallbackProfile = (await this.db.listProfiles())[0]?.id;
+    const defaultProfile = await this.db.getDefaultProfileForOrg(orgId);
 
-    if (fallbackProfile) {
-      return fallbackProfile;
+    if (defaultProfile) {
+      return defaultProfile.id;
     }
 
-    throw new Error("No profiles exist on the server. Create a profile in the web dashboard first.");
+    throw new Error(
+      "No profiles exist for this organization. Create a profile in the web dashboard first.",
+    );
   }
 
   private async resolveProfileTools(
@@ -1563,9 +1625,15 @@ export class AgentService {
 
     if (this.mcpClientManager) {
       const mcpServers = await this.db.listMcpServersForProfile(profile.id);
+      const orgId = profile.orgId;
+
+      if (!orgId) {
+        throw new Error("Profile organization is missing.");
+      }
+
       resolved = [
         ...resolved,
-        ...buildMcpToolDefinitions(mcpServers, this.mcpClientManager, profile.id),
+        ...buildMcpToolDefinitions(mcpServers, this.mcpClientManager, orgId, profile.id),
       ];
     }
 
@@ -1578,7 +1646,13 @@ export class AgentService {
     }
 
     if (this.skillsService) {
-      const skillTools = await this.skillsService.loadToolsForProfile(profile.id);
+      const orgId = profile.orgId;
+
+      if (!orgId) {
+        throw new Error("Profile organization is missing.");
+      }
+
+      const skillTools = await this.skillsService.loadToolsForProfile(orgId, profile.id);
       resolved = [...resolved, ...skillTools];
     }
 
@@ -1591,14 +1665,16 @@ export class AgentService {
 
   private async buildChatSession(
     channel: AgentChannel,
+    orgId: string,
     profileId: string,
     sessionId: string,
     userId?: string | null,
   ): Promise<AgentChatSession> {
     await this.ensureVisionSettingsLoaded();
-    const profile = await this.requireProfile(profileId);
+    const profile = await this.requireProfile(orgId, profileId);
     const tools = await this.resolveProfileTools(profile);
     const { systemPrompt, soulActive } = await this.resolveProfileSystemPrompt(
+      orgId,
       profileId,
       profile.systemPrompt,
     );
@@ -1622,6 +1698,7 @@ export class AgentService {
       userTimezone,
       compaction,
       toolContext: {
+        orgId,
         profileId,
         sessionId,
       },
@@ -1635,6 +1712,7 @@ export class AgentService {
 
         if (this.skillsService && context?.userMessage?.trim()) {
           const skillContext = await this.skillsService.formatMatchedSkillsForPrompt(
+            orgId,
             profileId,
             context.userMessage,
           );
@@ -1691,23 +1769,24 @@ export class AgentService {
   }
 
   private async resolveProfileSystemPrompt(
+    orgId: string,
     profileId: string,
     profilePrompt: string,
   ): Promise<{ systemPrompt: string; soulActive: boolean }> {
-    const stack = await resolveSoulStackForProfile(profileId);
+    const stack = await resolveSoulStackForProfile(orgId, profileId);
     let systemPrompt = stack
       ? composeSoulSystemPrompt(stack, { profilePrompt })
       : profilePrompt;
 
     if (this.skillsService) {
-      const skillsCatalog = await this.skillsService.composeCatalogForProfile(profileId);
+      const skillsCatalog = await this.skillsService.composeCatalogForProfile(orgId, profileId);
 
       if (skillsCatalog.trim()) {
         systemPrompt = `${systemPrompt.trim()}\n\n${skillsCatalog.trim()}`;
       }
     }
 
-    const kbCatalog = await composeKnowledgeBaseCatalog(profileId);
+    const kbCatalog = await composeKnowledgeBaseCatalog(orgId, profileId);
 
     if (kbCatalog.trim()) {
       systemPrompt = `${systemPrompt.trim()}\n\n${kbCatalog.trim()}`;

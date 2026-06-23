@@ -29,7 +29,14 @@ export class AutomationRunner {
     const run = await this.automationService.createRun(automationId);
 
     try {
+      const orgId = automation.orgId?.trim();
+
+      if (!orgId) {
+        throw new Error("Automation organization is missing.");
+      }
+
       const output = await this.agentService.runAutomationPrompt(
+        orgId,
         automation.profileId,
         automation.prompt,
       );

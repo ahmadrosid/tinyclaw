@@ -2,19 +2,22 @@ import { describe, expect, test } from "bun:test";
 import {
   createInMemoryDatabaseAdapter,
   createSqliteDatabase,
-  DEFAULT_PROFILE_ID,
 } from "@tinyclaw/db";
 import type { StoredProfileRecord } from "@tinyclaw/db";
 import { AgentService } from "./agent-service";
 
+const ORG_ID = "org_test";
+
 function createDefaultProfile(): StoredProfileRecord {
   const now = new Date().toISOString();
   return {
-    id: DEFAULT_PROFILE_ID,
+    id: "profile_default",
     name: "Default",
     systemPrompt: "You are helpful.",
     model: null,
     isSuper: false,
+    orgId: ORG_ID,
+    isDefault: true,
     createdAt: now,
     updatedAt: now,
   };
@@ -26,7 +29,7 @@ describe("AgentService branching", () => {
     await db.upsertProfile(createDefaultProfile());
     const service = new AgentService(null, null, db);
 
-    const sourceSessionId = await service.createSession("web", DEFAULT_PROFILE_ID);
+    const sourceSessionId = await service.createSession(ORG_ID, "web", "profile_default");
     await db.replaceMessagesForSession(sourceSessionId, [
       {
         id: "msg_1",
@@ -71,7 +74,7 @@ describe("AgentService branching", () => {
     expect(branchTodos).toEqual([]);
 
     const branchRecord = await db.getSession(branchSessionId);
-    expect(branchRecord?.profileId).toBe(DEFAULT_PROFILE_ID);
+    expect(branchRecord?.profileId).toBe("profile_default");
     expect(branchRecord?.channel).toBe("web");
     expect(branchRecord?.title).toBe("Original chat (Branch)");
 
@@ -84,7 +87,7 @@ describe("AgentService branching", () => {
     await db.upsertProfile(createDefaultProfile());
     const service = new AgentService(null, null, db);
 
-    const sourceSessionId = await service.createSession("web", DEFAULT_PROFILE_ID);
+    const sourceSessionId = await service.createSession(ORG_ID, "web", "profile_default");
     await db.replaceMessagesForSession(sourceSessionId, [
       {
         id: "msg_1",
@@ -100,24 +103,34 @@ describe("AgentService branching", () => {
     );
   });
 
-  test("falls back to an existing profile when the requested profile is missing", async () => {
+  test("falls back to org default when the requested profile is missing", async () => {
     const database = await createSqliteDatabase(":memory:");
     const db = database.adapter;
     const now = new Date().toISOString();
 
     try {
+      await db.upsertOrganization({
+        id: ORG_ID,
+        name: "Test Org",
+        slug: "test-org",
+        createdAt: now,
+        updatedAt: now,
+      });
+
       await db.upsertProfile({
         id: "profile_custom",
         name: "Custom",
         systemPrompt: "You are helpful.",
         model: null,
         isSuper: false,
+        orgId: ORG_ID,
+        isDefault: true,
         createdAt: now,
         updatedAt: now,
       });
 
       const service = new AgentService(null, null, db);
-      const sessionId = await service.createSession("web", "missing_profile");
+      const sessionId = await service.createSession(ORG_ID, "web", "missing_profile");
       const session = await db.getSession(sessionId);
 
       expect(session?.profileId).toBe("profile_custom");

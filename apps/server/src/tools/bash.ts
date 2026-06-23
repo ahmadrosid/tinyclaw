@@ -59,8 +59,12 @@ export async function runBash(
   options: BashRunOptions = {},
 ): Promise<BashOutput> {
   const profileId = context.profileId?.trim();
+  const orgId = context.orgId?.trim();
   if (!profileId) {
     throw new Error("profileId is required.");
+  }
+  if (!orgId) {
+    throw new Error("orgId is required.");
   }
 
   const command = readString(input, "command");
@@ -69,7 +73,7 @@ export async function runBash(
   }
 
   const workspaceRoot = await resolveWorkspaceRoot(
-    options.workspaceRoot ?? getProfileSoulDir(profileId),
+    options.workspaceRoot ?? getProfileSoulDir(orgId, profileId),
   );
   const rawCwd = readString(input, "cwd");
   const cwd = rawCwd

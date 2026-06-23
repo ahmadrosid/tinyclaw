@@ -6,6 +6,16 @@ import {
   TOOL_ASSIGNMENT_CONFIRMATION_MESSAGE,
 } from "../services/super-bot-session-state";
 
+function requireOrgId(context: ToolContext): string {
+  const orgId = context.orgId?.trim();
+
+  if (!orgId) {
+    throw new Error("Organization context is required.");
+  }
+
+  return orgId;
+}
+
 export function createSuperBotTools(
   profileService: ProfileService,
   sessionState: SuperBotSessionState,
@@ -16,8 +26,8 @@ export function createSuperBotTools(
       description:
         "List all bot profiles with their id, name, and tool counts. Do not call this before or during tool creation; use only when managing profiles or resolving profile ids after the user confirms tool assignment.",
       parameters: emptyObjectSchema(),
-      async run() {
-        return profileService.listProfiles();
+      async run(_input, context: ToolContext) {
+        return profileService.listProfiles(requireOrgId(context));
       },
     },
     {
@@ -31,14 +41,14 @@ export function createSuperBotTools(
         required: ["profileId"],
         additionalProperties: false,
       },
-      async run(input) {
+      async run(input, context: ToolContext) {
         const profileId = readString(input, "profileId");
 
         if (!profileId) {
           throw new Error("profileId is required.");
         }
 
-        return profileService.getProfile(profileId);
+        return profileService.getProfile(requireOrgId(context), profileId);
       },
     },
     {
@@ -61,14 +71,14 @@ export function createSuperBotTools(
         required: ["name"],
         additionalProperties: false,
       },
-      async run(input) {
+      async run(input, context: ToolContext) {
         const name = readString(input, "name");
 
         if (!name) {
           throw new Error("name is required.");
         }
 
-        return profileService.createProfile({
+        return profileService.createProfile(requireOrgId(context), {
           name,
           systemPrompt: readString(input, "systemPrompt") ?? undefined,
           model: readOptionalString(input, "model"),
@@ -101,7 +111,9 @@ export function createSuperBotTools(
           throw new Error(TOOL_ASSIGNMENT_CONFIRMATION_MESSAGE);
         }
 
-        const result = await profileService.assignTool(profileId, { toolId });
+        const result = await profileService.assignTool(requireOrgId(context), profileId, {
+          toolId,
+        });
         sessionState.markToolAssigned(context.sessionId, toolId);
         return result;
       },

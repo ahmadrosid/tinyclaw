@@ -1,7 +1,10 @@
 import { listKnowledgeBaseDocuments } from "./store";
 
-export async function composeKnowledgeBaseCatalog(profileId: string): Promise<string> {
-  const documents = await listKnowledgeBaseDocuments(profileId);
+export async function composeKnowledgeBaseCatalog(
+  orgId: string,
+  profileId: string,
+): Promise<string> {
+  const documents = await listKnowledgeBaseDocuments(orgId, profileId);
   const readyDocuments = documents.filter((document) => document.status === "ready");
 
   if (readyDocuments.length === 0) {

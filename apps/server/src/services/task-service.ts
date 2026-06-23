@@ -53,6 +53,7 @@ export class TaskService {
       description: input.description?.trim() ?? "",
       prompt: input.prompt.trim(),
       profileId,
+      orgId: profile.orgId ?? null,
       status,
       position: await this.nextPosition(status),
       createdAt: now,

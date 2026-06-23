@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ProfileSummary } from "@tinyclaw/core";
 import {
-  DEFAULT_PROFILE_ID,
   parseCliProfileArgs,
   resolveProfileInput,
   sortProfilesForPicker,
@@ -23,7 +22,7 @@ function profile(overrides: Partial<ProfileSummary> & Pick<ProfileSummary, "id" 
 
 const sampleProfiles = [
   profile({ id: "super_bot", name: "Super Bot", isSuper: true }),
-  profile({ id: DEFAULT_PROFILE_ID, name: "Default Bot" }),
+  profile({ id: "profile_default", name: "Default Bot", isDefault: true }),
   profile({ id: "profile_custom", name: "Research Bot" }),
 ];
 
@@ -38,8 +37,8 @@ describe("parseCliProfileArgs", () => {
   });
 
   test("reads --profile=value", () => {
-    expect(parseCliProfileArgs(["--profile=default"])).toEqual({
-      profileId: "default",
+    expect(parseCliProfileArgs(["--profile=profile_default"])).toEqual({
+      profileId: "profile_default",
     });
   });
 });
@@ -47,7 +46,7 @@ describe("parseCliProfileArgs", () => {
 describe("sortProfilesForPicker", () => {
   test("puts default profile first", () => {
     const sorted = sortProfilesForPicker(sampleProfiles);
-    expect(sorted[0]?.id).toBe(DEFAULT_PROFILE_ID);
+    expect(sorted[0]?.id).toBe("profile_default");
   });
 });
 
@@ -55,7 +54,7 @@ describe("resolveProfileInput", () => {
   test("resolves id, name, and index", () => {
     expect(resolveProfileInput(sampleProfiles, "profile_custom")?.name).toBe("Research Bot");
     expect(resolveProfileInput(sampleProfiles, "Super Bot")?.id).toBe("super_bot");
-    expect(resolveProfileInput(sampleProfiles, "1")?.id).toBe(DEFAULT_PROFILE_ID);
+    expect(resolveProfileInput(sampleProfiles, "1")?.id).toBe("profile_default");
   });
 
   test("returns undefined for unknown input", () => {

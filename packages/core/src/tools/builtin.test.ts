@@ -10,7 +10,7 @@ import {
   setDefaultFileGuardOptions,
 } from "./builtin";
 
-const PROFILE_CONTEXT = { profileId: "profile_test" };
+const PROFILE_CONTEXT = { orgId: "org_test", profileId: "profile_test" };
 const originalToolsDir = process.env.TINYCLAW_TOOLS_DIR;
 const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
 
@@ -172,9 +172,11 @@ describe("file builtin tools", () => {
 
   test("requires profileId", async () => {
     await expect(runWriteFile({ path: "a.txt", content: "x" }, {})).rejects.toThrow(
-      "profileId is required.",
+      "orgId and profileId are required.",
     );
-    await expect(runReadFile({ path: "a.txt" }, {})).rejects.toThrow("profileId is required.");
+    await expect(runReadFile({ path: "a.txt" }, {})).rejects.toThrow(
+      "orgId and profileId are required.",
+    );
   });
 
   // -----------------------------------------------------------------------

@@ -22,7 +22,7 @@ describe("search_files tool", () => {
 
     const result = await runSearchFiles(
       { query: "alpha" },
-      { profileId: "profile_test" },
+      { orgId: "org_test", profileId: "profile_test" },
       { workspaceRoot },
     );
 
@@ -40,7 +40,7 @@ describe("search_files tool", () => {
 
     const result = await runSearchFiles(
       { query: "abc.def", regex: false },
-      { profileId: "profile_test" },
+      { orgId: "org_test", profileId: "profile_test" },
       { workspaceRoot },
     );
 
@@ -55,7 +55,7 @@ describe("search_files tool", () => {
 
     const result = await runSearchFiles(
       { query: "needle", glob: "*.md" },
-      { profileId: "profile_test" },
+      { orgId: "org_test", profileId: "profile_test" },
       { workspaceRoot },
     );
 
@@ -71,7 +71,7 @@ describe("search_files tool", () => {
 
     const result = await runSearchFiles(
       { query: "scoped", path: "data" },
-      { profileId: "profile_test" },
+      { orgId: "org_test", profileId: "profile_test" },
       { workspaceRoot },
     );
 
@@ -85,7 +85,7 @@ describe("search_files tool", () => {
     await expect(
       runSearchFiles(
         { query: "x", path: "../../../etc/passwd" },
-        { profileId: "profile_test" },
+        { orgId: "org_test", profileId: "profile_test" },
         { workspaceRoot },
       ),
     ).rejects.toThrow(PathGuardError);
@@ -96,7 +96,7 @@ describe("search_files tool", () => {
 
     await expect(
       runSearchFiles({ query: "x" }, {}, { workspaceRoot }),
-    ).rejects.toThrow("profileId is required.");
+    ).rejects.toThrow("orgId and profileId are required.");
   });
 
   test("truncates based on maxResults", async () => {
@@ -106,7 +106,7 @@ describe("search_files tool", () => {
 
     const result = await runSearchFiles(
       { query: "hit", maxResults: 5 },
-      { profileId: "profile_test" },
+      { orgId: "org_test", profileId: "profile_test" },
       { workspaceRoot },
     );
 
@@ -120,7 +120,7 @@ describe("search_files tool", () => {
 
     const result = await runSearchFiles(
       { query: "missing-term" },
-      { profileId: "profile_test" },
+      { orgId: "org_test", profileId: "profile_test" },
       { workspaceRoot },
     );
 

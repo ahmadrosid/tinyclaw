@@ -1,4 +1,4 @@
-import { emptyObjectSchema, type ToolDefinition } from "@tinyclaw/core";
+import { emptyObjectSchema, type ToolContext, type ToolDefinition } from "@tinyclaw/core";
 import type { AutomationRunner } from "../services/automation-runner";
 import type { AutomationService } from "../services/automation-service";
 
@@ -34,6 +34,7 @@ export function createAutomationTools(
         additionalProperties: false,
       },
       async run(input, context) {
+        const orgId = requireOrgId(context);
         const name = readString(input, "name");
         const description = readString(input, "description");
         const prompt = readString(input, "prompt");
@@ -50,6 +51,7 @@ export function createAutomationTools(
         }
 
         const automation = await automationService.create(
+          orgId,
           { name, description, prompt, trigger },
           profileId,
         );
@@ -69,8 +71,9 @@ export function createAutomationTools(
       name: "list_automations",
       description: "List saved automations with their schedule and status.",
       parameters: emptyObjectSchema(),
-      async run() {
-        const automations = await automationService.list();
+      async run(_input, context) {
+        const orgId = requireOrgId(context);
+        const automations = await automationService.listForOrg(orgId);
         return automations.map((automation) => ({
           id: automation.id,
           name: automation.name,
@@ -94,14 +97,15 @@ export function createAutomationTools(
         required: ["automationId"],
         additionalProperties: false,
       },
-      async run(input) {
+      async run(input, context) {
+        const orgId = requireOrgId(context);
         const automationId = readString(input, "automationId");
 
         if (!automationId) {
           throw new Error("automationId is required.");
         }
 
-        const deleted = await automationService.delete(automationId);
+        const deleted = await automationService.delete(automationId, orgId);
 
         if (!deleted) {
           throw new Error("Automation not found.");
@@ -125,14 +129,15 @@ export function createAutomationTools(
         required: ["automationId"],
         additionalProperties: false,
       },
-      async run(input) {
+      async run(input, context) {
+        const orgId = requireOrgId(context);
         const automationId = readString(input, "automationId");
 
         if (!automationId) {
           throw new Error("automationId is required.");
         }
 
-        const automation = await automationService.get(automationId);
+        const automation = await automationService.get(automationId, orgId);
 
         if (!automation) {
           throw new Error("Automation not found.");
@@ -164,6 +169,16 @@ export function createAutomationTools(
       },
     },
   ];
+}
+
+function requireOrgId(context: ToolContext): string {
+  const orgId = context.orgId?.trim();
+
+  if (!orgId) {
+    throw new Error("orgId is required.");
+  }
+
+  return orgId;
 }
 
 function readString(input: unknown, key: string): string | null {

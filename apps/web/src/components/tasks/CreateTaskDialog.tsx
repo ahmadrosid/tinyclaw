@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDraftTaskPromptMutation } from "@/hooks/use-tasks";
 import { normalizeTaskPrompt } from "@tinyclaw/core/normalize-task-prompt";
 import { formatError } from "@/lib/client";
-import { DEFAULT_PROFILE_ID } from "@/lib/profiles";
+import { resolveInitialProfileId } from "@/lib/profiles";
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -49,7 +49,7 @@ export function CreateTaskDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [profileId, setProfileId] = useState(DEFAULT_PROFILE_ID);
+  const [profileId, setProfileId] = useState(() => resolveInitialProfileId(profiles));
   const [generateError, setGenerateError] = useState<string | null>(null);
   const draftPromptMutation = useDraftTaskPromptMutation();
   const generating = draftPromptMutation.isPending;
@@ -59,7 +59,7 @@ export function CreateTaskDialog({
     setTitle("");
     setDescription("");
     setPrompt("");
-    setProfileId(DEFAULT_PROFILE_ID);
+    setProfileId(resolveInitialProfileId(profiles));
     setGenerateError(null);
     onOpenChange(false);
   }

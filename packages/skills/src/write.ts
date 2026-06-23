@@ -13,6 +13,7 @@ export interface CreateSkillFileOptions {
   description: string;
   body?: string;
   disableModelInvocation?: boolean;
+  orgId?: string;
   profileId?: string;
 }
 
@@ -40,9 +41,10 @@ export function composeSkillMarkdown(options: {
 export async function createSkillFile(options: CreateSkillFileOptions): Promise<string> {
   const name = options.name.trim().toLowerCase();
   const description = options.description.trim();
-  const skillsRoot = options.profileId
-    ? getProfileSkillsDir(options.profileId)
-    : getGlobalSkillsDir();
+  const skillsRoot =
+    options.orgId && options.profileId
+      ? getProfileSkillsDir(options.orgId, options.profileId)
+      : getGlobalSkillsDir();
   const directory = path.join(skillsRoot, name);
   const skillFilePath = path.join(directory, SKILL_FILE_NAME);
 
@@ -80,7 +82,7 @@ function isManagedSkillDirectory(directory: string): boolean {
     return true;
   }
 
-  return parts[0] === "profiles" && parts[2] === "skills" && parts.length >= 4;
+  return parts[0] === "orgs" && parts[2] === "profiles" && parts[4] === "skills" && parts.length >= 6;
 }
 
 export async function deleteSkillDirectory(directory: string): Promise<void> {

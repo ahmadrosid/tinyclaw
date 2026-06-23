@@ -39,6 +39,7 @@ interface AutomationRow {
   version: number;
   definition: string;
   profile_id: string;
+  org_id: string | null;
   enabled: number;
   created_at: string;
   updated_at: string;
@@ -62,6 +63,8 @@ interface ProfileRow {
   thinking_enabled: number | null;
   thinking_effort: string | null;
   is_super: number;
+  org_id: string | null;
+  is_default: number;
   created_at: string;
   updated_at: string;
 }
@@ -231,15 +234,19 @@ export async function createSqliteDatabase(databaseUrl: string): Promise<SqliteD
 
 function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
   const listAutomationsStmt = db.prepare("SELECT * FROM automations");
+  const listAutomationsForOrgStmt = db.prepare(
+    "SELECT * FROM automations WHERE org_id = ? ORDER BY updated_at DESC",
+  );
   const getAutomationStmt = db.prepare("SELECT * FROM automations WHERE id = ?");
   const upsertAutomationStmt = db.prepare(`
-    INSERT INTO automations (id, name, version, definition, profile_id, enabled, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO automations (id, name, version, definition, profile_id, org_id, enabled, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       version = excluded.version,
       definition = excluded.definition,
       profile_id = excluded.profile_id,
+      org_id = excluded.org_id,
       enabled = excluded.enabled,
       updated_at = excluded.updated_at
   `);
@@ -268,7 +275,19 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
   `);
 
   const listProfilesStmt = db.prepare("SELECT * FROM profiles");
+  const listProfilesForOrgStmt = db.prepare(
+    "SELECT * FROM profiles WHERE org_id = ? ORDER BY is_default DESC, name ASC",
+  );
   const getProfileStmt = db.prepare("SELECT * FROM profiles WHERE id = ?");
+  const getProfileForOrgStmt = db.prepare(
+    "SELECT * FROM profiles WHERE id = ? AND org_id = ?",
+  );
+  const getDefaultProfileForOrgStmt = db.prepare(
+    "SELECT * FROM profiles WHERE org_id = ? AND is_default = 1 LIMIT 1",
+  );
+  const clearDefaultProfileForOrgStmt = db.prepare(`
+    UPDATE profiles SET is_default = 0 WHERE org_id = ? AND id != ?
+  `);
   const upsertProfileStmt = db.prepare(`
     INSERT INTO profiles (
       id,
@@ -278,10 +297,12 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
       thinking_enabled,
       thinking_effort,
       is_super,
+      org_id,
+      is_default,
       created_at,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       system_prompt = excluded.system_prompt,
@@ -289,6 +310,8 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
       thinking_enabled = excluded.thinking_enabled,
       thinking_effort = excluded.thinking_effort,
       is_super = excluded.is_super,
+      org_id = excluded.org_id,
+      is_default = excluded.is_default,
       updated_at = excluded.updated_at
   `);
   const deleteProfileStmt = db.prepare("DELETE FROM profiles WHERE id = ?");
@@ -878,6 +901,12 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
       return listAutomationsStmt.all().map((row) => toAutomationRecord(row as AutomationRow));
     },
 
+    async listAutomationsForOrg(orgId) {
+      return listAutomationsForOrgStmt
+        .all(orgId)
+        .map((row) => toAutomationRecord(row as AutomationRow));
+    },
+
     async getAutomation(id) {
       const row = getAutomationStmt.get(id) as AutomationRow | null;
       return row ? toAutomationRecord(row) : null;
@@ -892,6 +921,7 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
         record.version,
         JSON.stringify(record.definition),
         record.profileId,
+        record.orgId ?? null,
         record.enabled ? 1 : 0,
         existing?.createdAt ?? record.createdAt,
         record.updatedAt,
@@ -940,12 +970,32 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
       return listProfilesStmt.all().map((row) => toProfileRecord(row as ProfileRow));
     },
 
+    async listProfilesForOrg(orgId) {
+      return listProfilesForOrgStmt
+        .all(orgId)
+        .map((row) => toProfileRecord(row as ProfileRow));
+    },
+
     async getProfile(id) {
       const row = getProfileStmt.get(id) as ProfileRow | null;
       return row ? toProfileRecord(row) : null;
     },
 
+    async getProfileForOrg(id, orgId) {
+      const row = getProfileForOrgStmt.get(id, orgId) as ProfileRow | null;
+      return row ? toProfileRecord(row) : null;
+    },
+
+    async getDefaultProfileForOrg(orgId) {
+      const row = getDefaultProfileForOrgStmt.get(orgId) as ProfileRow | null;
+      return row ? toProfileRecord(row) : null;
+    },
+
     async upsertProfile(record) {
+      if (record.isDefault && record.orgId) {
+        clearDefaultProfileForOrgStmt.run(record.orgId, record.id);
+      }
+
       upsertProfileStmt.run(
         record.id,
         record.name,
@@ -954,6 +1004,8 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
         record.thinkingEnabled == null ? null : record.thinkingEnabled ? 1 : 0,
         record.thinkingEffort ?? null,
         record.isSuper ? 1 : 0,
+        record.orgId ?? null,
+        record.isDefault ? 1 : 0,
         record.createdAt,
         record.updatedAt,
       );
@@ -1299,6 +1351,7 @@ function toAutomationRecord(row: AutomationRow): StoredAutomationRecord {
     version: row.version,
     definition: parseJson(row.definition),
     profileId: row.profile_id,
+    orgId: row.org_id ?? null,
     enabled: row.enabled !== 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1327,6 +1380,8 @@ function toProfileRecord(row: ProfileRow): StoredProfileRecord {
       row.thinking_enabled == null ? null : row.thinking_enabled !== 0,
     thinkingEffort: row.thinking_effort as StoredProfileRecord["thinkingEffort"],
     isSuper: row.is_super !== 0,
+    orgId: row.org_id ?? null,
+    isDefault: row.is_default !== 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

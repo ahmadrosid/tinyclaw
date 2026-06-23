@@ -76,9 +76,10 @@ export async function runSearchFiles(
   context: ToolContext,
   options: SearchFilesOptions = {},
 ): Promise<SearchFilesOutput> {
+  const orgId = context.orgId?.trim();
   const profileId = context.profileId?.trim();
-  if (!profileId) {
-    throw new Error("profileId is required.");
+  if (!orgId || !profileId) {
+    throw new Error("orgId and profileId are required.");
   }
 
   const query = readRequiredString(input, "query");
@@ -88,7 +89,7 @@ export async function runSearchFiles(
   const maxResults = readMaxResults(input);
 
   const workspaceRoot = await resolveWorkspaceRoot(
-    options.workspaceRoot ?? getProfileSoulDir(profileId),
+    options.workspaceRoot ?? getProfileSoulDir(orgId, profileId),
   );
   const searchRoot = await resolveSearchRoot(workspaceRoot, subPath);
   const args = buildRipgrepArgs({

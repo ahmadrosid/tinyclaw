@@ -7,12 +7,12 @@ import { ToolDetailDialog } from "@/components/tools/ToolDetailDialog";
 import { EmailSettingsDialog } from "@/components/EmailSettingsDialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useToolsQuery } from "@/hooks/use-app-queries";
+import { useToolsQuery, useProfilesQuery } from "@/hooks/use-app-queries";
 import { useAppNavigation } from "@/hooks/use-app-navigation";
 import { useAuth } from "@/context/auth-context";
 import { useDeleteToolMutation } from "@/hooks/use-resource-mutations";
 import { formatError } from "@/lib/client";
-import { SUPER_BOT_PROFILE_ID } from "@/lib/profiles";
+import { findSuperBotProfile } from "@/lib/profiles";
 import { queryKeys } from "@/lib/query-keys";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +28,8 @@ export function ToolsTab() {
   const isOrgAdmin = activeOrg?.role === "admin";
   const queryClient = useQueryClient();
   const { data: tools = [], isLoading, error, isFetching } = useToolsQuery();
+  const { data: profiles = [] } = useProfilesQuery();
+  const superBotProfile = findSuperBotProfile(profiles);
   const deleteToolMutation = useDeleteToolMutation();
   const [actionError, setActionError] = useState<string | null>(null);
   const [detailToolId, setDetailToolId] = useState<string | null>(null);
@@ -45,7 +47,12 @@ export function ToolsTab() {
   }
 
   function goToCreateTool() {
-    navigateToNewChat(SUPER_BOT_PROFILE_ID);
+    if (!superBotProfile) {
+      setActionError("No super bot profile exists in this organization.");
+      return;
+    }
+
+    navigateToNewChat(superBotProfile.id);
   }
 
   async function handleDeleteTool(toolId: string, toolName: string) {

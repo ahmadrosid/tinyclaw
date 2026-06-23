@@ -135,6 +135,13 @@ describe("legacy profile id migration", () => {
         ) VALUES
           ('automation_default', 'Automation', 1, '{}', 'profile_default', 1, '2026-06-19T00:00:00.000Z', '2026-06-19T00:00:00.000Z'),
           ('automation_super', 'Automation', 1, '{}', 'profile_super_bot', 1, '2026-06-19T00:00:00.000Z', '2026-06-19T00:00:00.000Z');
+
+        INSERT INTO organizations (
+          id, name, slug, created_at, updated_at
+        ) VALUES (
+          'org_legacy', 'Legacy Org', 'legacy-org',
+          '2026-06-19T00:00:00.000Z', '2026-06-19T00:00:00.000Z'
+        );
       `);
 
       migrateDatabase(db);
