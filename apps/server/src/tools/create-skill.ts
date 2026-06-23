@@ -43,7 +43,13 @@ export function createCreateSkillTool(skillsService: SkillsService): ToolDefinit
         throw new Error("name and description are required.");
       }
 
-      return skillsService.createAndAssignSkillToProfile(profileId, {
+      const orgId = context.orgId?.trim();
+
+      if (!orgId) {
+        throw new Error("Skill creation must run from an active organization session.");
+      }
+
+      return skillsService.createAndAssignSkillToProfile(orgId, profileId, {
         name,
         description,
         body: readOptionalString(input, "body") ?? undefined,

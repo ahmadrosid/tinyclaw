@@ -232,6 +232,12 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
       return Array.from(automations.values());
     },
 
+    async listAutomationsForOrg(orgId) {
+      return Array.from(automations.values()).filter(
+        (automation) => automation.orgId === orgId,
+      );
+    },
+
     async getAutomation(id) {
       return automations.get(id) ?? null;
     },
@@ -276,11 +282,44 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
       return Array.from(profiles.values());
     },
 
+    async listProfilesForOrg(orgId) {
+      return Array.from(profiles.values())
+        .filter((profile) => profile.orgId === orgId)
+        .sort((left, right) => {
+          if (left.isDefault !== right.isDefault) {
+            return left.isDefault ? -1 : 1;
+          }
+
+          return left.name.localeCompare(right.name);
+        });
+    },
+
     async getProfile(id) {
       return profiles.get(id) ?? null;
     },
 
+    async getProfileForOrg(id, orgId) {
+      const profile = profiles.get(id);
+      return profile?.orgId === orgId ? profile : null;
+    },
+
+    async getDefaultProfileForOrg(orgId) {
+      return (
+        Array.from(profiles.values()).find(
+          (profile) => profile.orgId === orgId && profile.isDefault,
+        ) ?? null
+      );
+    },
+
     async upsertProfile(record) {
+      if (record.isDefault && record.orgId) {
+        for (const profile of profiles.values()) {
+          if (profile.orgId === record.orgId && profile.id !== record.id && profile.isDefault) {
+            profiles.set(profile.id, { ...profile, isDefault: false });
+          }
+        }
+      }
+
       profiles.set(record.id, record);
     },
 

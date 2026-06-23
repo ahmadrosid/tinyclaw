@@ -36,6 +36,7 @@ export interface StoredProfileRecord {
   thinkingEffort?: ThinkingEffort | null;
   isSuper: boolean;
   orgId?: string | null;
+  isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -267,6 +268,7 @@ export interface DatabaseAdapter {
   markOrgInviteAccepted(id: string, acceptedAt: string): Promise<void>;
 
   listAutomations(): Promise<StoredAutomationRecord[]>;
+  listAutomationsForOrg(orgId: string): Promise<StoredAutomationRecord[]>;
   getAutomation(id: string): Promise<StoredAutomationRecord | null>;
   upsertAutomation(record: StoredAutomationRecord): Promise<void>;
   deleteAutomation(id: string): Promise<boolean>;
@@ -277,7 +279,10 @@ export interface DatabaseAdapter {
   updateAutomationRun(record: StoredAutomationRunRecord): Promise<void>;
 
   listProfiles(): Promise<StoredProfileRecord[]>;
+  listProfilesForOrg(orgId: string): Promise<StoredProfileRecord[]>;
   getProfile(id: string): Promise<StoredProfileRecord | null>;
+  getProfileForOrg(id: string, orgId: string): Promise<StoredProfileRecord | null>;
+  getDefaultProfileForOrg(orgId: string): Promise<StoredProfileRecord | null>;
   upsertProfile(record: StoredProfileRecord): Promise<void>;
   deleteProfile(id: string): Promise<boolean>;
 

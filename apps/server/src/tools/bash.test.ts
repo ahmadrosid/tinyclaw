@@ -20,7 +20,7 @@ describe("bash tool", () => {
 
     const result = await runBash(
       { command: "pwd" },
-      { profileId: "profile_test" },
+      { orgId: "org_test", profileId: "profile_test" },
       { workspaceRoot },
     );
 
@@ -36,7 +36,7 @@ describe("bash tool", () => {
 
     const result = await runBash(
       { command: "pwd", cwd: "nested" },
-      { profileId: "profile_test" },
+      { orgId: "org_test", profileId: "profile_test" },
       { workspaceRoot },
     );
 
@@ -50,7 +50,7 @@ describe("bash tool", () => {
     await expect(
       runBash(
         { command: "pwd", cwd: "/tmp" },
-        { profileId: "profile_test" },
+        { orgId: "org_test", profileId: "profile_test" },
         { workspaceRoot },
       ),
     ).rejects.toBeInstanceOf(PathGuardError);

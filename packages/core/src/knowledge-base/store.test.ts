@@ -13,6 +13,8 @@ import {
   uploadKnowledgeBaseDocument,
 } from "./store";
 
+const ORG_ID = "org_test";
+
 describe("knowledge base store", () => {
   let tempConfigDir = "";
   const previousConfigDir = process.env.TINYCLAW_CONFIG_DIR;
@@ -30,7 +32,9 @@ describe("knowledge base store", () => {
     tempConfigDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-kb-store-"));
     process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
     await import("node:fs/promises").then(({ mkdir }) =>
-      mkdir(path.join(tempConfigDir, "profiles", profileId), { recursive: true }),
+      mkdir(path.join(tempConfigDir, "orgs", ORG_ID, "profiles", profileId), {
+        recursive: true,
+      }),
     );
   }
 
@@ -39,7 +43,7 @@ describe("knowledge base store", () => {
     await setupProfile(profileId);
 
     const content = Buffer.from("needle in haystack", "utf8").toString("base64");
-    const uploaded = await uploadKnowledgeBaseDocument(profileId, {
+    const uploaded = await uploadKnowledgeBaseDocument(ORG_ID, profileId, {
       filename: "notes.txt",
       mediaType: "text/plain",
       data: content,
@@ -48,26 +52,26 @@ describe("knowledge base store", () => {
     expect(uploaded.status).toBe("ready");
     expect(uploaded.filename).toBe("notes.txt");
 
-    const listed = await listKnowledgeBaseDocuments(profileId);
+    const listed = await listKnowledgeBaseDocuments(ORG_ID, profileId);
     expect(listed).toHaveLength(1);
     expect(listed[0]?.id).toBe(uploaded.id);
 
     const extracted = await readFile(
-      getKnowledgeBaseExtractedPath(profileId, uploaded.id),
+      getKnowledgeBaseExtractedPath(ORG_ID, profileId, uploaded.id),
       "utf8",
     );
     expect(extracted).toContain("# source: notes.txt");
     expect(extracted).toContain("needle in haystack");
 
-    const manifest = await readFile(getKnowledgeBaseManifestPath(profileId), "utf8");
+    const manifest = await readFile(getKnowledgeBaseManifestPath(ORG_ID, profileId), "utf8");
     expect(manifest).toContain(uploaded.id);
 
-    const uploadDir = getKnowledgeBaseUploadDir(profileId, uploaded.id);
+    const uploadDir = getKnowledgeBaseUploadDir(ORG_ID, profileId, uploaded.id);
     expect(uploadDir).toContain(uploaded.id);
 
-    const deleted = await deleteKnowledgeBaseDocument(profileId, uploaded.id);
+    const deleted = await deleteKnowledgeBaseDocument(ORG_ID, profileId, uploaded.id);
     expect(deleted).toBe(true);
-    expect(await listKnowledgeBaseDocuments(profileId)).toHaveLength(0);
+    expect(await listKnowledgeBaseDocuments(ORG_ID, profileId)).toHaveLength(0);
   });
 
   test("rejects unsupported document types", async () => {
@@ -75,7 +79,7 @@ describe("knowledge base store", () => {
     await setupProfile(profileId);
 
     await expect(
-      uploadKnowledgeBaseDocument(profileId, {
+      uploadKnowledgeBaseDocument(ORG_ID, profileId, {
         filename: "archive.zip",
         mediaType: "application/zip",
         data: Buffer.from("zip").toString("base64"),

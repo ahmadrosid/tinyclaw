@@ -15,8 +15,8 @@ import type {
   UploadKnowledgeBaseRequest,
   UploadKnowledgeBaseResponse,
 } from "@tinyclaw/core";
-import { json, readJson } from "../shared";
-import { requirePlatformAdminFromContext } from "../org-guards";
+import { json, readJson, getRequestAuth } from "../shared";
+import { requirePlatformAdminFromContext, requireActiveOrgIdFromContext } from "../org-guards";
 import type { HonoApp } from "../types";
 import type { ServerOptions } from "../context";
 
@@ -235,47 +235,50 @@ export function registerProfileRoutes(app: HonoApp, options: ServerOptions): voi
     },
   }));
 
-  app.get("/v1/profiles", async () => {
-    return json<ListProfilesResponse>(await agent.listProfiles());
+  app.get("/v1/profiles", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
+    return json<ListProfilesResponse>(await agent.listProfiles(orgId));
   });
 
   app.post("/v1/profiles", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
     const body = await readJson<CreateProfileRequest>(c.req.raw);
-    return json<ProfileResponse>(await agent.createProfile(body), 201);
+    return json<ProfileResponse>(await agent.createProfile(orgId, body), 201);
   });
 
   app.get("/v1/profiles/:profileId/soul", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
     const includeContents = c.req.query("contents") === "true";
     return json<SoulStatusResponse>(
-      await agent.getProfileSoulStatus(
-        decodeURIComponent(c.req.param("profileId")),
-        includeContents,
-      ),
+      await agent.getProfileSoulStatus(orgId, profileId, includeContents),
     );
   });
 
   app.get("/v1/profiles/:profileId/soul/stack", async (c) => {
     requirePlatformAdminFromContext(c);
-    return json<SoulStackResponse>(
-      await agent.getProfileSoulStack(decodeURIComponent(c.req.param("profileId"))),
-    );
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
+    return json<SoulStackResponse>(await agent.getProfileSoulStack(orgId, profileId));
   });
 
   app.post("/v1/profiles/:profileId/soul/init", async (c) => {
     requirePlatformAdminFromContext(c);
-    return json<InitSoulResponse>(
-      await agent.initProfileSoul(decodeURIComponent(c.req.param("profileId"))),
-      201,
-    );
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
+    return json<InitSoulResponse>(await agent.initProfileSoul(orgId, profileId), 201);
   });
 
   app.put("/v1/profiles/:profileId/soul/files/:fileKey", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
     const body = await readJson<UpdateSoulFileRequest>(c.req.raw);
     await agent.writeProfileSoulFile(
-      decodeURIComponent(c.req.param("profileId")),
+      orgId,
+      profileId,
       decodeURIComponent(c.req.param("fileKey")),
       body,
     );
@@ -284,35 +287,39 @@ export function registerProfileRoutes(app: HonoApp, options: ServerOptions): voi
 
   app.get("/v1/profiles/:profileId/knowledge-base", async (c) => {
     requirePlatformAdminFromContext(c);
-    return json<ListKnowledgeBaseResponse>(
-      await agent.listKnowledgeBase(decodeURIComponent(c.req.param("profileId"))),
-    );
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
+    return json<ListKnowledgeBaseResponse>(await agent.listKnowledgeBase(orgId, profileId));
   });
 
   app.post("/v1/profiles/:profileId/knowledge-base", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
     const body = await readJson<UploadKnowledgeBaseRequest>(c.req.raw);
     return json<UploadKnowledgeBaseResponse>(
-      await agent.uploadKnowledgeBaseDocument(
-        decodeURIComponent(c.req.param("profileId")),
-        body.document,
-      ),
+      await agent.uploadKnowledgeBaseDocument(orgId, profileId, body.document),
       201,
     );
   });
 
   app.delete("/v1/profiles/:profileId/knowledge-base/:documentId", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
     return json<DeleteKnowledgeBaseResponse>(
       await agent.deleteKnowledgeBaseDocument(
-        decodeURIComponent(c.req.param("profileId")),
+        orgId,
+        profileId,
         decodeURIComponent(c.req.param("documentId")),
       ),
     );
   });
 
   app.get("/v1/profiles/:profileId/avatar", async (c) => {
-    const avatar = await agent.getProfileAvatar(decodeURIComponent(c.req.param("profileId")));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
+    const avatar = await agent.getProfileAvatar(orgId, profileId);
     return new Response(avatar.bytes, {
       headers: { "Content-Type": avatar.mediaType },
     });
@@ -320,34 +327,40 @@ export function registerProfileRoutes(app: HonoApp, options: ServerOptions): voi
 
   app.put("/v1/profiles/:profileId/avatar", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
     const body = await readJson<ImageAttachment>(c.req.raw);
-    return json<ProfileResponse>(
-      await agent.uploadProfileAvatar(decodeURIComponent(c.req.param("profileId")), body),
-    );
+    return json<ProfileResponse>(await agent.uploadProfileAvatar(orgId, profileId, body));
   });
 
   app.delete("/v1/profiles/:profileId/avatar", async (c) => {
     requirePlatformAdminFromContext(c);
-    await agent.deleteProfileAvatar(decodeURIComponent(c.req.param("profileId")));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
+    await agent.deleteProfileAvatar(orgId, profileId);
     return new Response(null, { status: 204 });
   });
 
   app.get("/v1/profiles/:profileId", async (c) => {
     requirePlatformAdminFromContext(c);
-    return json<ProfileResponse>(await agent.getProfile(decodeURIComponent(c.req.param("profileId"))));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
+    return json<ProfileResponse>(await agent.getProfile(orgId, profileId));
   });
 
   app.put("/v1/profiles/:profileId", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
     const body = await readJson<UpdateProfileRequest>(c.req.raw);
-    return json<ProfileResponse>(
-      await agent.updateProfile(decodeURIComponent(c.req.param("profileId")), body),
-    );
+    return json<ProfileResponse>(await agent.updateProfile(orgId, profileId, body));
   });
 
   app.delete("/v1/profiles/:profileId", async (c) => {
     requirePlatformAdminFromContext(c);
-    await agent.deleteProfile(decodeURIComponent(c.req.param("profileId")));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const profileId = decodeURIComponent(c.req.param("profileId"));
+    await agent.deleteProfile(orgId, profileId);
     return new Response(null, { status: 204 });
   });
 }

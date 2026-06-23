@@ -39,7 +39,7 @@ export class AutomationScheduler {
 
     this.jobs.clear();
 
-    const automations = await this.automationService.list();
+    const automations = await this.automationService.listAll();
     const userTimezone = await this.getUserTimezone();
 
     for (const automation of automations) {

@@ -5,6 +5,9 @@ import { join } from "node:path";
 import { createInMemoryDatabaseAdapter } from "@tinyclaw/db";
 import { SkillsService } from "./skills-service";
 
+const ORG_ID = "org_test";
+const PROFILE_ID = "profile_default";
+
 const weatherSkillMarkdown = `---
 name: weather
 description: Get weather forecasts. Use when the user asks about weather.
@@ -55,10 +58,11 @@ describe("SkillsService", () => {
 
     expect(weather).toBeDefined();
 
-    await db.assignSkillToProfile("default", weather!.id);
+    await db.assignSkillToProfile(PROFILE_ID, weather!.id);
 
     const matched = await service.formatMatchedSkillsForPrompt(
-      "default",
+      ORG_ID,
+      PROFILE_ID,
       "What's the weather in Jakarta?",
     );
 
@@ -78,10 +82,11 @@ describe("SkillsService", () => {
 
     expect(weather).toBeDefined();
 
-    await db.assignSkillToProfile("default", weather!.id);
+    await db.assignSkillToProfile(PROFILE_ID, weather!.id);
 
     const matched = await service.formatMatchedSkillsForPrompt(
-      "default",
+      ORG_ID,
+      PROFILE_ID,
       "/skill weather",
     );
 
@@ -93,16 +98,16 @@ describe("SkillsService", () => {
     const db = createInMemoryDatabaseAdapter();
     const service = new SkillsService(db);
 
-    const response = await service.createSkill({
+    const response = await service.createSkill(ORG_ID, {
       name: "notes",
       description: "Capture notes for the user.",
       body: "Use this skill when the user asks to save a note.",
-      profileId: "default",
+      profileId: PROFILE_ID,
     });
 
     expect(response.skill.name).toBe("notes");
     expect(response.skill.sourcePath).toContain(
-      join("profiles", "default", "skills", "notes"),
+      join("orgs", ORG_ID, "profiles", PROFILE_ID, "skills", "notes"),
     );
 
     const listed = await service.listSkills();
@@ -113,10 +118,10 @@ describe("SkillsService", () => {
     const db = createInMemoryDatabaseAdapter();
     const service = new SkillsService(db);
 
-    const created = await service.createSkill({
+    const created = await service.createSkill(ORG_ID, {
       name: "notes",
       description: "Capture notes for the user.",
-      profileId: "default",
+      profileId: PROFILE_ID,
     });
 
     await service.deleteSkill(created.skill.id);

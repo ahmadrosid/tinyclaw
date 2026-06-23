@@ -17,6 +17,7 @@ export function migrateDatabase(db: Database): void {
   migrateUsersTable(db);
   migrateOrgTables(db);
   migrateTenantOrgScope(db);
+  migrateProfileOrgColumns(db);
   migrateBrowserSessionsTable(db);
   migrateLegacyProfileIds(db);
   migrateWorkspaceSettingsTable(db);
@@ -58,6 +59,12 @@ function migrateProfilesTable(db: Database): void {
   if (!columnNames.has("thinking_effort")) {
     db.exec(`
       ALTER TABLE profiles ADD COLUMN thinking_effort TEXT;
+    `);
+  }
+
+  if (!columnNames.has("is_default")) {
+    db.exec(`
+      ALTER TABLE profiles ADD COLUMN is_default INTEGER DEFAULT 0 NOT NULL;
     `);
   }
 }
@@ -319,6 +326,64 @@ function migrateTenantOrgScope(db: Database): void {
     DROP INDEX IF EXISTS skills_source_path_unique;
     CREATE UNIQUE INDEX IF NOT EXISTS skills_org_source_path_unique ON skills (org_id, source_path);
   `);
+}
+
+function migrateProfileOrgColumns(db: Database): void {
+  migrateProfilesTable(db);
+
+  const firstOrg = db
+    .prepare("SELECT id FROM organizations ORDER BY id ASC LIMIT 1")
+    .get() as { id: string } | null;
+
+  if (firstOrg) {
+    db.prepare(`
+      UPDATE profiles
+      SET org_id = ?
+      WHERE org_id IS NULL
+    `).run(firstOrg.id);
+
+    db.prepare(`
+      UPDATE profiles
+      SET is_default = 0
+      WHERE org_id = ?
+    `).run(firstOrg.id);
+
+    const defaultProfile = db
+      .prepare(`
+        SELECT id FROM profiles
+        WHERE org_id = ? AND id = 'default'
+        LIMIT 1
+      `)
+      .get(firstOrg.id) as { id: string } | null;
+
+    if (defaultProfile) {
+      db.prepare(`
+        UPDATE profiles SET is_default = 1 WHERE id = ?
+      `).run(defaultProfile.id);
+    } else {
+      const anyProfile = db
+        .prepare(`
+          SELECT id FROM profiles WHERE org_id = ? ORDER BY created_at ASC LIMIT 1
+        `)
+        .get(firstOrg.id) as { id: string } | null;
+
+      if (anyProfile) {
+        db.prepare(`
+          UPDATE profiles SET is_default = 1 WHERE id = ?
+        `).run(anyProfile.id);
+      }
+    }
+  } else {
+    db.prepare("DELETE FROM profiles WHERE org_id IS NULL").run();
+  }
+
+  db.prepare(`
+    UPDATE automations
+    SET org_id = (
+      SELECT org_id FROM profiles WHERE profiles.id = automations.profile_id
+    )
+    WHERE org_id IS NULL
+  `).run();
 }
 
 function addOrgIdColumnIfMissing(db: Database, tableName: string): void {

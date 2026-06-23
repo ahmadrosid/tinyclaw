@@ -4,28 +4,42 @@ A **profile** is the bot definition TinyClaw runs for a session.
 
 It answers one practical question: **which bot should respond, and how should it behave?**
 
-## Fresh install defaults
+Profiles belong to an **organization**. Switching orgs in the dashboard shows only that org's bots.
 
-On a fresh installation, TinyClaw creates **two profiles by default**:
+## Default profile per organization
 
-| Profile | Purpose | Default access |
-|---------|---------|----------------|
-| `super_bot` | Built-in admin-style bot | Highest permissions, including super-bot-only capabilities |
-| `default` | Normal starter bot | General seeded tool set for everyday use |
+TinyClaw does **not** share one global `default` bot across every org.
+
+When an organization is created — including the first org at install — TinyClaw automatically:
+
+1. Creates one **default profile** for that org (`isDefault: true`)
+2. Assigns the standard builtin tool set (web search, file tools, email, and the rest)
+3. Initializes its soul directory on disk
+
+That profile is named **Default Bot** and gets a unique id (not a fixed string like `default`).
+
+| What | Behavior |
+|------|----------|
+| Default profile | Exactly one per org, marked with `isDefault` |
+| Super bot | Not auto-created; platform admin may add a profile with `isSuper: true` if needed |
+| Additional orgs | Each gets its own default profile and isolated on-disk data |
+
+If a session or channel config omits a profile id — or names one that does not exist in the active org — TinyClaw falls back to that org's default profile.
 
 ### New custom profiles
 
-New custom profiles start with their own soul directory and only the builtin `create_skill` tool. Platform admins can assign more tools, MCP servers, and skills later.
+Platform admins create extra profiles inside the **active org**. Each new profile gets its own soul directory and starts with only the builtin `create_skill` tool. Assign more tools, MCP servers, and skills from the dashboard.
 
 ## What a profile contains
 
 | Field | What it means |
 |------|----------------|
-| `id` | Stable profile ID such as `default` or `super_bot` |
+| `id` | Stable unique profile id |
 | `name` | Human-friendly label shown in the UI |
 | `model` | Optional model selection for this profile |
 | `systemPrompt` | Base instructions stored in the database |
 | `isSuper` | Marks the profile as a super profile with elevated behavior |
+| `isDefault` | Marks the org's default profile used when none is specified |
 | `tools` | Builtin or custom tools the profile is allowed to use |
 | `mcpServers` | MCP servers available to the profile |
 | `skills` | Reusable instructions assigned to the profile |
@@ -60,10 +74,10 @@ Profiles support two layers of instruction:
 | `systemPrompt` | Quick base instructions stored in the database |
 | Soul files | Richer identity, style, operating rules, and memory on disk |
 
-Soul files live under:
+Soul files, avatars, knowledge-base documents, and profile-scoped skills all live under an org-scoped path:
 
 ```text
-~/.tinyclaw/profiles/{profileId}/
+~/.tinyclaw/orgs/{orgId}/profiles/{profileId}/
 ```
 
 Supported soul files:
@@ -75,6 +89,12 @@ Supported soul files:
 | `INSTRUCTIONS.md` | Operating rules |
 | `MEMORY.md` | Continuity across sessions |
 | `examples/*.md` | Calibration examples |
+
+Profile-scoped skills are stored at:
+
+```text
+~/.tinyclaw/orgs/{orgId}/profiles/{profileId}/skills/
+```
 
 If you want richer personality and clearer long-term behavior, use soul files. If you only need a quick setup, the stored `systemPrompt` may be enough.
 
@@ -88,23 +108,26 @@ Each profile can optionally select its own model.
 
 ## Knowledge base and memory
 
-Profiles keep their own context on disk:
+Profiles keep their own context on disk under the org-scoped profile directory:
 
 - **Knowledge base** documents for searchable reference material
 - **`MEMORY.md`** for facts and continuity saved by the agent
 
-This data does not carry across profiles.
+This data is isolated per org and per profile. Two orgs never read or write the same directory, even if profile ids happen to match.
 
 ## Multi-tenant behavior
 
-Profiles are tenant-owned data inside an organization. In practice:
+Profiles are tenant-owned data inside an organization:
 
-- Profiles belong to an org
-- Sessions bind to one profile
-- Tool access is scoped per profile
-- Profile admin actions are platform-admin only
+| Rule | Detail |
+|------|--------|
+| Listing | `GET /v1/profiles` returns only profiles for the active org |
+| Lookup | Requesting another org's profile id returns not found |
+| Sessions | Bind to one profile within the active org |
+| Tool access | Scoped per profile |
+| Mutations | Platform-admin only; org members chat with org profiles |
 
-Org admins manage members, not profiles.
+Org admins manage members, not profiles. Platform admins need an active org context when creating or editing profiles.
 
 ## When to create multiple profiles
 

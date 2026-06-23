@@ -33,7 +33,7 @@ import {
   isKnowledgeBaseFile,
   KNOWLEDGE_BASE_ACCEPT,
 } from "@/lib/knowledge-base-files";
-import { DEFAULT_PROFILE_ID } from "@/lib/profiles";
+import { findDefaultProfile, resolveInitialProfileId } from "@/lib/profiles";
 import { cn } from "@/lib/utils";
 import { formatError } from "@/lib/client";
 
@@ -52,7 +52,7 @@ function resolveDefaultProfileId(
     return fromUrl;
   }
 
-  return profiles.find((profile) => profile.id === DEFAULT_PROFILE_ID)?.id ?? profiles[0]!.id;
+  return resolveInitialProfileId(profiles);
 }
 
 function formatUploadedAt(value: string): string {
@@ -116,7 +116,8 @@ export function KnowledgeTab() {
       setSearchParams(
         (current) => {
           const next = new URLSearchParams(current);
-          if (nextProfileId === DEFAULT_PROFILE_ID) {
+          const defaultProfileId = findDefaultProfile(profiles)?.id;
+          if (defaultProfileId && nextProfileId === defaultProfileId) {
             next.delete("profile");
           } else {
             next.set("profile", nextProfileId);

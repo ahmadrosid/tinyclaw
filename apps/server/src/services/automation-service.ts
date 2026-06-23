@@ -12,11 +12,7 @@ import {
   resolveScheduleTimezone,
   validateAutomationInput,
 } from "@tinyclaw/core";
-import {
-  DatabaseAutomationStore,
-  DEFAULT_PROFILE_ID,
-  type DatabaseAdapter,
-} from "@tinyclaw/db";
+import { DatabaseAutomationStore, type DatabaseAdapter } from "@tinyclaw/db";
 
 export interface AutomationServiceOptions {
   getUserTimezone: () => Promise<string>;
@@ -40,19 +36,30 @@ export class AutomationService {
     this.onChange = onChange;
   }
 
-  async list(): Promise<StoredAutomation[]> {
+  /** All automations — used by the scheduler across orgs. */
+  async listAll(): Promise<StoredAutomation[]> {
     const automations = await this.store.list();
     return Promise.all(automations.map((automation) => this.enrichAutomation(automation)));
   }
 
-  async get(id: string): Promise<StoredAutomation | null> {
+  async listForOrg(orgId: string): Promise<StoredAutomation[]> {
+    const automations = await this.store.listForOrg(orgId);
+    return Promise.all(automations.map((automation) => this.enrichAutomation(automation)));
+  }
+
+  async get(id: string, orgId?: string): Promise<StoredAutomation | null> {
     const automation = await this.store.get(id);
-    return automation ? this.enrichAutomation(automation) : null;
+    if (!automation || (orgId && !automationBelongsToOrg(automation, orgId))) {
+      return null;
+    }
+
+    return this.enrichAutomation(automation);
   }
 
   async create(
+    orgId: string,
     input: CreateAutomationRequest,
-    profileId = DEFAULT_PROFILE_ID,
+    profileIdOverride?: string,
   ): Promise<StoredAutomation> {
     const userTimezone = await this.getUserTimezone();
     const trigger = resolveScheduleTimezone(input.trigger, userTimezone);
@@ -63,11 +70,10 @@ export class AutomationService {
       trigger,
     });
 
-    const profile = await this.db.getProfile(profileId);
-
-    if (!profile) {
-      throw new Error("Profile not found.");
-    }
+    const profileId = await this.resolveProfileId(
+      orgId,
+      profileIdOverride ?? input.profileId,
+    );
 
     const now = new Date().toISOString();
     const automation: StoredAutomation = {
@@ -79,6 +85,7 @@ export class AutomationService {
       steps: [],
       version: 1,
       profileId,
+      orgId,
       enabled: input.enabled ?? true,
       createdAt: now,
       updatedAt: now,
@@ -89,8 +96,12 @@ export class AutomationService {
     return this.enrichAutomation(automation);
   }
 
-  async update(id: string, input: UpdateAutomationRequest): Promise<StoredAutomation> {
-    const existing = await this.store.get(id);
+  async update(
+    id: string,
+    orgId: string,
+    input: UpdateAutomationRequest,
+  ): Promise<StoredAutomation> {
+    const existing = await this.get(id, orgId);
 
     if (!existing) {
       throw new Error("Automation not found.");
@@ -123,7 +134,12 @@ export class AutomationService {
     return this.enrichAutomation(updated);
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, orgId: string): Promise<boolean> {
+    const existing = await this.get(id, orgId);
+    if (!existing) {
+      return false;
+    }
+
     const deleted = await this.store.delete(id);
 
     if (deleted) {
@@ -133,8 +149,14 @@ export class AutomationService {
     return deleted;
   }
 
-  async listRuns(automationId: string, limit = 20): Promise<AutomationRunRecord[]> {
-    const automation = await this.store.get(automationId);
+  async listRuns(
+    automationId: string,
+    orgId?: string,
+    limit = 20,
+  ): Promise<AutomationRunRecord[]> {
+    const automation = orgId
+      ? await this.get(automationId, orgId)
+      : await this.store.get(automationId);
 
     if (!automation) {
       throw new Error("Automation not found.");
@@ -205,6 +227,26 @@ export class AutomationService {
     return next ? next.toISOString() : null;
   }
 
+  private async resolveProfileId(orgId: string, profileId?: string): Promise<string> {
+    const trimmed = profileId?.trim();
+
+    if (trimmed) {
+      const profile = await this.db.getProfileForOrg(trimmed, orgId);
+      if (profile) {
+        return profile.id;
+      }
+
+      throw new Error("Profile not found.");
+    }
+
+    const defaultProfile = await this.db.getDefaultProfileForOrg(orgId);
+    if (!defaultProfile) {
+      throw new Error("No default profile exists for this organization.");
+    }
+
+    return defaultProfile.id;
+  }
+
   private async enrichAutomation(automation: StoredAutomation): Promise<StoredAutomation> {
     const userTimezone = await this.getUserTimezone();
     const runs = await this.db.listAutomationRuns(automation.id, 1);
@@ -222,6 +264,10 @@ export class AutomationService {
   private async notifyChange(): Promise<void> {
     await this.onChange?.();
   }
+}
+
+function automationBelongsToOrg(automation: StoredAutomation, orgId: string): boolean {
+  return automation.orgId === orgId;
 }
 
 function toRunRecord(run: {

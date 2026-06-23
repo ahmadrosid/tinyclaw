@@ -11,6 +11,7 @@ import {
 } from "./profile-avatar";
 
 const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
+const ORG_ID = "org_test";
 
 const tinyPngBase64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -33,24 +34,24 @@ describe("profile avatar", () => {
 
     const profileId = "profile_test";
 
-    expect(await hasProfileAvatar(profileId)).toBe(false);
+    expect(await hasProfileAvatar(ORG_ID, profileId)).toBe(false);
 
-    await saveProfileAvatar(profileId, {
+    await saveProfileAvatar(ORG_ID, profileId, {
       mediaType: "image/png",
       data: tinyPngBase64,
     });
 
-    expect(await hasProfileAvatar(profileId)).toBe(true);
-    expect(getProfileAvatarPath(profileId, "image/png")).toEndWith("avatar.png");
+    expect(await hasProfileAvatar(ORG_ID, profileId)).toBe(true);
+    expect(getProfileAvatarPath(ORG_ID, profileId, "image/png")).toEndWith("avatar.png");
 
-    const avatar = await readProfileAvatar(profileId);
+    const avatar = await readProfileAvatar(ORG_ID, profileId);
 
     expect(avatar?.mediaType).toBe("image/png");
     expect(avatar?.bytes.length).toBeGreaterThan(0);
 
-    expect(await deleteProfileAvatar(profileId)).toBe(true);
-    expect(await hasProfileAvatar(profileId)).toBe(false);
-    expect(await readProfileAvatar(profileId)).toBeNull();
+    expect(await deleteProfileAvatar(ORG_ID, profileId)).toBe(true);
+    expect(await hasProfileAvatar(ORG_ID, profileId)).toBe(false);
+    expect(await readProfileAvatar(ORG_ID, profileId)).toBeNull();
   });
 
   test("replaces an existing avatar on upload", async () => {
@@ -59,20 +60,20 @@ describe("profile avatar", () => {
 
     const profileId = "profile_test";
 
-    await saveProfileAvatar(profileId, {
+    await saveProfileAvatar(ORG_ID, profileId, {
       mediaType: "image/png",
       data: tinyPngBase64,
     });
 
-    await saveProfileAvatar(profileId, {
+    await saveProfileAvatar(ORG_ID, profileId, {
       mediaType: "image/jpeg",
       data: tinyPngBase64,
     });
 
-    expect(await hasProfileAvatar(profileId)).toBe(true);
-    expect(getProfileAvatarPath(profileId, "image/jpeg")).toEndWith("avatar.jpg");
+    expect(await hasProfileAvatar(ORG_ID, profileId)).toBe(true);
+    expect(getProfileAvatarPath(ORG_ID, profileId, "image/jpeg")).toEndWith("avatar.jpg");
 
-    const avatar = await readProfileAvatar(profileId);
+    const avatar = await readProfileAvatar(ORG_ID, profileId);
     expect(avatar?.mediaType).toBe("image/jpeg");
   });
 });

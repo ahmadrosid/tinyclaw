@@ -66,16 +66,23 @@ export function setDefaultFileGuardOptions(options: PathGuardOptions): void {
   defaultGuardOptions = { ...options };
 }
 
+function requireProfileScope(context: ToolContext): { orgId: string; profileId: string } {
+  const orgId = context.orgId?.trim();
+  const profileId = context.profileId?.trim();
+
+  if (!orgId || !profileId) {
+    throw new Error("orgId and profileId are required.");
+  }
+
+  return { orgId, profileId };
+}
+
 function buildFileGuardOptions(
   context: ToolContext,
   options: FileToolRunOptions = {},
 ): PathGuardOptions {
-  const profileId = context.profileId?.trim();
-  if (!profileId) {
-    throw new Error("profileId is required.");
-  }
-
-  const workspaceRoot = options.workspaceRoot ?? getProfileSoulDir(profileId);
+  const { orgId, profileId } = requireProfileScope(context);
+  const workspaceRoot = options.workspaceRoot ?? getProfileSoulDir(orgId, profileId);
 
   return {
     ...defaultGuardOptions,

@@ -42,8 +42,8 @@ function sanitizeFilename(filename: string): string {
   return base.replace(/[^\w.\-() ]+/g, "_") || "document";
 }
 
-async function readManifest(profileId: string): Promise<KnowledgeBaseManifest> {
-  const manifestPath = getKnowledgeBaseManifestPath(profileId);
+async function readManifest(orgId: string, profileId: string): Promise<KnowledgeBaseManifest> {
+  const manifestPath = getKnowledgeBaseManifestPath(orgId, profileId);
   const raw = await readTextOrNull(manifestPath);
 
   if (!raw) {
@@ -66,8 +66,12 @@ async function readManifest(profileId: string): Promise<KnowledgeBaseManifest> {
   return { documents: [] };
 }
 
-async function writeManifest(profileId: string, manifest: KnowledgeBaseManifest): Promise<void> {
-  const manifestPath = getKnowledgeBaseManifestPath(profileId);
+async function writeManifest(
+  orgId: string,
+  profileId: string,
+  manifest: KnowledgeBaseManifest,
+): Promise<void> {
+  const manifestPath = getKnowledgeBaseManifestPath(orgId, profileId);
   const tempPath = `${manifestPath}.tmp`;
   const content = `${JSON.stringify(manifest, null, 2)}\n`;
 
@@ -75,22 +79,24 @@ async function writeManifest(profileId: string, manifest: KnowledgeBaseManifest)
   await rename(tempPath, manifestPath);
 }
 
-export async function ensureKnowledgeBaseDirs(profileId: string): Promise<void> {
-  await ensureDir(getKnowledgeBaseDir(profileId));
-  await ensureDir(getKnowledgeBaseUploadsDir(profileId));
-  await ensureDir(getKnowledgeBaseExtractedDir(profileId));
+export async function ensureKnowledgeBaseDirs(orgId: string, profileId: string): Promise<void> {
+  await ensureDir(getKnowledgeBaseDir(orgId, profileId));
+  await ensureDir(getKnowledgeBaseUploadsDir(orgId, profileId));
+  await ensureDir(getKnowledgeBaseExtractedDir(orgId, profileId));
 }
 
 export async function listKnowledgeBaseDocuments(
+  orgId: string,
   profileId: string,
 ): Promise<KnowledgeBaseDocument[]> {
-  const manifest = await readManifest(profileId);
+  const manifest = await readManifest(orgId, profileId);
   return [...manifest.documents].sort((left, right) =>
     right.uploadedAt.localeCompare(left.uploadedAt),
   );
 }
 
 export async function uploadKnowledgeBaseDocument(
+  orgId: string,
   profileId: string,
   attachment: DocumentAttachment,
 ): Promise<KnowledgeBaseDocument> {
@@ -118,11 +124,11 @@ export async function uploadKnowledgeBaseDocument(
     throw new Error(`Document must be at most ${MAX_DOCUMENT_BYTES / (1024 * 1024)} MB.`);
   }
 
-  await ensureKnowledgeBaseDirs(profileId);
+  await ensureKnowledgeBaseDirs(orgId, profileId);
 
   const documentId = createId("kb");
   const uploadedAt = new Date().toISOString();
-  const uploadDir = getKnowledgeBaseUploadDir(profileId, documentId);
+  const uploadDir = getKnowledgeBaseUploadDir(orgId, profileId, documentId);
   const safeFilename = sanitizeFilename(filename);
   const originalPath = join(uploadDir, safeFilename);
 
@@ -140,7 +146,10 @@ export async function uploadKnowledgeBaseDocument(
     }
 
     const header = buildExtractedTextHeader({ filename, mediaType, uploadedAt });
-    await writePrivateTextFile(getKnowledgeBaseExtractedPath(profileId, documentId), `${header}${body}\n`);
+    await writePrivateTextFile(
+      getKnowledgeBaseExtractedPath(orgId, profileId, documentId),
+      `${header}${body}\n`,
+    );
   } catch (extractError) {
     status = "failed";
     error = extractError instanceof Error ? extractError.message : String(extractError);
@@ -156,18 +165,19 @@ export async function uploadKnowledgeBaseDocument(
     ...(error ? { error } : {}),
   };
 
-  const manifest = await readManifest(profileId);
+  const manifest = await readManifest(orgId, profileId);
   manifest.documents.push(document);
-  await writeManifest(profileId, manifest);
+  await writeManifest(orgId, profileId, manifest);
 
   return document;
 }
 
 export async function deleteKnowledgeBaseDocument(
+  orgId: string,
   profileId: string,
   documentId: string,
 ): Promise<boolean> {
-  const manifest = await readManifest(profileId);
+  const manifest = await readManifest(orgId, profileId);
   const index = manifest.documents.findIndex((document) => document.id === documentId);
 
   if (index < 0) {
@@ -175,10 +185,10 @@ export async function deleteKnowledgeBaseDocument(
   }
 
   manifest.documents.splice(index, 1);
-  await writeManifest(profileId, manifest);
+  await writeManifest(orgId, profileId, manifest);
 
-  const uploadDir = getKnowledgeBaseUploadDir(profileId, documentId);
-  const extractedPath = getKnowledgeBaseExtractedPath(profileId, documentId);
+  const uploadDir = getKnowledgeBaseUploadDir(orgId, profileId, documentId);
+  const extractedPath = getKnowledgeBaseExtractedPath(orgId, profileId, documentId);
 
   if (await pathExists(uploadDir)) {
     await rm(uploadDir, { recursive: true, force: true });

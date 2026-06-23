@@ -72,7 +72,7 @@ export class SkillsService {
     return { skills: skills.map(toSkillSummary) };
   }
 
-  async createSkill(request: CreateSkillRequest): Promise<SkillResponse> {
+  async createSkill(orgId: string, request: CreateSkillRequest): Promise<SkillResponse> {
     const name = request.name.trim();
 
     if (!name) {
@@ -83,18 +83,21 @@ export class SkillsService {
       throw new Error("Skill description is required.");
     }
 
+    const profileId = request.profileId?.trim() || undefined;
+
     await createSkillFile({
       name,
       description: request.description.trim(),
       body: request.body,
       disableModelInvocation: request.disableModelInvocation,
-      profileId: request.profileId?.trim() || undefined,
+      orgId: profileId ? orgId : undefined,
+      profileId,
     });
 
     await this.syncDiscoveredSkills();
 
-    const sourcePath = request.profileId?.trim()
-      ? getProfileSkillsDir(request.profileId.trim())
+    const sourcePath = profileId
+      ? getProfileSkillsDir(orgId, profileId)
       : getGlobalSkillsDir();
     const record = await this.db.getSkillBySourcePath(path.join(sourcePath, name));
 
@@ -106,10 +109,11 @@ export class SkillsService {
   }
 
   async createAndAssignSkillToProfile(
+    orgId: string,
     profileId: string,
     request: Omit<CreateSkillRequest, "profileId">,
   ): Promise<SkillResponse> {
-    const created = await this.createSkill({
+    const created = await this.createSkill(orgId, {
       ...request,
       profileId,
     });
@@ -148,16 +152,17 @@ export class SkillsService {
     };
   }
 
-  async composeCatalogForProfile(profileId: string): Promise<string> {
-    const assigned = await this.getAssignedDiscoveredSkills(profileId);
+  async composeCatalogForProfile(orgId: string, profileId: string): Promise<string> {
+    const assigned = await this.getAssignedDiscoveredSkills(orgId, profileId);
     return composeSkillsCatalog(assigned);
   }
 
   async formatMatchedSkillsForPrompt(
+    orgId: string,
     profileId: string,
     userMessage: string,
   ): Promise<string> {
-    const assigned = await this.getAssignedDiscoveredSkills(profileId);
+    const assigned = await this.getAssignedDiscoveredSkills(orgId, profileId);
     const matched = matchSkillsForMessage(assigned, userMessage);
     const explicitSkillName = extractExplicitSkillName(userMessage);
     return composeMatchedSkillsPrompt(matched, {
@@ -165,8 +170,8 @@ export class SkillsService {
     });
   }
 
-  async loadToolsForProfile(profileId: string): Promise<ToolDefinition[]> {
-    const assigned = await this.getAssignedDiscoveredSkills(profileId);
+  async loadToolsForProfile(orgId: string, profileId: string): Promise<ToolDefinition[]> {
+    const assigned = await this.getAssignedDiscoveredSkills(orgId, profileId);
     return loadSkillTools(assigned.filter((skill) => skill.hasTool));
   }
 
@@ -176,6 +181,7 @@ export class SkillsService {
   }
 
   private async getAssignedDiscoveredSkills(
+    orgId: string,
     profileId: string,
   ): Promise<DiscoveredSkill[]> {
     const assigned = await this.db.listSkillsForProfile(profileId);

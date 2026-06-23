@@ -34,8 +34,10 @@ function createServerOptions() {
       }),
       writeUserContext: async (_userId: string, _body: unknown) => {},
       initUserContext: async (_userId: string) => ({ created: true }),
-      createSession: async (_channel: string, _profileId?: string) => "session_1",
-      listSessions: async (profileId: string, channel: string) => ({ sessions: [{ id: `${profileId}-${channel}` }] }),
+      createSession: async (_orgId: string, _channel: string, _profileId?: string) => "session_1",
+      listSessions: async (_orgId: string, profileId: string, channel: string) => ({
+        sessions: [{ id: `${profileId}-${channel}` }],
+      }),
       clearSession: async (_sessionId: string) => true,
       purgeSession: async (_sessionId: string) => true,
       compactSession: async (_sessionId: string, body: { force: boolean }) => ({ action: body.force ? "summarized" : "none", messagesBefore: 2, messagesAfter: 1 }),
@@ -103,12 +105,16 @@ function createServerOptions() {
       regenerateWhatsAppPairingCode: async () => ({ enabled: false }),
     } as any,
     automationService: {
-      list: async () => [{ id: "automation_1" }],
-      create: async (_body: unknown, _profileId?: string) => ({ id: "automation_1" }),
-      get: async (_automationId: string) => ({ id: "automation_1" }),
-      update: async (_automationId: string, _body: unknown) => ({ id: "automation_1" }),
-      delete: async (_automationId: string) => true,
-      listRuns: async (_automationId: string, limit?: number) =>
+      listForOrg: async (_orgId: string) => [{ id: "automation_1" }],
+      create: async (_orgId: string, _body: unknown, _profileId?: string) => ({
+        id: "automation_1",
+      }),
+      get: async (_automationId: string, _orgId?: string) => ({ id: "automation_1" }),
+      update: async (_automationId: string, _orgId: string, _body: unknown) => ({
+        id: "automation_1",
+      }),
+      delete: async (_automationId: string, _orgId: string) => true,
+      listRuns: async (_automationId: string, _orgId?: string, limit?: number) =>
         limit ? [{ id: "automation_run_1" }] : [{ id: "automation_run_1" }],
     } as any,
     taskService: {

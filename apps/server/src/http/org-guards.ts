@@ -38,3 +38,13 @@ export function requirePlatformAdminFromContext(c: Context<AppEnv>): RequestAuth
   requirePlatformAdmin(auth);
   return auth;
 }
+
+export function requireActiveOrgIdFromContext(c: Context<AppEnv>): string {
+  const orgId = getRequestAuth(c).activeOrgId?.trim();
+
+  if (!orgId) {
+    throw new TinyClawApiError("Organization context required", 400);
+  }
+
+  return orgId;
+}

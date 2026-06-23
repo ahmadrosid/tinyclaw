@@ -60,14 +60,15 @@ export async function runUpdateProfileMemory(
   input: unknown,
   context: ToolContext,
 ): Promise<MemoryAppendOutput> {
+  const orgId = context.orgId?.trim();
   const profileId = context.profileId?.trim();
-  if (!profileId) {
-    throw new Error("profileId is required.");
+  if (!orgId || !profileId) {
+    throw new Error("orgId and profileId are required.");
   }
 
   const content = readRequiredString(input, "content");
 
-  const soulDir = getProfileSoulDir(profileId);
+  const soulDir = getProfileSoulDir(orgId, profileId);
   const memoryPath = join(soulDir, "MEMORY.md");
 
   const existing = await readTextIfExists(memoryPath);

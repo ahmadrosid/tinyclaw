@@ -8,7 +8,7 @@ import type {
   SyncSkillsResponse,
 } from "@tinyclaw/core";
 import { json, readJson } from "../shared";
-import { requirePlatformAdminFromContext } from "../org-guards";
+import { requirePlatformAdminFromContext, requireActiveOrgIdFromContext } from "../org-guards";
 import type { ServerOptions } from "../context";
 import type { HonoApp } from "../types";
 
@@ -111,8 +111,9 @@ export function registerSkillRoutes(app: HonoApp, options: ServerOptions): void 
 
   app.post("/v1/skills", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
     const body = await readJson<CreateSkillRequest>(c.req.raw);
-    return json<SkillResponse>(await agent.createSkill(body));
+    return json<SkillResponse>(await agent.createSkill(orgId, body));
   });
 
   app.post("/v1/skills/sync", async (c) => {
@@ -133,16 +134,19 @@ export function registerSkillRoutes(app: HonoApp, options: ServerOptions): void 
 
   app.post("/v1/profiles/:profileId/skills", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
     const body = await readJson<AssignSkillRequest>(c.req.raw);
     return json<ProfileResponse>(
-      await agent.assignSkill(decodeURIComponent(c.req.param("profileId")), body),
+      await agent.assignSkill(orgId, decodeURIComponent(c.req.param("profileId")), body),
     );
   });
 
   app.delete("/v1/profiles/:profileId/skills/:skillId", async (c) => {
     requirePlatformAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
     return json<ProfileResponse>(
       await agent.unassignSkill(
+        orgId,
         decodeURIComponent(c.req.param("profileId")),
         decodeURIComponent(c.req.param("skillId")),
       ),

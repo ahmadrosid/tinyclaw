@@ -10,6 +10,7 @@ import type {
   UpdateAutomationRequest,
 } from "@tinyclaw/core";
 import { errorResponse, json, parseChannel, readJson } from "../shared";
+import { requireActiveOrgIdFromContext } from "../org-guards";
 import type { HonoApp } from "../types";
 import type { ServerOptions } from "../context";
 
@@ -136,19 +137,25 @@ export function registerAutomationRoutes(app: HonoApp, options: ServerOptions): 
     return json<DraftAutomationResponse>({ automation });
   });
 
-  app.get("/v1/automations", async () => {
-    const automations = await automationService.list();
+  app.get("/v1/automations", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
+    const automations = await automationService.listForOrg(orgId);
     return json<ListAutomationsResponse>({ automations });
   });
 
   app.post("/v1/automations", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const body = await readJson<CreateAutomationRequest>(c.req.raw);
-    const automation = await automationService.create(body, body.profileId);
+    const automation = await automationService.create(orgId, body, body.profileId);
     return json<AutomationResponse>({ automation }, 201);
   });
 
   app.get("/v1/automations/:automationId", async (c) => {
-    const automation = await automationService.get(decodeURIComponent(c.req.param("automationId")));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const automation = await automationService.get(
+      decodeURIComponent(c.req.param("automationId")),
+      orgId,
+    );
     if (!automation) {
       return errorResponse("Automation not found", 404);
     }
@@ -156,11 +163,12 @@ export function registerAutomationRoutes(app: HonoApp, options: ServerOptions): 
   });
 
   app.put("/v1/automations/:automationId", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const automationId = decodeURIComponent(c.req.param("automationId"));
     const body = await readJson<UpdateAutomationRequest>(c.req.raw);
 
     try {
-      const automation = await automationService.update(automationId, body);
+      const automation = await automationService.update(automationId, orgId, body);
       return json<AutomationResponse>({ automation });
     } catch (error) {
       if (error instanceof Error && error.message === "Automation not found.") {
@@ -171,7 +179,11 @@ export function registerAutomationRoutes(app: HonoApp, options: ServerOptions): 
   });
 
   app.delete("/v1/automations/:automationId", async (c) => {
-    const deleted = await automationService.delete(decodeURIComponent(c.req.param("automationId")));
+    const orgId = requireActiveOrgIdFromContext(c);
+    const deleted = await automationService.delete(
+      decodeURIComponent(c.req.param("automationId")),
+      orgId,
+    );
     if (!deleted) {
       return errorResponse("Automation not found", 404);
     }
@@ -179,14 +191,21 @@ export function registerAutomationRoutes(app: HonoApp, options: ServerOptions): 
   });
 
   app.post("/v1/automations/:automationId/run", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const automationId = decodeURIComponent(c.req.param("automationId"));
+    const automation = await automationService.get(automationId, orgId);
+
+    if (!automation) {
+      return errorResponse("Automation not found", 404);
+    }
+
     const result = await agent.runAutomation(automationId);
 
     if (result.skipped) {
       return errorResponse(result.error ?? "Automation run skipped.", 409);
     }
 
-    const runs = await automationService.listRuns(automationId, 1);
+    const runs = await automationService.listRuns(automationId, orgId, 1);
     const run = runs[0];
     if (!run) {
       return errorResponse("Automation run record not found.", 500);
@@ -196,10 +215,11 @@ export function registerAutomationRoutes(app: HonoApp, options: ServerOptions): 
   });
 
   app.get("/v1/automations/:automationId/runs", async (c) => {
+    const orgId = requireActiveOrgIdFromContext(c);
     const automationId = decodeURIComponent(c.req.param("automationId"));
 
     try {
-      const runs = await automationService.listRuns(automationId);
+      const runs = await automationService.listRuns(automationId, orgId);
       return json<ListAutomationRunsResponse>({ runs });
     } catch (error) {
       if (error instanceof Error && error.message === "Automation not found.") {

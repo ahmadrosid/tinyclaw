@@ -8,6 +8,7 @@ import { SkillsService } from "../services/skills-service";
 import { createCreateSkillTool } from "./create-skill";
 
 const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
+const ORG_ID = "org_test";
 
 describe("create_skill tool", () => {
   let tempConfigDir = "";
@@ -29,7 +30,7 @@ describe("create_skill tool", () => {
   test("creates and auto-assigns a profile-local skill", async () => {
     const db = createInMemoryDatabaseAdapter();
     const profileService = new ProfileService(db);
-    const createdProfile = await profileService.createProfile({ name: "Skill Bot" });
+    const createdProfile = await profileService.createProfile(ORG_ID, { name: "Skill Bot" });
     const skillsService = new SkillsService(db);
     const tool = createCreateSkillTool(skillsService);
 
@@ -39,12 +40,12 @@ describe("create_skill tool", () => {
         description: "Capture notes.",
         body: "Use this skill when the user wants to save a note.",
       },
-      { profileId: createdProfile.profile.id, sessionId: "session_1" },
+      { orgId: ORG_ID, profileId: createdProfile.profile.id, sessionId: "session_1" },
     );
 
     expect(result.skill.name).toBe("notes");
     expect(result.skill.sourcePath).toContain(
-      path.join("profiles", createdProfile.profile.id, "skills", "notes"),
+      path.join("orgs", ORG_ID, "profiles", createdProfile.profile.id, "skills", "notes"),
     );
 
     const assigned = await db.listSkillsForProfile(createdProfile.profile.id);
@@ -65,17 +66,17 @@ describe("create_skill tool", () => {
   test("allows the same skill name in different profiles", async () => {
     const db = createInMemoryDatabaseAdapter();
     const profileService = new ProfileService(db);
-    const alpha = await profileService.createProfile({ name: "Alpha" });
-    const beta = await profileService.createProfile({ name: "Beta" });
+    const alpha = await profileService.createProfile(ORG_ID, { name: "Alpha" });
+    const beta = await profileService.createProfile(ORG_ID, { name: "Beta" });
     const tool = createCreateSkillTool(new SkillsService(db));
 
     const first = await tool.run(
       { name: "notes", description: "Alpha notes." },
-      { profileId: alpha.profile.id, sessionId: "session_alpha" },
+      { orgId: ORG_ID, profileId: alpha.profile.id, sessionId: "session_alpha" },
     );
     const second = await tool.run(
       { name: "notes", description: "Beta notes." },
-      { profileId: beta.profile.id, sessionId: "session_beta" },
+      { orgId: ORG_ID, profileId: beta.profile.id, sessionId: "session_beta" },
     );
 
     expect(first.skill.id).not.toBe(second.skill.id);

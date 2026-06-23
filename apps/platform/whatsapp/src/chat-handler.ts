@@ -1,6 +1,7 @@
 import type { TinyClawClient, RemoteChatSession } from "@tinyclaw/client";
 import type { SendMessageInput } from "@tinyclaw/core";
 import type { WASocket } from "@whiskeysockets/baileys";
+import { pickProfileForOrg } from "@tinyclaw/core";
 import { normalizePairingCode } from "@tinyclaw/core/whatsapp-config";
 import {
   clearActiveStream,
@@ -248,22 +249,7 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     const fileConfig = authStore.getConfig();
     const preferredProfileId = fileConfig?.profileId?.trim() || config.profileId;
     const profiles = await client.listProfiles();
-    const profileIds = new Set(profiles.profiles.map((profile) => profile.id));
-
-    if (profileIds.has(preferredProfileId)) {
-      return preferredProfileId;
-    }
-
-    if (profileIds.has("default")) {
-      return "default";
-    }
-
-    const fallback = profiles.profiles[0]?.id;
-    if (fallback) {
-      return fallback;
-    }
-
-    throw new Error("No profiles exist on the server. Create a profile in the web dashboard first.");
+    return pickProfileForOrg(profiles.profiles, preferredProfileId).id;
   }
 
   async function resolveSession(jid: string): Promise<RemoteChatSession> {

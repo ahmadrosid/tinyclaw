@@ -20,6 +20,7 @@ export interface AutomationDefinition {
 
 export interface StoredAutomation extends AutomationDefinition {
   profileId: string;
+  orgId?: string | null;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -770,6 +771,7 @@ export interface ProfileSummary {
   name: string;
   model: string | null;
   isSuper: boolean;
+  isDefault?: boolean;
   toolCount: number;
   mcpServerCount: number;
   soulActive: boolean;
@@ -1138,6 +1140,7 @@ export interface ProviderClient {
 export interface ToolContext {
   automationId?: string;
   userId?: string;
+  orgId?: string;
   profileId?: string;
   sessionId?: string;
 }

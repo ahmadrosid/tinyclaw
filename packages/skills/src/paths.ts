@@ -9,28 +9,45 @@ export function getGlobalSkillsDir(): string {
   return path.join(getUserConfigDir(), "agent", "skills");
 }
 
-export function getProfileSkillsDir(profileId: string): string {
-  return path.join(getUserConfigDir(), "profiles", profileId, "skills");
+export function getProfileSkillsDir(orgId: string, profileId: string): string {
+  return path.join(getUserConfigDir(), "orgs", orgId, "profiles", profileId, "skills");
 }
 
 export async function resolveSkillDiscoveryDirs(options: {
+  orgId?: string;
   profileId?: string;
 } = {}): Promise<string[]> {
   const dirs = [getGlobalSkillsDir()];
 
-  if (options.profileId) {
-    dirs.push(getProfileSkillsDir(options.profileId));
+  if (options.orgId && options.profileId) {
+    dirs.push(getProfileSkillsDir(options.orgId, options.profileId));
     return [...new Set(dirs)];
   }
 
-  const profilesDir = path.join(getUserConfigDir(), "profiles");
+  const orgsDir = path.join(getUserConfigDir(), "orgs");
 
-  if (await pathExists(profilesDir)) {
-    const entries = await readdir(profilesDir, { withFileTypes: true });
+  if (!(await pathExists(orgsDir))) {
+    return [...new Set(dirs)];
+  }
 
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        dirs.push(getProfileSkillsDir(entry.name));
+  const orgEntries = await readdir(orgsDir, { withFileTypes: true });
+
+  for (const orgEntry of orgEntries) {
+    if (!orgEntry.isDirectory()) {
+      continue;
+    }
+
+    const profilesDir = path.join(orgsDir, orgEntry.name, "profiles");
+
+    if (!(await pathExists(profilesDir))) {
+      continue;
+    }
+
+    const profileEntries = await readdir(profilesDir, { withFileTypes: true });
+
+    for (const profileEntry of profileEntries) {
+      if (profileEntry.isDirectory()) {
+        dirs.push(getProfileSkillsDir(orgEntry.name, profileEntry.name));
       }
     }
   }

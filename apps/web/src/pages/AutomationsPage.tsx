@@ -51,8 +51,9 @@ import {
   useUpdateAutomationMutation,
 } from "@/hooks/use-automations";
 import { useAppNavigation } from "@/hooks/use-app-navigation";
+import { useProfilesQuery } from "@/hooks/use-app-queries";
 import { formatError } from "@/lib/client";
-import { SUPER_BOT_PROFILE_ID } from "@/lib/profiles";
+import { findSuperBotProfile } from "@/lib/profiles";
 import { formatFutureRelativeTime, formatSessionRelativeTime, formatSessionTimestamp } from "@/lib/chat-history";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +73,8 @@ export function AutomationsPage() {
     error: automationsError,
     refetch: refetchAutomations,
   } = useAutomationsQuery();
+  const { data: profiles = [] } = useProfilesQuery();
+  const superBotProfile = findSuperBotProfile(profiles);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const {
     data: runs = [],
@@ -207,7 +210,12 @@ export function AutomationsPage() {
   }
 
   function goToCreateAutomation() {
-    navigateToNewChat(SUPER_BOT_PROFILE_ID);
+    if (!superBotProfile) {
+      setError("No super bot profile exists in this organization.");
+      return;
+    }
+
+    navigateToNewChat(superBotProfile.id);
   }
 
   const runScheduleHint = selected

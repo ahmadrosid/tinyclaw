@@ -1,10 +1,8 @@
 import * as readline from "node:readline/promises";
 import type { ProfileSummary } from "@tinyclaw/core";
+import { pickProfileForOrg } from "@tinyclaw/core";
 import type { TinyClawClient } from "@tinyclaw/client";
 import { loadSavedCliProfileId, saveCliProfileId } from "./cli-config";
-
-/** Matches {@link @tinyclaw/db} `DEFAULT_PROFILE_ID`. */
-export const DEFAULT_PROFILE_ID = "default";
 
 export interface CliProfileOptions {
   profileId?: string;
@@ -32,11 +30,11 @@ export function parseCliProfileArgs(argv = process.argv.slice(2)): CliProfileOpt
 
 export function sortProfilesForPicker(profiles: ProfileSummary[]): ProfileSummary[] {
   return [...profiles].sort((left, right) => {
-    if (left.id === DEFAULT_PROFILE_ID) {
+    if (left.isDefault && !right.isDefault) {
       return -1;
     }
 
-    if (right.id === DEFAULT_PROFILE_ID) {
+    if (right.isDefault && !left.isDefault) {
       return 1;
     }
 
@@ -88,7 +86,11 @@ export function resolveProfileInput(
 }
 
 export function formatProfileLine(profile: ProfileSummary, index: number): string {
-  const markers = [profile.isSuper ? "orchestrator" : null, profile.id]
+  const markers = [
+    profile.isDefault ? "default" : null,
+    profile.isSuper ? "orchestrator" : null,
+    profile.id,
+  ]
     .filter(Boolean)
     .join(", ");
 
@@ -157,8 +159,7 @@ export async function resolveStartupProfile(
   }
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    const fallback =
-      profiles.find((profile) => profile.id === DEFAULT_PROFILE_ID) ?? profiles[0]!;
+    const fallback = pickProfileForOrg(profiles);
 
     await saveCliProfileId(fallback.id);
     return { profileId: fallback.id, profile: fallback };
@@ -173,8 +174,7 @@ async function promptForProfile(
   profiles: ProfileSummary[],
 ): Promise<{ profileId: string; profile: ProfileSummary }> {
   const sorted = sortProfilesForPicker(profiles);
-  const defaultProfile =
-    sorted.find((profile) => profile.id === DEFAULT_PROFILE_ID) ?? sorted[0]!;
+  const defaultProfile = pickProfileForOrg(sorted);
 
   console.log("Select a bot profile:\n");
 

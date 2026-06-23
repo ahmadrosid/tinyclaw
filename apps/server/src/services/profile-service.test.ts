@@ -12,6 +12,8 @@ const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
 const tinyPngBase64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
+const ORG_ID = "org_test";
+
 describe("profile service createTool", () => {
   let tempToolsDir = "";
 
@@ -79,25 +81,25 @@ describe("profile service avatar", () => {
     process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
 
     const service = new ProfileService(createInMemoryDatabaseAdapter());
-    const created = await service.createProfile({ name: "Avatar Bot" });
+    const created = await service.createProfile(ORG_ID, { name: "Avatar Bot" });
     const profileId = created.profile.id;
 
     expect(created.profile.hasAvatar).toBe(false);
 
-    const updated = await service.uploadProfileAvatar(profileId, {
+    const updated = await service.uploadProfileAvatar(ORG_ID, profileId, {
       mediaType: "image/png",
       data: tinyPngBase64,
     });
 
     expect(updated.profile.hasAvatar).toBe(true);
 
-    const avatar = await service.getProfileAvatar(profileId);
+    const avatar = await service.getProfileAvatar(ORG_ID, profileId);
     expect(avatar.mediaType).toBe("image/png");
     expect(avatar.bytes.length).toBeGreaterThan(0);
 
-    await service.deleteProfileAvatar(profileId);
+    await service.deleteProfileAvatar(ORG_ID, profileId);
 
-    const afterDelete = await service.getProfile(profileId);
+    const afterDelete = await service.getProfile(ORG_ID, profileId);
     expect(afterDelete.profile.hasAvatar).toBe(false);
   });
 });
@@ -119,8 +121,8 @@ describe("profile service createProfile", () => {
     process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
 
     const service = new ProfileService(createInMemoryDatabaseAdapter());
-    const created = await service.createProfile({ name: "Soul Bot" });
-    const soulDir = path.join(tempConfigDir, "profiles", created.profile.id);
+    const created = await service.createProfile(ORG_ID, { name: "Soul Bot" });
+    const soulDir = path.join(tempConfigDir, "orgs", ORG_ID, "profiles", created.profile.id);
     const soulContent = await readFile(path.join(soulDir, "SOUL.md"), "utf8");
 
     expect(soulContent).toContain("# Your Name");
@@ -147,7 +149,7 @@ describe("profile service createProfile", () => {
     });
 
     const service = new ProfileService(db);
-    const created = await service.createProfile({ name: "Skill Bot" });
+    const created = await service.createProfile(ORG_ID, { name: "Skill Bot" });
     const tools = await db.listToolsForProfile(created.profile.id);
 
     expect(tools.map((tool) => tool.name)).toContain("create_skill");
@@ -159,14 +161,14 @@ describe("profile service createProfile", () => {
 
     const service = new ProfileService(createInMemoryDatabaseAdapter());
 
-    const created = await service.createProfile({
+    const created = await service.createProfile(ORG_ID, {
       name: "Model Bot",
       model: "openai:gpt-5",
     });
 
     expect(created.profile.model).toBe("openai:gpt-5");
 
-    const updated = await service.updateProfile(created.profile.id, {
+    const updated = await service.updateProfile(ORG_ID, created.profile.id, {
       model: "anthropic:claude-sonnet-4",
     });
 
@@ -191,10 +193,10 @@ describe("profile service knowledge base", () => {
     process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
 
     const service = new ProfileService(createInMemoryDatabaseAdapter());
-    const created = await service.createProfile({ name: "KB Bot" });
+    const created = await service.createProfile(ORG_ID, { name: "KB Bot" });
     const profileId = created.profile.id;
 
-    const uploaded = await service.uploadKnowledgeBaseDocument(profileId, {
+    const uploaded = await service.uploadKnowledgeBaseDocument(ORG_ID, profileId, {
       filename: "notes.txt",
       mediaType: "text/plain",
       data: Buffer.from("project fact", "utf8").toString("base64"),
@@ -203,14 +205,18 @@ describe("profile service knowledge base", () => {
     expect(uploaded.document.status).toBe("ready");
     expect(uploaded.profileId).toBe(profileId);
 
-    const listed = await service.listKnowledgeBase(profileId);
+    const listed = await service.listKnowledgeBase(ORG_ID, profileId);
     expect(listed.documents).toHaveLength(1);
     expect(listed.documents[0]?.filename).toBe("notes.txt");
 
-    const deleted = await service.deleteKnowledgeBaseDocument(profileId, uploaded.document.id);
+    const deleted = await service.deleteKnowledgeBaseDocument(
+      ORG_ID,
+      profileId,
+      uploaded.document.id,
+    );
     expect(deleted.deleted).toBe(true);
 
-    const afterDelete = await service.listKnowledgeBase(profileId);
+    const afterDelete = await service.listKnowledgeBase(ORG_ID, profileId);
     expect(afterDelete.documents).toHaveLength(0);
   });
 });

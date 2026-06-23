@@ -15,13 +15,14 @@ import type {
   ListUserOrgsResponse,
   UserOrgSummary,
 } from "@tinyclaw/core/contract";
-import { ORG_INVITE_EXPIRY_DAYS, ORG_ROLES } from "@tinyclaw/db";
+import { ORG_INVITE_EXPIRY_DAYS, ORG_ROLES, seedOrgDefaultProfile } from "@tinyclaw/db";
 import type {
   DatabaseAdapter,
   StoredOrganizationRecord,
   StoredOrgInviteRecord,
   StoredUserRecord,
 } from "@tinyclaw/db";
+import { getProfileSoulDir, initSoulDirectory } from "@tinyclaw/core";
 import type { AuthService } from "./auth-service";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -585,7 +586,13 @@ export class OrgService {
     };
 
     await this.databaseAdapter.upsertOrganization(record);
+    await this.seedDefaultProfile(record.id);
     return toOrganizationSummary(record);
+  }
+
+  private async seedDefaultProfile(orgId: string): Promise<void> {
+    const profile = await seedOrgDefaultProfile(this.databaseAdapter, orgId);
+    await initSoulDirectory(getProfileSoulDir(orgId, profile.id));
   }
 }
 

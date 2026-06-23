@@ -11,6 +11,7 @@ import {
 import { createSuperBotTools } from "./super-bot-tools";
 
 const originalToolsDir = process.env.TINYCLAW_TOOLS_DIR;
+const ORG_ID = "org_test";
 const SESSION_ID = "session_test";
 
 describe("super bot create_tool", () => {
@@ -138,7 +139,7 @@ describe("super bot assign_tool_to_profile", () => {
 
     const assignTool = getAssignToolTool(
       {
-        async assignTool(profileId: string): Promise<ProfileResponse> {
+        async assignTool(_orgId: string, profileId: string): Promise<ProfileResponse> {
           return {
             profile: {
               id: profileId,
@@ -165,7 +166,7 @@ describe("super bot assign_tool_to_profile", () => {
     await expect(
       assignTool.run(
         { profileId: "default", toolId: "tool_weather" },
-        { sessionId: SESSION_ID },
+        { sessionId: SESSION_ID, orgId: ORG_ID },
       ),
     ).resolves.toBeDefined();
   });
@@ -187,7 +188,7 @@ describe("super bot assign_tool_to_profile", () => {
     const error = await captureError(
       assignTool.run(
         { profileId: "profile_other", toolId: "tool_weather" },
-        { sessionId: SESSION_ID },
+        { sessionId: SESSION_ID, orgId: ORG_ID },
       ),
     );
 
@@ -205,7 +206,7 @@ describe("super bot assign_tool_to_profile", () => {
 
     const assignTool = getAssignToolTool(
       {
-        async assignTool(profileId: string): Promise<ProfileResponse> {
+        async assignTool(_orgId: string, profileId: string): Promise<ProfileResponse> {
           assignCalls += 1;
 
           return {
@@ -233,7 +234,7 @@ describe("super bot assign_tool_to_profile", () => {
 
     await assignTool.run(
       { profileId: "profile_other", toolId: "tool_weather" },
-      { sessionId: SESSION_ID },
+      { sessionId: SESSION_ID, orgId: ORG_ID },
     );
 
     expect(assignCalls).toBe(1);
