@@ -32,7 +32,7 @@ function formatNotConfiguredMessage(): string {
     "",
     "From the web dashboard:",
     "  1. Run: bun run dev:server  (and bun run dev:web if needed)",
-    "  2. Open Settings \u2192 WhatsApp",
+    "  2. Open Integrations \u2192 WhatsApp",
     "  3. Choose a reply profile and click Enable WhatsApp",
     "  4. Run: bun run dev:whatsapp",
     "  5. Scan the QR code, or generate a pairing code in WhatsApp",

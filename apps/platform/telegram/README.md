@@ -6,7 +6,7 @@ Chat with your TinyClaw agent from Telegram. The bridge is a thin client: it for
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the token.
 2. Ensure the TinyClaw server is configured (`~/.tinyclaw/config.ini` or env API keys).
-3. Open **Settings → Telegram** in the web dashboard, save your bot token and profile, and copy the **pairing code**.
+3. Open **Integrations → Telegram** in the web dashboard, save your bot token and profile, and copy the **pairing code**.
 4. Run `bun run dev:telegram`, message your bot, and paste the pairing code once. Settings are stored in `~/.tinyclaw/telegram/config.ini`.
 
 ### Run
@@ -42,7 +42,7 @@ Send plain text or a photo (optional caption) to chat with the agent.
 
 **Stopping a reply:** While the bot is working on an answer, send `/stop`. Any text already generated is sent first, then the bot replies `Stopped.`. If nothing is in progress, you get `Nothing to stop.`
 
-Private chats only. New users must paste a one-time pairing code from Settings → Telegram (unless pre-approved via allowed user IDs in Advanced settings).
+Private chats only. New users must paste a one-time pairing code from Integrations → Telegram (unless pre-approved via allowed user IDs in Advanced settings).
 
 Session mapping is stored in `~/.tinyclaw/telegram/chat-sessions.json`.
 

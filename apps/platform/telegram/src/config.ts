@@ -38,7 +38,7 @@ function formatNotConfiguredMessage(): string {
     "",
     "From the web dashboard:",
     "  1. Run: bun run dev:server  (and bun run dev:web if needed)",
-    "  2. Open Settings → Telegram",
+    "  2. Open Integrations → Telegram",
     "  3. Enter your bot token (@BotFather) and profile, then Save",
     "  4. Copy the pairing code, run: bun run dev:telegram",
     "  5. Message your bot and paste the pairing code once",

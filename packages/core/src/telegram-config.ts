@@ -270,14 +270,14 @@ export async function verifyAndPairTelegramUser(
     return {
       ok: false,
       message:
-        "No pairing code is active. Open TinyClaw Settings → Telegram and generate a new code.",
+        "No pairing code is active. Open TinyClaw Integrations → Telegram and generate a new code.",
     };
   }
 
   if (normalizeHandshakeInput(handshakeInput) !== normalizeHandshakeInput(expected)) {
     return {
       ok: false,
-      message: "Invalid pairing code. Copy it from Settings → Telegram and try again.",
+      message: "Invalid pairing code. Copy it from Integrations → Telegram and try again.",
     };
   }
 

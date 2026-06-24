@@ -247,7 +247,7 @@ describe("resetWhatsAppSessionForReconnect", () => {
   test("throws when WhatsApp is not configured", async () => {
     await useTempWhatsAppHome(async () => {
       expect(resetWhatsAppSessionForReconnect()).rejects.toThrow(
-        "Enable WhatsApp in Settings before reconnecting.",
+        "Enable WhatsApp in Integrations before reconnecting.",
       );
     });
   });

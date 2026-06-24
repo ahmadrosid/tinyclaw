@@ -58,7 +58,7 @@ The dashboard will be available at http://localhost:4310.
 
 ### Integrations
 
-TinyClaw integrates with **Telegram** and **WhatsApp**. Enable them in the web app under **Settings → Telegram** or **Settings → WhatsApp**.
+TinyClaw integrates with **Telegram** and **WhatsApp**. Enable them in the web app under **Integrations**.
 
 On first run, the server prompts for a provider and API key if none is configured. Settings are saved to `~/.tinyclaw/config.ini`.
 

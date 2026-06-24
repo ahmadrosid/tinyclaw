@@ -22,12 +22,12 @@ const chatLocks = new Map<string, Promise<void>>();
 
 const PAIRING_PROMPT =
   "Welcome to TinyClaw.\n\n" +
-  "Paste your pairing code from Settings → Telegram in the web dashboard. " +
+  "Paste your pairing code from Integrations → Telegram in the web dashboard. " +
   "You only need to do this once for this chat.";
 
 const NO_CODE_PROMPT =
   "This bot is not linked yet.\n\n" +
-  "Open TinyClaw Settings → Telegram, save your bot token, and copy the pairing code. " +
+  "Open TinyClaw Integrations → Telegram, save your bot token, and copy the pairing code. " +
   "Then send that code here.";
 
 export interface ChatHandlerDeps {

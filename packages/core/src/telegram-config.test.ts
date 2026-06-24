@@ -118,7 +118,7 @@ describe("verifyAndPairTelegramUser", () => {
 
         expect(result).toEqual({
           ok: false,
-          message: "Invalid pairing code. Copy it from Settings → Telegram and try again.",
+          message: "Invalid pairing code. Copy it from Integrations → Telegram and try again.",
         });
 
         const config = await loadTelegramConfigFile();

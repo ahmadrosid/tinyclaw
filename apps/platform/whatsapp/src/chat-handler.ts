@@ -20,13 +20,13 @@ const chatLocks = new Map<string, Promise<void>>();
 
 const PAIRING_PROMPT =
   "Welcome to TinyClaw.\n\n" +
-  "Paste your pairing code from Settings \u2192 WhatsApp in the web dashboard. " +
+  "Paste your pairing code from Integrations \u2192 WhatsApp in the web dashboard. " +
   "You only need to do this once for this number.";
 
 const NO_CODE_PROMPT =
   "This number is not linked yet.\n\n" +
-  "Open TinyClaw Settings \u2192 WhatsApp, generate a pairing code, " +
-  "then send that code here. Or scan the QR code in Settings.";
+  "Open TinyClaw Integrations \u2192 WhatsApp, generate a pairing code, " +
+  "then send that code here. Or scan the QR code in Integrations.";
 
 export interface ChatHandlerDeps {
   client: TinyClawClient;

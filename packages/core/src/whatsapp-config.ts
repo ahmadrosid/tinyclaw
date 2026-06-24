@@ -259,7 +259,7 @@ export async function resetWhatsAppSessionForReconnect(): Promise<WhatsAppSettin
   const existing = await loadWhatsAppConfigFile();
 
   if (!existing) {
-    throw new Error("Enable WhatsApp in Settings before reconnecting.");
+    throw new Error("Enable WhatsApp in Integrations before reconnecting.");
   }
 
   if (await pathExists(getWhatsAppAuthDir())) {
@@ -286,7 +286,7 @@ export async function regenerateWhatsAppPairingCode(): Promise<WhatsAppSettingsP
   const existing = await loadWhatsAppConfigFile();
 
   if (!existing) {
-    throw new Error("Enable WhatsApp in Settings before generating a pairing code.");
+    throw new Error("Enable WhatsApp in Integrations before generating a pairing code.");
   }
 
   const next: WhatsAppConfigFile = {
@@ -318,14 +318,14 @@ export async function verifyAndPairWhatsAppUser(
     return {
       ok: false,
       message:
-        "No pairing code is active. Open TinyClaw Settings \u2192 WhatsApp and generate a new code.",
+        "No pairing code is active. Open TinyClaw Integrations \u2192 WhatsApp and generate a new code.",
     };
   }
 
   if (normalizePairingCode(pairingCodeInput) !== normalizePairingCode(expected)) {
     return {
       ok: false,
-      message: "Invalid pairing code. Copy it from Settings \u2192 WhatsApp and try again.",
+      message: "Invalid pairing code. Copy it from Integrations \u2192 WhatsApp and try again.",
     };
   }
 

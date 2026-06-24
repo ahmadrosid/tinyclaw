@@ -137,7 +137,7 @@ describe("createChatHandler security", () => {
       await handleMessage(ctx);
 
       expect(replies).toEqual([
-        "Invalid pairing code. Copy it from Settings → Telegram and try again.",
+        "Invalid pairing code. Copy it from Integrations → Telegram and try again.",
       ]);
       expect(authStore.isAuthorized(1001)).toBe(false);
       expect(calls.sendStream).toBe(0);
