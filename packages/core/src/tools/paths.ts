@@ -3,14 +3,8 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { getUserConfigDir } from "../user-config";
 
-/** Agent-authored tool modules live under ~/.tinyclaw/tools/ by default. */
+/** Agent-authored tool modules live under {configDir}/tools/. */
 export function getCustomToolsDir(): string {
-  const override = process.env.TINYCLAW_TOOLS_DIR?.trim();
-
-  if (override) {
-    return override;
-  }
-
   return path.join(getUserConfigDir(), "tools");
 }
 

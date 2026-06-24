@@ -11,26 +11,20 @@ import {
 } from "./builtin";
 
 const PROFILE_CONTEXT = { orgId: "org_test", profileId: "profile_test" };
-const originalToolsDir = process.env.TINYCLAW_TOOLS_DIR;
 const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
 
 describe("file builtin tools", () => {
   let tempDir = "";
-  let toolsDir = "";
+  let configDir = "";
 
   afterEach(async () => {
     if (tempDir) {
       await rm(tempDir, { recursive: true, force: true });
       tempDir = "";
     }
-    if (toolsDir) {
-      await rm(toolsDir, { recursive: true, force: true });
-      toolsDir = "";
-    }
-    if (originalToolsDir === undefined) {
-      delete process.env.TINYCLAW_TOOLS_DIR;
-    } else {
-      process.env.TINYCLAW_TOOLS_DIR = originalToolsDir;
+    if (configDir) {
+      await rm(configDir, { recursive: true, force: true });
+      configDir = "";
     }
     if (originalConfigDir === undefined) {
       delete process.env.TINYCLAW_CONFIG_DIR;
@@ -69,8 +63,10 @@ describe("file builtin tools", () => {
 
   test("write_file allows custom tool modules outside profile workspace", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-write-"));
-    toolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-tools-"));
-    process.env.TINYCLAW_TOOLS_DIR = toolsDir;
+    configDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-config-"));
+    process.env.TINYCLAW_CONFIG_DIR = configDir;
+    const toolsDir = path.join(configDir, "tools");
+    await mkdir(toolsDir, { recursive: true });
 
     const targetPath = path.join(toolsDir, "echo.js");
     const result = await runWriteFile(
@@ -136,8 +132,10 @@ describe("file builtin tools", () => {
 
   test("read_file allows custom tool modules outside profile workspace", async () => {
     tempDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-read-"));
-    toolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-tools-"));
-    process.env.TINYCLAW_TOOLS_DIR = toolsDir;
+    configDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-config-"));
+    process.env.TINYCLAW_CONFIG_DIR = configDir;
+    const toolsDir = path.join(configDir, "tools");
+    await mkdir(toolsDir, { recursive: true });
 
     const targetPath = path.join(toolsDir, "echo.js");
     await writeFile(targetPath, "export async function run() {}", "utf8");

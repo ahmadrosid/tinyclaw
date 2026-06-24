@@ -8,27 +8,38 @@ import {
   resolveJavascriptModulePath,
 } from "./javascript-tool-loader";
 
-const originalToolsDir = process.env.TINYCLAW_TOOLS_DIR;
+const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
+
+async function setupToolsDir(): Promise<{ configDir: string; toolsDir: string }> {
+  const configDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-config-"));
+  process.env.TINYCLAW_CONFIG_DIR = configDir;
+  const toolsDir = path.join(configDir, "tools");
+  await mkdir(toolsDir, { recursive: true });
+  return { configDir, toolsDir };
+}
 
 describe("javascript tool loader", () => {
-  let tempToolsDir = "";
+  let configDir = "";
 
   afterEach(async () => {
-    process.env.TINYCLAW_TOOLS_DIR = originalToolsDir;
+    if (originalConfigDir === undefined) {
+      delete process.env.TINYCLAW_CONFIG_DIR;
+    } else {
+      process.env.TINYCLAW_CONFIG_DIR = originalConfigDir;
+    }
 
-    if (tempToolsDir) {
-      await rm(tempToolsDir, { recursive: true, force: true });
-      tempToolsDir = "";
+    if (configDir) {
+      await rm(configDir, { recursive: true, force: true });
+      configDir = "";
     }
   });
 
   test("loads a module and runs exported run(input)", async () => {
-    tempToolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-js-tool-"));
-    process.env.TINYCLAW_TOOLS_DIR = tempToolsDir;
-    await mkdir(tempToolsDir, { recursive: true });
+    const { configDir: dir, toolsDir } = await setupToolsDir();
+    configDir = dir;
 
     await writeFile(
-      path.join(tempToolsDir, "echo.js"),
+      path.join(toolsDir, "echo.js"),
       `export const parameters = {
   type: "object",
   properties: { message: { type: "string" } },
@@ -63,9 +74,9 @@ export async function run(input) {
     expect(result).toEqual({ echoed: "hello" });
   });
 
-  test("rejects module paths outside the tools directory", () => {
-    tempToolsDir = path.join(os.tmpdir(), "tinyclaw-js-tool-guard");
-    process.env.TINYCLAW_TOOLS_DIR = tempToolsDir;
+  test("rejects module paths outside the tools directory", async () => {
+    const { configDir: dir } = await setupToolsDir();
+    configDir = dir;
 
     expect(() => resolveJavascriptModulePath("../escape.js")).toThrow(
       /must stay inside/i,
@@ -73,9 +84,8 @@ export async function run(input) {
   });
 
   test("returns an error tool when the module file is missing", async () => {
-    tempToolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-js-tool-"));
-    process.env.TINYCLAW_TOOLS_DIR = tempToolsDir;
-    await mkdir(tempToolsDir, { recursive: true });
+    const { configDir: dir } = await setupToolsDir();
+    configDir = dir;
 
     const record: StoredToolRecord = {
       id: "tool_missing",
@@ -95,24 +105,27 @@ export async function run(input) {
 });
 
 describe("tool resolver", () => {
-  let tempToolsDir = "";
+  let configDir = "";
 
   afterEach(async () => {
-    process.env.TINYCLAW_TOOLS_DIR = originalToolsDir;
+    if (originalConfigDir === undefined) {
+      delete process.env.TINYCLAW_CONFIG_DIR;
+    } else {
+      process.env.TINYCLAW_CONFIG_DIR = originalConfigDir;
+    }
 
-    if (tempToolsDir) {
-      await rm(tempToolsDir, { recursive: true, force: true });
-      tempToolsDir = "";
+    if (configDir) {
+      await rm(configDir, { recursive: true, force: true });
+      configDir = "";
     }
   });
 
   test("resolves javascript tools from storage", async () => {
-    tempToolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-resolver-"));
-    process.env.TINYCLAW_TOOLS_DIR = tempToolsDir;
-    await mkdir(tempToolsDir, { recursive: true });
+    const { configDir: dir, toolsDir } = await setupToolsDir();
+    configDir = dir;
 
     await writeFile(
-      path.join(tempToolsDir, "adder.js"),
+      path.join(toolsDir, "adder.js"),
       `export async function run(input) {
   return { sum: Number(input.a) + Number(input.b) };
 }

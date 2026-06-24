@@ -10,29 +10,34 @@ import {
 } from "../services/super-bot-session-state";
 import { createSuperBotTools } from "./super-bot-tools";
 
-const originalToolsDir = process.env.TINYCLAW_TOOLS_DIR;
+const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
 const ORG_ID = "org_test";
 const SESSION_ID = "session_test";
 
 describe("super bot create_tool", () => {
-  let tempToolsDir = "";
+  let tempConfigDir = "";
 
   afterEach(async () => {
-    process.env.TINYCLAW_TOOLS_DIR = originalToolsDir;
+    if (originalConfigDir === undefined) {
+      delete process.env.TINYCLAW_CONFIG_DIR;
+    } else {
+      process.env.TINYCLAW_CONFIG_DIR = originalConfigDir;
+    }
 
-    if (tempToolsDir) {
-      await rm(tempToolsDir, { recursive: true, force: true });
-      tempToolsDir = "";
+    if (tempConfigDir) {
+      await rm(tempConfigDir, { recursive: true, force: true });
+      tempConfigDir = "";
     }
   });
 
   test("always registers agent-authored tools as javascript", async () => {
-    tempToolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-super-tool-"));
-    process.env.TINYCLAW_TOOLS_DIR = tempToolsDir;
-    await mkdir(tempToolsDir, { recursive: true });
+    tempConfigDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-super-tool-"));
+    process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
+    const toolsDir = path.join(tempConfigDir, "tools");
+    await mkdir(toolsDir, { recursive: true });
 
     await writeFile(
-      path.join(tempToolsDir, "echo.js"),
+      path.join(toolsDir, "echo.js"),
       `export async function run(input) {
   return input;
 }
@@ -104,9 +109,10 @@ describe("super bot create_tool", () => {
   });
 
   test("rejects missing javascript modules before storing the tool", async () => {
-    tempToolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-super-tool-"));
-    process.env.TINYCLAW_TOOLS_DIR = tempToolsDir;
-    await mkdir(tempToolsDir, { recursive: true });
+    tempConfigDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-super-tool-"));
+    process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
+    const toolsDir = path.join(tempConfigDir, "tools");
+    await mkdir(toolsDir, { recursive: true });
 
     let createToolCalled = false;
 

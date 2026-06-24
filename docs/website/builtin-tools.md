@@ -238,7 +238,7 @@ Upload documents via the profile dashboard or API. Search only indexes extracted
 File tools (`read_file`, `write_file`, `delete_file`) are scoped to:
 
 - **Profile workspace:** `~/.tinyclaw/profiles/{profileId}/` (soul files, knowledge base, etc.)
-- **Custom tools directory:** `~/.tinyclaw/tools/` (or `TINYCLAW_TOOLS_DIR` if set)
+- **Custom tools directory:** `~/.tinyclaw/tools/` (follows `TINYCLAW_CONFIG_DIR` if set)
 
 Path guards enforce:
 

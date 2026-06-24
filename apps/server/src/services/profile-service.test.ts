@@ -6,7 +6,6 @@ import { BUILTIN_TOOL_IDS } from "@tinyclaw/core/tools/protected";
 import { createInMemoryDatabaseAdapter } from "@tinyclaw/db";
 import { ProfileService } from "./profile-service";
 
-const originalToolsDir = process.env.TINYCLAW_TOOLS_DIR;
 const originalConfigDir = process.env.TINYCLAW_CONFIG_DIR;
 
 const tinyPngBase64 =
@@ -15,24 +14,29 @@ const tinyPngBase64 =
 const ORG_ID = "org_test";
 
 describe("profile service createTool", () => {
-  let tempToolsDir = "";
+  let tempConfigDir = "";
 
   afterEach(async () => {
-    process.env.TINYCLAW_TOOLS_DIR = originalToolsDir;
+    if (originalConfigDir === undefined) {
+      delete process.env.TINYCLAW_CONFIG_DIR;
+    } else {
+      process.env.TINYCLAW_CONFIG_DIR = originalConfigDir;
+    }
 
-    if (tempToolsDir) {
-      await rm(tempToolsDir, { recursive: true, force: true });
-      tempToolsDir = "";
+    if (tempConfigDir) {
+      await rm(tempConfigDir, { recursive: true, force: true });
+      tempConfigDir = "";
     }
   });
 
   test("defaults to an executable javascript tool", async () => {
-    tempToolsDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-profile-tool-"));
-    process.env.TINYCLAW_TOOLS_DIR = tempToolsDir;
-    await mkdir(tempToolsDir, { recursive: true });
+    tempConfigDir = await mkdtemp(path.join(os.tmpdir(), "tinyclaw-profile-tool-"));
+    process.env.TINYCLAW_CONFIG_DIR = tempConfigDir;
+    const toolsDir = path.join(tempConfigDir, "tools");
+    await mkdir(toolsDir, { recursive: true });
 
     await writeFile(
-      path.join(tempToolsDir, "echo.js"),
+      path.join(toolsDir, "echo.js"),
       `export async function run(input) {
   return input;
 }

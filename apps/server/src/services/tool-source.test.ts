@@ -6,24 +6,26 @@ import type { StoredToolRecord } from "@tinyclaw/db";
 import { readToolSource } from "./tool-source";
 
 describe("readToolSource", () => {
+  let configDir: string;
   let toolsDir: string;
-  const previousToolsDir = process.env.TINYCLAW_TOOLS_DIR;
+  const previousConfigDir = process.env.TINYCLAW_CONFIG_DIR;
 
   beforeEach(async () => {
-    toolsDir = path.join(import.meta.dir, ".test-tools");
-    await rm(toolsDir, { recursive: true, force: true });
+    configDir = path.join(import.meta.dir, ".test-config");
+    toolsDir = path.join(configDir, "tools");
+    await rm(configDir, { recursive: true, force: true });
     await mkdir(toolsDir, { recursive: true });
-    process.env.TINYCLAW_TOOLS_DIR = toolsDir;
+    process.env.TINYCLAW_CONFIG_DIR = configDir;
   });
 
   afterEach(async () => {
-    if (previousToolsDir === undefined) {
-      delete process.env.TINYCLAW_TOOLS_DIR;
+    if (previousConfigDir === undefined) {
+      delete process.env.TINYCLAW_CONFIG_DIR;
     } else {
-      process.env.TINYCLAW_TOOLS_DIR = previousToolsDir;
+      process.env.TINYCLAW_CONFIG_DIR = previousConfigDir;
     }
 
-    await rm(toolsDir, { recursive: true, force: true });
+    await rm(configDir, { recursive: true, force: true });
   });
 
   test("reads javascript tool modules from the tools directory", async () => {
