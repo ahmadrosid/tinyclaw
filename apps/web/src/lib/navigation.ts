@@ -61,11 +61,6 @@ export const NAV_GROUPS: NavGroup[] = [
         description: "Manage bot configs and tool allowlists",
       },
       {
-        id: "soul",
-        label: "System",
-        description: "Identity stack files and registered agent tools",
-      },
-      {
         id: "automations",
         label: "Automations",
         description: "Draft workflows from natural language",
@@ -90,6 +85,11 @@ export const NAV_GROUPS: NavGroup[] = [
         id: "integrations",
         label: "Integrations",
         description: "Telegram and WhatsApp connections",
+      },
+      {
+        id: "soul",
+        label: "System",
+        description: "Identity stack files and registered agent tools",
       },
     ],
   },
