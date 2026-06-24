@@ -4,11 +4,11 @@ TinyClaw can run locally with Bun or in Docker.
 
 ## Why TinyClaw exists?
 
-The goal of TinyClaw is to make setting up an AI agent as easy as running a WordPress site — something an operator can self-host and manage without a team of engineers.
+TinyClaw makes setting up an AI agent as easy as running a WordPress site — self-hosted and managed without a team of engineers.
 
-While OpenClaw and Hermes focus on personal AI assistants, TinyClaw focuses on **team assistants**. It is built for people who do the job at their company and need agents that work alongside the whole team, not just one person.
+Where OpenClaw and Hermes serve personal assistants, TinyClaw is built for **team assistants** — agents that work alongside a whole team, not a single person.
 
-TinyClaw is multi-tenant from the ground up. Each organization is an isolated boundary with its own profiles, members, tools, and memory. That makes it a good fit for agencies and service companies that manage many clients under one deployment — every client gets their own org, their own agents, and their own data, all from a single TinyClaw instance.
+Multi-tenant by default: each organization is an isolated boundary with its own profiles, members, tools, and memory. One deployment can serve many clients — agencies and service companies get a separate org, agents, and data per client.
 
 ## Before you start
 
