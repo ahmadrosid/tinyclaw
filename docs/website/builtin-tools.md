@@ -17,7 +17,7 @@ The same model behaves very differently depending on its tools.
 For example:
 
 - A writing bot may need no tools at all
-- A research bot may need web search and knowledge base search
+- A research bot may need web search, web fetch, and knowledge base search
 - An ops bot may need file access and email
 - A power-user bot may need skills and MCP servers
 
@@ -35,6 +35,7 @@ TinyClaw includes these builtins:
 | `search_files` | Yes | No | |
 | `knowledge_base_search` | Yes | No | |
 | `web_search` | Yes | No | |
+| `web_fetch` | Yes | No | |
 | `update_profile_memory` | Yes | No | |
 | `email` | Yes | No | Omitted at runtime when mailbox is unconfigured |
 | `create_skill` | Yes | Yes | Only builtin assigned to new custom profiles by default |
@@ -46,7 +47,7 @@ TinyClaw includes these builtins:
 Good starting patterns:
 
 - **Simple chat bot**: no extra tools
-- **Research bot**: `web_search`, `knowledge_base_search`
+- **Research bot**: `web_search`, `web_fetch`, `knowledge_base_search`
 - **Knowledge bot**: `knowledge_base_search`, `update_profile_memory`
 - **Ops bot**: file tools, `email`
 
@@ -158,6 +159,23 @@ Search the web for current information.
 
 **Availability:** When assigned **and** the configured provider is OpenAI or Anthropic with a valid API key. Not available on OpenRouter. On Gemini, web search is disabled when other local tools are present on the same turn.
 
+### `web_fetch`
+
+Fetch a single public HTTP(S) URL and return its content. HTML pages are converted to Markdown. Use for retrieving a known URL; use `web_search` when you need to discover sources.
+
+| Parameter | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `url` | string | Yes | Absolute `http://` or `https://` URL |
+| `raw` | boolean | No | When true, return raw body without Markdown conversion; default false |
+
+**Returns:** `{ url, finalUrl, status, contentType, bytes, content }`
+
+**Behavior:** Follows up to 5 redirects. Request timeout 30s. Maximum response body 1 MB.
+
+**Scope:** Public internet addresses only. Private, reserved, and localhost targets are blocked.
+
+**Availability:** When assigned to the profile.
+
 ### `update_profile_memory`
 
 Record a fact, preference, or decision in the profile's `MEMORY.md`.
@@ -229,7 +247,7 @@ Path guards enforce:
 - No reads of `config.ini` by basename
 - Blocked special paths (`/dev/`, `/proc/`, `/sys/`)
 
-All nine builtin tool IDs are protected and cannot be deleted from the dashboard.
+All ten builtin tool IDs are protected and cannot be deleted from the dashboard.
 
 ## Next steps
 
