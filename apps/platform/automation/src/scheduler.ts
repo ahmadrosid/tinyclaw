@@ -1,9 +1,9 @@
-import type {
-  AutomationSchedule,
-  AutomationSchedulerDelegate,
-  AutomationSchedulerStatus,
-} from "@tinyclaw/core";
-import { AutomationScheduler } from "@tinyclaw/core";
+import type { AutomationSchedule } from "@tinyclaw/core/contract";
+import {
+  AutomationScheduler,
+  type AutomationSchedulerDelegate,
+  type AutomationSchedulerStatus,
+} from "@tinyclaw/core/automation-scheduler";
 import type { TinyClawClient } from "@tinyclaw/client";
 
 export interface AutomationWorkerSchedulerDelegate extends AutomationSchedulerDelegate {}

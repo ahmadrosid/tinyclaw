@@ -20,11 +20,13 @@ WORKDIR /app
 
 # Install python3 for custom agent tools (minimal footprint)
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 \
+  && apt-get install -y --no-install-recommends python3 npm \
+  && npm install -g pm2 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json bun.lock ./
 COPY apps/server apps/server
+COPY apps/platform/automation apps/platform/automation
 COPY apps/platform/telegram apps/platform/telegram
 COPY apps/platform/whatsapp apps/platform/whatsapp
 COPY packages packages
@@ -35,8 +37,10 @@ COPY --from=web-builder /app/apps/web/dist apps/web/dist
 
 RUN bun install --frozen-lockfile --production \
       --filter '@tinyclaw/server' \
+      --filter '@tinyclaw/automation' \
       --filter '@tinyclaw/telegram' \
       --filter '@tinyclaw/whatsapp' \
+  && bun run --filter @tinyclaw/automation build \
   && bun run --filter @tinyclaw/telegram build \
   && bun run --filter @tinyclaw/whatsapp build
 
@@ -52,4 +56,4 @@ VOLUME ["/root/.tinyclaw"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD bun -e "fetch('http://127.0.0.1:4310/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-CMD ["bun", "run", "apps/server/src/index.ts"]
+CMD ["pm2-runtime", "start", "apps/server/ecosystem.config.cjs"]

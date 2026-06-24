@@ -18,6 +18,7 @@
     "./runtime": "./src/runtime.ts",
     "./ensure-server": "./src/ensure-server.ts",
     "./local-auth": "./src/local-auth.ts",
+    "./automation-scheduler": "./src/automation-scheduler.ts",
     "./automation-worker": "./src/automation-worker.ts",
     "./telegram-config": "./src/telegram-config.ts",
     "./email-config": "./src/email-config.ts",
