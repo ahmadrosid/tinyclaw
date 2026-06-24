@@ -21,6 +21,8 @@ import {
 import { findSuperBotProfile } from "@/lib/profiles";
 import { cn } from "@/lib/utils";
 
+const sectionClass = "rounded-md border border-border bg-card";
+
 export function ToolPlaygroundPage() {
   const { toolId } = useParams<{ toolId: string }>();
   const { user, activeOrg, isLoading: authLoading } = useAuth();
@@ -54,7 +56,7 @@ export function ToolPlaygroundPage() {
 
   if (toolError && !tool) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 p-6">
+      <div className="space-y-4 p-6">
         <BackLink />
         <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {formatError(toolError)}
@@ -87,82 +89,84 @@ function ToolPlaygroundPageContent({
   const [mainTab, setMainTab] = useState<"output" | "detail">("output");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 border-b border-border px-4 py-3 sm:px-6">
-        <BackLink />
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col space-y-4 p-6">
+      <BackLink />
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {isJavascriptTool ? (
-          <aside className="order-2 shrink-0 overflow-y-auto border-t border-border bg-muted/10 lg:order-1 lg:w-80 lg:border-t-0 lg:border-r xl:w-96">
-            <ToolPlaygroundRunForm tool={tool} run={run} />
-          </aside>
-        ) : null}
-
-        <main className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:order-2">
+      <section className={cn(sectionClass, "flex min-h-0 flex-1 overflow-hidden")}>
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           {isJavascriptTool ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div
-                role="tablist"
-                aria-label="Tool playground"
-                className="flex shrink-0 border-b border-border px-4 sm:px-6"
-              >
-                <PlaygroundTab
-                  id="tool-playground-tab-output"
-                  active={mainTab === "output"}
-                  controls="tool-playground-panel-output"
-                  onSelect={() => setMainTab("output")}
-                >
-                  Run output
-                  {run.running ? <Spinner className="size-3.5" /> : null}
-                </PlaygroundTab>
-                <PlaygroundTab
-                  id="tool-playground-tab-detail"
-                  active={mainTab === "detail"}
-                  controls="tool-playground-panel-detail"
-                  onSelect={() => setMainTab("detail")}
-                >
-                  Tool detail
-                </PlaygroundTab>
-              </div>
+            <aside
+              className="order-2 shrink-0 overflow-y-auto border-t border-border lg:order-1 lg:w-80 lg:border-t-0 lg:border-r xl:w-96"
+            >
+              <ToolPlaygroundRunForm tool={tool} run={run} />
+            </aside>
+          ) : null}
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-                {mainTab === "output" ? (
-                  <div
-                    id="tool-playground-panel-output"
-                    role="tabpanel"
-                    aria-labelledby="tool-playground-tab-output"
+          <main className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:order-2">
+            {isJavascriptTool ? (
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div
+                  role="tablist"
+                  aria-label="Tool playground"
+                  className="flex shrink-0 border-b border-border px-4 sm:px-5"
+                >
+                  <PlaygroundTab
+                    id="tool-playground-tab-output"
+                    active={mainTab === "output"}
+                    controls="tool-playground-panel-output"
+                    onSelect={() => setMainTab("output")}
                   >
-                    <ToolPlaygroundOutput run={run} superBotProfileId={superBotProfileId} />
-                  </div>
-                ) : (
-                  <div
-                    id="tool-playground-panel-detail"
-                    role="tabpanel"
-                    aria-labelledby="tool-playground-tab-detail"
+                    Run output
+                    {run.running ? <Spinner className="size-3.5" /> : null}
+                  </PlaygroundTab>
+                  <PlaygroundTab
+                    id="tool-playground-tab-detail"
+                    active={mainTab === "detail"}
+                    controls="tool-playground-panel-detail"
+                    onSelect={() => setMainTab("detail")}
                   >
-                    <ToolDetailSections tool={tool} showHeader />
-                  </div>
-                )}
+                    Tool detail
+                  </PlaygroundTab>
+                </div>
+
+                <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                  {mainTab === "output" ? (
+                    <div
+                      id="tool-playground-panel-output"
+                      role="tabpanel"
+                      aria-labelledby="tool-playground-tab-output"
+                    >
+                      <ToolPlaygroundOutput run={run} superBotProfileId={superBotProfileId} />
+                    </div>
+                  ) : (
+                    <div
+                      id="tool-playground-panel-detail"
+                      role="tabpanel"
+                      aria-labelledby="tool-playground-tab-detail"
+                    >
+                      <ToolDetailSections tool={tool} showHeader />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-5 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-              <p
-                className="rounded-md border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
-                role="status"
-              >
-                Playground is available for custom JavaScript tools only. Built-in and MCP tools
-                cannot be run here.{" "}
-                <Link to={toolsTabPath()} className="font-medium underline underline-offset-2">
-                  Back to tools
-                </Link>
-              </p>
-              <ToolDetailSections tool={tool} showHeader />
-            </div>
-          )}
-        </main>
-      </div>
+            ) : (
+              <div className="space-y-5 overflow-y-auto p-4 sm:p-5">
+                <p
+                  className="rounded-md border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
+                  role="status"
+                >
+                  Playground is available for custom JavaScript tools only. Built-in and MCP tools
+                  cannot be run here.{" "}
+                  <Link to={toolsTabPath()} className="font-medium underline underline-offset-2">
+                    Back to tools
+                  </Link>
+                </p>
+                <ToolDetailSections tool={tool} showHeader />
+              </div>
+            )}
+          </main>
+        </div>
+      </section>
     </div>
   );
 }
@@ -212,13 +216,16 @@ function BackLink() {
 
 function PageState({ message }: { message: string }) {
   return (
-    <div
-      className={cn(
-        "mx-auto flex min-h-64 max-w-3xl flex-col items-center justify-center gap-3 rounded-md border border-border bg-card p-8 text-sm text-muted-foreground",
-      )}
-    >
-      <Spinner className="size-5" />
-      {message}
+    <div className="p-6">
+      <div
+        className={cn(
+          sectionClass,
+          "flex min-h-64 flex-col items-center justify-center gap-3 p-8 text-sm text-muted-foreground",
+        )}
+      >
+        <Spinner className="size-5" />
+        {message}
+      </div>
     </div>
   );
 }

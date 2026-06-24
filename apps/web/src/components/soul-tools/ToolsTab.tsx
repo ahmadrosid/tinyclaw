@@ -6,6 +6,14 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { EmailSettingsDialog } from "@/components/EmailSettingsDialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { useToolsQuery, useProfilesQuery } from "@/hooks/use-app-queries";
 import { useAppNavigation } from "@/hooks/use-app-navigation";
@@ -38,15 +46,15 @@ export function ToolsTab() {
   const deleteToolMutation = useDeleteToolMutation();
   const [actionError, setActionError] = useState<string | null>(null);
   const [emailConfigOpen, setEmailConfigOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const loading = isLoading && tools.length === 0;
   const refreshing = isFetching && !loading;
   const busy = deleteToolMutation.isPending;
   const errorMessage = actionError ?? (error ? formatError(error) : null);
-  const deletableCount = tools.filter(isDeletableTool).length;
-  const playgroundToolCount = tools.filter(
-    (tool) => tool.handlerType === "javascript" && isDeletableTool(tool),
-  ).length;
+  const customTools = tools.filter(isDeletableTool);
+  const builtinTools = tools.filter((tool) => !isDeletableTool(tool));
+  const playgroundToolCount = customTools.filter((tool) => tool.handlerType === "javascript").length;
 
   async function refresh() {
     setActionError(null);
@@ -62,23 +70,24 @@ export function ToolsTab() {
     navigateToNewChat(superBotProfile.id);
   }
 
-  async function handleDeleteTool(toolId: string, toolName: string) {
+  function requestDeleteTool(toolId: string, toolName: string) {
     if (isProtectedToolId(toolId)) {
       return;
     }
 
-    if (
-      !window.confirm(
-        `Delete tool "${toolName}"? This removes it from every profile and cannot be undone.`,
-      )
-    ) {
+    setDeleteTarget({ id: toolId, name: toolName });
+  }
+
+  async function confirmDeleteTool() {
+    if (!deleteTarget || isProtectedToolId(deleteTarget.id)) {
       return;
     }
 
     setActionError(null);
 
     try {
-      await deleteToolMutation.mutateAsync(toolId);
+      await deleteToolMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
     } catch (err) {
       setActionError(formatError(err));
     }
@@ -115,7 +124,7 @@ export function ToolsTab() {
             <p className="type-body mt-1 text-xs">
               {tools.length === 0
                 ? "No tools registered yet"
-                : `${tools.length} registered · ${deletableCount} custom`}
+                : `${tools.length} registered · ${customTools.length} custom · ${builtinTools.length} built-in`}
             </p>
           </div>
 
@@ -173,7 +182,7 @@ export function ToolsTab() {
                 <p className="type-body mt-1 text-xs">
                   {tools.length === 0
                     ? "No tools registered yet"
-                    : `${tools.length} registered · ${deletableCount} custom`}
+                    : `${tools.length} registered · ${customTools.length} custom · ${builtinTools.length} built-in`}
                 </p>
               </div>
 
@@ -206,32 +215,33 @@ export function ToolsTab() {
                 </Button>
               </div>
             ) : (
-              <>
-                <p className="mb-4 text-xs text-muted-foreground lg:hidden">
-                  Built-in tools are protected; custom tools can be removed.
-                </p>
+              <div className="space-y-6">
+                <ToolListSection
+                  title="Custom tools"
+                  description={
+                    customTools.length === 0
+                      ? "No custom tools yet. Ask Super Bot to create one."
+                      : `${customTools.length} registered`
+                  }
+                  tools={customTools}
+                  busy={busy}
+                  canUsePlayground={canUsePlayground}
+                  isOrgAdmin={isOrgAdmin}
+                  onDelete={requestDeleteTool}
+                  onConfigureEmail={() => setEmailConfigOpen(true)}
+                />
 
-                <ul className="divide-y divide-border rounded-md border border-border">
-                  {tools.map((tool) => (
-                    <ToolListItem
-                      key={tool.id}
-                      tool={tool}
-                      busy={busy}
-                      playgroundHref={
-                        canUsePlayground && isDeletableTool(tool)
-                          ? toolPlaygroundPath(tool.id)
-                          : undefined
-                      }
-                      onDelete={() => void handleDeleteTool(tool.id, tool.name)}
-                      onConfigure={
-                        isOrgAdmin && tool.id === BUILTIN_TOOL_IDS.email
-                          ? () => setEmailConfigOpen(true)
-                          : undefined
-                      }
-                    />
-                  ))}
-                </ul>
-              </>
+                <ToolListSection
+                  title="Built-in tools"
+                  description={`${builtinTools.length} registered`}
+                  tools={builtinTools}
+                  busy={busy}
+                  canUsePlayground={canUsePlayground}
+                  isOrgAdmin={isOrgAdmin}
+                  onDelete={requestDeleteTool}
+                  onConfigureEmail={() => setEmailConfigOpen(true)}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -240,7 +250,101 @@ export function ToolsTab() {
       {isOrgAdmin ? (
         <EmailSettingsDialog open={emailConfigOpen} onOpenChange={setEmailConfigOpen} />
       ) : null}
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="gap-6 p-6 sm:max-w-md">
+          <DialogHeader className="gap-3">
+            <DialogTitle>Delete tool?</DialogTitle>
+            <DialogDescription>
+              Remove {deleteTarget?.name ? `"${deleteTarget.name}"` : "this tool"} from every
+              profile it is assigned to.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mx-0 mb-0 gap-2 border-0 bg-transparent p-0 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => void confirmDeleteTool()}
+            >
+              {busy ? <Spinner className="size-4" /> : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+function ToolListSection({
+  title,
+  description,
+  tools,
+  busy,
+  canUsePlayground,
+  isOrgAdmin,
+  onDelete,
+  onConfigureEmail,
+}: {
+  title: string;
+  description: string;
+  tools: ToolDetail[];
+  busy: boolean;
+  canUsePlayground: boolean;
+  isOrgAdmin: boolean;
+  onDelete: (toolId: string, toolName: string) => void;
+  onConfigureEmail: () => void;
+}) {
+  return (
+    <section>
+      <div className="mb-3">
+        <h3 className="text-sm font-medium text-foreground">{title}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </div>
+
+      {tools.length === 0 ? (
+        <p className="rounded-md border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+          None registered.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border rounded-md border border-border">
+          {tools.map((tool) => (
+            <ToolListItem
+              key={tool.id}
+              tool={tool}
+              busy={busy}
+              playgroundHref={
+                canUsePlayground && isDeletableTool(tool)
+                  ? toolPlaygroundPath(tool.id)
+                  : undefined
+              }
+              onDelete={() => onDelete(tool.id, tool.name)}
+              onConfigure={
+                isOrgAdmin && tool.id === BUILTIN_TOOL_IDS.email
+                  ? onConfigureEmail
+                  : undefined
+              }
+            />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -287,7 +391,7 @@ function ToolListItem({
 
       <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
         {deletable ? (
-          <span className="scope-badge bg-muted text-muted-foreground">custom tool</span>
+          <span className="scope-badge scope-badge-custom">custom tool</span>
         ) : (
           <span className="scope-badge scope-badge-active">built-in</span>
         )}

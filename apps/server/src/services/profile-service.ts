@@ -38,7 +38,7 @@ import {
 import { isProtectedToolId } from "@tinyclaw/core/tools/protected";
 import { BUILTIN_TOOL_IDS } from "@tinyclaw/core/tools/protected";
 import type { DatabaseAdapter, StoredProfileRecord, StoredToolRecord } from "@tinyclaw/db";
-import { validateJavascriptToolModule } from "./javascript-tool-loader";
+import { loadJavascriptTool, validateJavascriptToolModule } from "./javascript-tool-loader";
 import { toMcpServerSummaries } from "./mcp-service";
 import { toSkillSummaries } from "./skills-service";
 import { readToolSource } from "./tool-source";
@@ -137,7 +137,7 @@ export class ProfileService {
 
   async getTool(toolId: string): Promise<ToolResponse> {
     const tool = await this.requireTool(toolId);
-    return { tool: toToolDetail(tool) };
+    return { tool: await enrichToolParameters(toToolDetail(tool)) };
   }
 
   async getToolSource(toolId: string): Promise<ToolSourceResponse> {
@@ -205,7 +205,7 @@ export class ProfileService {
 
     await this.db.upsertTool(record);
 
-    return toToolDetail(record);
+    return enrichToolParameters(toToolDetail(record), record);
   }
 
   async assignTool(
@@ -457,6 +457,31 @@ function toToolSummary(record: StoredToolRecord): ToolSummary {
     description: record.description,
     handlerType: record.handlerType,
   };
+}
+
+async function enrichToolParameters(detail: ToolDetail, record?: StoredToolRecord): Promise<ToolDetail> {
+  if (detail.handlerType !== "javascript") {
+    return detail;
+  }
+
+  const source =
+    record ??
+    ({
+      id: detail.id,
+      name: detail.name,
+      description: detail.description,
+      handlerType: detail.handlerType,
+      handlerConfig: detail.handlerConfig,
+      createdAt: detail.createdAt,
+      updatedAt: detail.updatedAt,
+    } satisfies StoredToolRecord);
+
+  const loaded = await loadJavascriptTool(source);
+  if (!loaded?.parameters) {
+    return detail;
+  }
+
+  return { ...detail, parameters: loaded.parameters };
 }
 
 function toToolDetail(record: StoredToolRecord): ToolDetail {

@@ -1,5 +1,5 @@
 import type { ToolDetail } from "@tinyclaw/core/contract";
-import { PlayIcon, SparklesIcon } from "lucide-react";
+import { PlayIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAppNavigation } from "@/hooks/use-app-navigation";
 import { client, formatError } from "@/lib/client";
 import { buildSuperBotFixDraft } from "@/lib/tool-playground-draft";
+import { buildExampleParametersJson } from "@/lib/tool-playground-params";
+import { ToolSourceCodeBlock } from "@/components/tools/ToolSourceCodeBlock";
 
 export type ToolPlaygroundRunState =
   | { status: "idle" }
@@ -57,7 +59,9 @@ export function useToolPlaygroundRun(
   superBotProfileId: string | null,
 ): ToolPlaygroundRunControls {
   const { navigateToNewChat } = useAppNavigation();
-  const [parametersJson, setParametersJsonState] = useState("{}");
+  const [parametersJson, setParametersJsonState] = useState(() =>
+    buildExampleParametersJson(tool.parameters),
+  );
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [assistPrompt, setAssistPrompt] = useState("");
   const [suggesting, setSuggesting] = useState(false);
@@ -164,8 +168,8 @@ export function ToolPlaygroundRunForm({
   return (
     <div className="space-y-4 p-4 sm:p-5">
       <div>
-        <h3 className="text-sm font-medium text-foreground">Run</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <h3 className="type-section-title">Run</h3>
+        <p className="type-body mt-1 text-xs">
           Execute this tool outside chat with real side effects. Relative paths resolve against the
           assigned profile workspace under{" "}
           <code className="type-code">~/.tinyclaw/orgs/…/profiles/…/</code>.
@@ -191,7 +195,7 @@ export function ToolPlaygroundRunForm({
           disabled={run.suggesting || run.running}
           onClick={() => void run.handleSuggestParams()}
         >
-          {run.suggesting ? <Spinner className="size-4" /> : <SparklesIcon className="size-4" />}
+          {run.suggesting ? <Spinner className="size-4" /> : null}
           Suggest params
         </Button>
       </div>
@@ -257,7 +261,10 @@ export function ToolPlaygroundOutput({
       ) : null}
 
       {run.runState.status === "success" ? (
-        <pre className="text-xs leading-relaxed">{formatResult(run.runState.result)}</pre>
+        <ToolSourceCodeBlock
+          content={formatResult(run.runState.result)}
+          path="result.json"
+        />
       ) : null}
 
       {run.runState.status === "error" ? (

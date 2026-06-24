@@ -325,6 +325,10 @@
     @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300;
   }
 
+  .scope-badge-custom {
+    @apply bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200;
+  }
+
   .chat-markdown {
     font-family: var(--font-sans);
     font-size: 0.875rem;

@@ -913,6 +913,8 @@ export interface ToolSummary {
 
 export interface ToolDetail extends ToolSummary {
   handlerConfig: unknown;
+  /** Resolved JSON Schema for javascript tools (module export or handlerConfig). */
+  parameters?: JsonSchema;
   createdAt: string;
   updatedAt: string;
 }

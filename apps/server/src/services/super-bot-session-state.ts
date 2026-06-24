@@ -63,4 +63,4 @@ export class SuperBotSessionState {
 }
 
 export const TOOL_ASSIGNMENT_CONFIRMATION_MESSAGE =
-  "Ask the user which profile(s) should receive this tool, then assign after they confirm.";
+  "This tool was already assigned to a profile in this turn. Assign it to another profile on a later message or from the dashboard.";

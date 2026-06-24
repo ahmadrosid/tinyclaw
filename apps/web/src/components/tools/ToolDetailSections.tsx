@@ -34,6 +34,26 @@ function isEmptyHandlerConfig(handlerConfig: unknown): boolean {
   return false;
 }
 
+function formatToolDefinition(tool: ToolDetail): string | null {
+  if (!tool.parameters) {
+    return null;
+  }
+
+  try {
+    return JSON.stringify(
+      {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      },
+      null,
+      2,
+    );
+  } catch {
+    return null;
+  }
+}
+
 export function ToolDetailSections({
   tool,
   showHeader = false,
@@ -48,6 +68,7 @@ export function ToolDetailSections({
   } = useToolSourceQuery(tool.id);
 
   const sourceErrorMessage = sourceError ? formatError(sourceError) : null;
+  const toolDefinition = formatToolDefinition(tool);
   const showSharedBuiltinNote =
     source?.path === SHARED_BUILTIN_FILE &&
     (tool.name === "write_file" || tool.name === "delete_file" || tool.name === "read_file");
@@ -65,23 +86,6 @@ export function ToolDetailSections({
             </div>
             <p className="truncate text-xs text-muted-foreground">{tool.description}</p>
           </div>
-
-          <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-            <div className="flex min-w-0 max-w-full items-baseline gap-1.5 sm:max-w-[55%]">
-              <dt className="shrink-0 text-muted-foreground">ID</dt>
-              <dd className="type-code truncate text-foreground" title={tool.id}>
-                {tool.id}
-              </dd>
-            </div>
-            <div className="flex shrink-0 items-baseline gap-1.5">
-              <dt className="text-muted-foreground">Created</dt>
-              <dd className="text-foreground">{formatTimestamp(tool.createdAt)}</dd>
-            </div>
-            <div className="flex shrink-0 items-baseline gap-1.5">
-              <dt className="text-muted-foreground">Updated</dt>
-              <dd className="text-foreground">{formatTimestamp(tool.updatedAt)}</dd>
-            </div>
-          </dl>
         </div>
       ) : (
         <dl className="grid gap-3 text-sm sm:grid-cols-[5.5rem_minmax(0,1fr)]">
@@ -95,6 +99,18 @@ export function ToolDetailSections({
           <dd className="text-foreground">{formatTimestamp(tool.updatedAt)}</dd>
         </dl>
       )}
+
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground">Tool definition</p>
+        {toolDefinition ? (
+          <ToolSourceCodeBlock content={toolDefinition} path="definition.json" />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No parameter schema. JavaScript tools can export{" "}
+            <code className="type-code">parameters</code>.
+          </p>
+        )}
+      </div>
 
       <div className="space-y-2">
         <p className="text-sm font-medium text-foreground">Handler config</p>

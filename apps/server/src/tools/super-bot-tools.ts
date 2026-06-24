@@ -24,7 +24,7 @@ export function createSuperBotTools(
     {
       name: "list_profiles",
       description:
-        "List all bot profiles with their id, name, and tool counts. Do not call this before or during tool creation; use only when managing profiles or resolving profile ids after the user confirms tool assignment.",
+        "List all bot profiles with their id, name, and tool counts. Use when managing profiles or when the user asks you to assign a tool and you need profile ids.",
       parameters: emptyObjectSchema(),
       async run(_input, context: ToolContext) {
         return profileService.listProfiles(requireOrgId(context));
@@ -89,7 +89,7 @@ export function createSuperBotTools(
     {
       name: "assign_tool_to_profile",
       description:
-        "Assign an existing tool to a profile. For tools created in the current conversation, ask the user which profile(s) should receive the tool before calling this.",
+        "Assign an existing tool to a profile. Use only when the user explicitly asks to assign a tool to a profile.",
       parameters: {
         type: "object",
         properties: {
