@@ -1,22 +1,43 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
-import type { ToolContext } from "../contract";
-import {
+
+// Node's dns/promises must be stubbed BEFORE web-fetch is imported, so register
+// the mock at module-eval time and load web-fetch dynamically afterwards.
+mock.module("node:dns/promises", () => ({
+  lookup: (hostname: string) => {
+    if (hostname === "localhost") {
+      return Promise.resolve([{ address: "127.0.0.1" }]);
+    }
+    // Any other hostname "resolves" to a public example.com address.
+    return Promise.resolve([{ address: "93.184.216.34" }]);
+  },
+}));
+
+const webFetchModule = await import("./web-fetch");
+const {
   WEB_FETCH_TOOL_NAME,
   convertHtmlToMarkdown,
   webFetchInputSchema,
   webFetchTool,
-} from "./web-fetch";
+} = webFetchModule;
+
+import type { ToolContext } from "../contract";
 
 const CTX: ToolContext = {};
 
 type FetchImpl = typeof fetch;
 const originalFetch = globalThis.fetch;
 
-function stubFetch(impl: (req: Request | string, init?: RequestInit) => Promise<Response>): void {
+function stubFetch(
+  impl: (req: Request | string | URL, init?: RequestInit) => Promise<Response>,
+): void {
   globalThis.fetch = mock(impl) as unknown as FetchImpl;
 }
 
-function htmlResponse(html: string, status = 200, contentType = "text/html; charset=utf-8"): Response {
+function htmlResponse(
+  html: string,
+  status = 200,
+  contentType = "text/html; charset=utf-8",
+): Response {
   return new Response(html, {
     status,
     headers: { "content-type": contentType },
@@ -32,6 +53,7 @@ function jsonResponse(body: string, status = 200): Response {
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  mock.restore();
 });
 
 describe("web_fetch input schema", () => {
@@ -78,9 +100,7 @@ describe("web_fetch tool metadata", () => {
 
 describe("web_fetch tool validation errors", () => {
   test("throws on missing url", async () => {
-    await expect(webFetchTool.run({} as never, CTX)).rejects.toThrow(
-      /invalid parameter at url/,
-    );
+    await expect(webFetchTool.run({} as never, CTX)).rejects.toThrow(/invalid parameter at url/);
   });
 
   test("throws on non-http(s) url", async () => {
@@ -130,14 +150,14 @@ describe("web_fetch SSRF guard", () => {
 
 describe("web_fetch happy path", () => {
   test("converts HTML to Markdown and returns metadata", async () => {
-    stubFetch(async (req) => htmlResponse("<h1>Title</h1><p>Hello <b>world</b></p>"));
+    stubFetch(async () => htmlResponse("<h1>Title</h1><p>Hello <b>world</b></p>"));
 
     const out = await webFetchTool.run({ url: "https://example.com" }, CTX);
 
     expect(out.status).toBe(200);
     expect(out.contentType).toContain("text/html");
-    expect(out.url).toBe("https://example.com");
-    expect(out.finalUrl).toBe("https://example.com");
+    expect(out.url).toBe("https://example.com/");
+    expect(out.finalUrl).toBe("https://example.com/");
     expect(out.bytes).toBeGreaterThan(0);
     expect(out.content).toContain("# Title");
     expect(out.content).toContain("**world**");
@@ -171,9 +191,9 @@ describe("web_fetch happy path", () => {
     );
   });
 
-  test("follows redirects up to the limit and strips private redirect targets", async () => {
+  test("follows redirects and reports the final URL", async () => {
     let calls = 0;
-    stubFetch(async (req) => {
+    stubFetch(async () => {
       calls += 1;
       if (calls === 1) {
         return new Response(null, {

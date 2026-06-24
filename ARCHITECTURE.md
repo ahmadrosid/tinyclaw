@@ -92,6 +92,7 @@ tinyclaw/
 | Session lifecycle, model switching | `AgentService` |
 | Profile CRUD, soul files, avatar, knowledge base | `apps/server/src/http/routes/profiles.ts`, `AgentService` |
 | Resolving DB-backed tools a session may call | `tool-resolver.ts` |
+| Builtin tool schemas and handlers | `packages/core/src/tools/*`, `schema.ts` |
 | MCP server registry, connections, profile assignment | `mcp-service.ts`, `mcp-client-manager.ts` |
 | Runtime MCP tool expansion for assigned servers | `mcp-tool-bridge.ts` in `AgentService.resolveProfileTools` |
 | Super Bot meta-tools, bash | `super-bot-tools.ts`, `bash.ts` |
@@ -142,7 +143,23 @@ See the [system overview](#system-overview) diagram for the full topology. At a 
 
 **Server ↔ database.** Organizations, memberships, invites, and tenant-owned rows (profiles, tools, sessions, automations, etc.) persist in SQLite with `org_id` scoping. Live chat state does not cross this boundary.
 
-**Agent ↔ tools.** The harness asks the model; the server resolves and runs handlers. Builtin tools come from `@tinyclaw/core`; server-specific handlers (bash, Super Bot meta-tools) are registered in `apps/server`.
+**Agent ↔ tools.** The harness asks the model; the server resolves and runs handlers. See [Built-in tools](#built-in-tools).
+
+## Built-in tools
+
+Each tool in `packages/core/src/tools/` uses one Zod `*InputSchema` for both runtime validation and LLM JSON Schema (`jsonSchemaFromZod` → `parameters`, `parseToolInput` → `run()`). Shared field helpers (`requiredTrimmedString`, `maxResultsSchema`, etc.) live in `schema.ts`.
+
+| Tool | Module |
+|------|--------|
+| `write_file`, `delete_file`, `read_file`, `create_skill` | `builtin.ts` |
+| `search_files` | `search-files.ts` |
+| `knowledge_base_search` | `knowledge-base-search.ts` |
+| `update_profile_memory` | `profile-memory.ts` |
+| `web_search` | `web-search.ts` |
+| `web_fetch` | `web-fetch.ts` |
+| `email` | `email.ts` |
+
+`ripgrep.ts` backs the search tools but is not model-facing. `create_skill`, `web_search`, and server tools (`bash`, Super Bot meta-tools, JS/MCP) define schemas in core where applicable but execute in `apps/server` (or on the LLM provider for `web_search`).
 
 ## Request lifecycle
 
