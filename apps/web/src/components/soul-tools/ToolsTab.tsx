@@ -165,16 +165,6 @@ export function ToolsTab() {
                 </div>
               </div>
             </button>
-
-            <div className="type-body mt-5 rounded-md border border-border bg-muted/40 p-3 text-xs dark:bg-muted/30">
-              <p className="font-medium text-foreground">How it works</p>
-              <p className="mt-2">
-                New tools are registered by <strong className="text-foreground">Super Bot</strong> in
-                Chat using the{" "}
-                <code className="rounded bg-muted px-1 py-0.5 type-code">create_tool</code>{" "}
-                meta-tool. Built-in tools cannot be deleted.
-              </p>
-            </div>
           </aside>
 
           <div className="min-w-0 p-4 sm:p-5">
@@ -241,16 +231,6 @@ export function ToolsTab() {
                 </ul>
               </>
             )}
-
-            <div className="type-body mt-5 rounded-md border border-border bg-muted/40 p-3 text-xs lg:hidden dark:bg-muted/30">
-              <p className="font-medium text-foreground">How it works</p>
-              <p className="mt-2">
-                New tools are registered by <strong className="text-foreground">Super Bot</strong> in
-                Chat using the{" "}
-                <code className="rounded bg-muted px-1 py-0.5 type-code">create_tool</code>{" "}
-                meta-tool. Assign tools to profiles from the Profiles page.
-              </p>
-            </div>
           </div>
         </div>
       </section>
