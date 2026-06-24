@@ -446,6 +446,20 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
       sessions.set(sessionId, { ...session, agentTodos: todos });
     },
 
+    async getSessionQuestionnaire(sessionId) {
+      return sessions.get(sessionId)?.agentQuestionnaire ?? null;
+    },
+
+    async updateSessionQuestionnaire(sessionId, questionnaire) {
+      const session = sessions.get(sessionId);
+
+      if (!session) {
+        return;
+      }
+
+      sessions.set(sessionId, { ...session, agentQuestionnaire: questionnaire });
+    },
+
     async deleteSession(id) {
       sessionMessages.delete(id);
       return sessions.delete(id);

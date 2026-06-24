@@ -3,6 +3,7 @@ import {
   formatServerError,
   TinyClawApiError,
   type AgentChannel,
+  type AgentQuestionnaire,
   type AgentTodo,
   type ApiErrorResponse,
   type SendMessageInput,
@@ -361,6 +362,14 @@ export function streamMessage(
                   send({ type: "todos_updated", todos });
                 }
               }
+
+              if (event.tool === "ask_user_question") {
+                const questionnaire = readQuestionnaireFromToolResult(event.result);
+
+                if (questionnaire) {
+                  send({ type: "questionnaire_updated", questionnaire });
+                }
+              }
             },
           }),
           new Promise<never>((_, reject) => {
@@ -430,4 +439,80 @@ function readTodosFromToolResult(result: unknown): AgentTodo[] | null {
   }
 
   return parsed;
+}
+
+function readQuestionnaireFromToolResult(result: unknown): AgentQuestionnaire | null {
+  if (typeof result !== "object" || result === null || !("questionnaire" in result)) {
+    return null;
+  }
+
+  const questionnaire = (result as { questionnaire?: unknown }).questionnaire;
+
+  if (typeof questionnaire !== "object" || questionnaire === null) {
+    return null;
+  }
+
+  const record = questionnaire as Record<string, unknown>;
+
+  if (
+    typeof record.id !== "string" ||
+    typeof record.title !== "string" ||
+    !Array.isArray(record.questions)
+  ) {
+    return null;
+  }
+
+  const questions = record.questions.map((item) => {
+    if (typeof item !== "object" || item === null) {
+      return null;
+    }
+
+    const question = item as Record<string, unknown>;
+
+    if (
+      typeof question.id !== "string" ||
+      typeof question.prompt !== "string" ||
+      typeof question.allowCustomAnswer !== "boolean" ||
+      !Array.isArray(question.choices)
+    ) {
+      return null;
+    }
+
+    const choices = question.choices.map((choice) => {
+      if (typeof choice !== "object" || choice === null) {
+        return null;
+      }
+
+      const value = choice as Record<string, unknown>;
+
+      if (typeof value.id !== "string" || typeof value.label !== "string") {
+        return null;
+      }
+
+      return { id: value.id, label: value.label };
+    });
+
+    if (choices.some((choice) => choice === null)) {
+      return null;
+    }
+
+    return {
+      id: question.id,
+      prompt: question.prompt,
+      allowCustomAnswer: question.allowCustomAnswer,
+      placeholder:
+        typeof question.placeholder === "string" ? question.placeholder : undefined,
+      choices: choices as AgentQuestionnaire["questions"][number]["choices"],
+    };
+  });
+
+  if (questions.some((question) => question === null)) {
+    return null;
+  }
+
+  return {
+    id: record.id,
+    title: record.title,
+    questions: questions as AgentQuestionnaire["questions"],
+  };
 }

@@ -1,7 +1,11 @@
 import type { ChatStatus } from "ai";
 import { nanoid } from "nanoid";
 import type { Dispatch, SetStateAction } from "react";
-import type { AgentTodo } from "@tinyclaw/core/contract";
+import type {
+  AgentQuestionAnswer,
+  AgentQuestionnaire,
+  AgentTodo,
+} from "@tinyclaw/core/contract";
 import type { StreamHandlers } from "@tinyclaw/client";
 import type { ChatListItem } from "@/lib/chat-history";
 import { cn } from "@/lib/utils";
@@ -243,7 +247,10 @@ export function deriveChatStatus(
 
 export function buildStreamHandlers(
   setMessages: Dispatch<SetStateAction<ChatListItem[]>>,
-  options: { onTodosUpdated?: (todos: AgentTodo[]) => void } = {},
+  options: {
+    onTodosUpdated?: (todos: AgentTodo[]) => void;
+    onQuestionnaireUpdated?: (questionnaire: AgentQuestionnaire | null) => void;
+  } = {},
 ): StreamHandlers {
   return {
     onThinking: (delta) => {
@@ -324,6 +331,7 @@ export function buildStreamHandlers(
       );
     },
     onTodosUpdated: options.onTodosUpdated,
+    onQuestionnaireUpdated: options.onQuestionnaireUpdated,
   };
 }
 
@@ -335,6 +343,7 @@ export function appendOutgoingMessages(
   options: {
     thinkingEnabled?: boolean;
     imageAttachments?: Array<{ url?: string; mediaType: string; description?: string | null }>;
+    questionnaireAnswers?: AgentQuestionAnswer[];
   } = {},
 ): void {
   setMessages((current) => [
@@ -349,6 +358,10 @@ export function appendOutgoingMessages(
           ? options.imageAttachments
           : undefined,
       documents: documents.length > 0 ? documents : undefined,
+      questionnaireAnswers:
+        options.questionnaireAnswers && options.questionnaireAnswers.length > 0
+          ? options.questionnaireAnswers
+          : undefined,
     },
     {
       id: nanoid(),

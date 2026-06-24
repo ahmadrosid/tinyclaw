@@ -87,6 +87,10 @@ export async function readStreamEvents(
             handlers.onTodosUpdated?.(payload.todos);
           }
 
+          if (payload.type === "questionnaire_updated") {
+            handlers.onQuestionnaireUpdated?.(payload.questionnaire);
+          }
+
           if (payload.type === "done") {
             return payload.reply;
           }

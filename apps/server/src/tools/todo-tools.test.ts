@@ -14,6 +14,7 @@ async function createTool() {
     createdAt: new Date().toISOString(),
     title: null,
     agentTodos: [],
+    agentQuestionnaire: null,
   });
 
   const tool = createTodoTools(state).find((entry) => entry.name === "todo_write");

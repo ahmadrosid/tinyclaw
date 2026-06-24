@@ -57,6 +57,18 @@ describe("AgentService branching", () => {
     await db.updateSessionTodos(sourceSessionId, [
       { id: "todo_1", content: "Keep this out of the branch", status: "pending" },
     ]);
+    await db.updateSessionQuestionnaire(sourceSessionId, {
+      id: "q_1",
+      title: "Need input",
+      questions: [
+        {
+          id: "timeline",
+          prompt: "When?",
+          allowCustomAnswer: true,
+          choices: [],
+        },
+      ],
+    });
 
     const result = await service.branchSession(sourceSessionId, 1);
 
@@ -72,6 +84,7 @@ describe("AgentService branching", () => {
 
     const branchTodos = await service.getSessionTodos(branchSessionId);
     expect(branchTodos).toEqual([]);
+    expect(await service.getSessionQuestionnaire(branchSessionId)).toBeNull();
 
     const branchRecord = await db.getSession(branchSessionId);
     expect(branchRecord?.profileId).toBe("profile_default");

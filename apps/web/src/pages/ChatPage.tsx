@@ -1,4 +1,10 @@
-import type { AgentTodo, ProfileSummary } from "@tinyclaw/core/contract";
+import { formatAgentQuestionnaireAnswersMessage } from "@tinyclaw/core/agent-questionnaire";
+import type {
+  AgentQuestionAnswer,
+  AgentQuestionnaire,
+  AgentTodo,
+  ProfileSummary,
+} from "@tinyclaw/core/contract";
 import type { FileUIPart } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -46,6 +52,7 @@ import { SETUP_PATH } from "@/lib/navigation";
 interface SendMessageOptions {
   sessionOverride?: RemoteChatSession;
   initialMessages?: ChatListItem[];
+  questionnaireAnswers?: AgentQuestionAnswer[];
 }
 
 export function ChatPage() {
@@ -62,6 +69,7 @@ export function ChatPage() {
   const [session, setSession] = useState<RemoteChatSession | null>(null);
   const [messages, setMessages] = useState<ChatListItem[]>([]);
   const [agentTodos, setAgentTodos] = useState<AgentTodo[]>([]);
+  const [agentQuestionnaire, setAgentQuestionnaire] = useState<AgentQuestionnaire | null>(null);
   const [busy, setBusy] = useState(false);
   const [branchingMessageId, setBranchingMessageId] = useState<string | null>(null);
   const [canStop, setCanStop] = useState(false);
@@ -210,6 +218,7 @@ export function ChatPage() {
       setMessages([]);
       setError(null);
       setAgentTodos([]);
+      setAgentQuestionnaire(null);
 
       if (location.pathname !== buildChatBasePath()) {
         navigate(buildChatBasePath(), { replace: true });
@@ -230,12 +239,14 @@ export function ChatPage() {
           messages: storedMessages,
           messageMeta,
           todos,
+          questionnaire,
         } = await client.getSessionMessages(sessionId);
         const nextSession = client.createChatSession(sessionId, "web");
         setProfileId(nextProfileId);
         setSession(nextSession);
         setMessages(chatMessagesToListItems(storedMessages, messageMeta));
         setAgentTodos(todos);
+        setAgentQuestionnaire(questionnaire);
         syncChatUrl(nextProfileId, sessionId);
       } catch (err) {
         setError(formatError(err));
@@ -382,6 +393,7 @@ export function ChatPage() {
       if (options.initialMessages) {
         setMessages(options.initialMessages);
         setAgentTodos([]);
+        setAgentQuestionnaire(null);
       }
 
       let activeSession = options.sessionOverride ?? session;
@@ -399,6 +411,8 @@ export function ChatPage() {
         }
       }
 
+      setAgentQuestionnaire(null);
+
       const displayImages = images.map((image) => ({
         mediaType: image.mediaType,
         url: `data:${image.mediaType};base64,${image.data}`,
@@ -414,6 +428,7 @@ export function ChatPage() {
           thinkingEnabled: showThinking,
           imageAttachments:
             useImageAttachments && displayImages.length > 0 ? displayImages : undefined,
+          questionnaireAnswers: options.questionnaireAnswers,
         },
       );
 
@@ -428,7 +443,10 @@ export function ChatPage() {
             images: images.length > 0 ? images : undefined,
             documents: documents.length > 0 ? documents : undefined,
           },
-          buildStreamHandlers(setMessages, { onTodosUpdated: setAgentTodos }),
+          buildStreamHandlers(setMessages, {
+            onTodosUpdated: setAgentTodos,
+            onQuestionnaireUpdated: setAgentQuestionnaire,
+          }),
           { signal: abortController.signal },
         );
 
@@ -436,9 +454,11 @@ export function ChatPage() {
           messages: storedMessages,
           messageMeta,
           todos,
+          questionnaire,
         } = await client.getSessionMessages(activeSession.id);
         setMessages(chatMessagesToListItems(storedMessages, messageMeta));
         setAgentTodos(todos);
+        setAgentQuestionnaire(questionnaire);
       } catch (err) {
         if (isAbortError(err)) {
           setMessages((current) => finalizeStreamingMessages(current));
@@ -454,6 +474,7 @@ export function ChatPage() {
             setSession(nextSession);
             setError("Chat session expired. Started a new session — please send again.");
             setMessages((current) => current.filter((message) => !message.streaming));
+            setAgentQuestionnaire(null);
             return;
           } catch (retryErr) {
             setError(formatError(retryErr));
@@ -572,6 +593,13 @@ export function ChatPage() {
         onModelChange={handleModelChange}
         renderModelLabel={renderModelLabel}
         todos={agentTodos}
+        questionnaire={agentQuestionnaire}
+        onSubmitQuestionnaire={(answers) => {
+          setComposerDraft("");
+          void sendMessage(formatAgentQuestionnaireAnswersMessage(answers), [], {
+            questionnaireAnswers: answers,
+          });
+        }}
         onSubmit={(text, files) => {
           setComposerDraft("");
           void sendMessage(text, files);

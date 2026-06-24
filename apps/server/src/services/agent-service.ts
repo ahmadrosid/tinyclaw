@@ -9,6 +9,7 @@ import {
 } from "@tinyclaw/agent";
 import type {
   AgentChannel,
+  AgentQuestionnaire,
   AgentTodo,
   AssignSkillRequest,
   AssignToolRequest,
@@ -148,8 +149,10 @@ import {
   toProviderInstanceSummary,
 } from "./provider-instance-helpers";
 import { createSuperBotTools } from "../tools/super-bot-tools";
+import { createAskUserQuestionTools } from "../tools/ask-user-question-tool";
 import { createTodoTools } from "../tools/todo-tools";
 import { createCreateSkillTool } from "../tools/create-skill";
+import { AgentQuestionnaireState } from "./agent-questionnaire-state";
 import { AgentTodoState } from "./agent-todo-state";
 import type { AutomationRunner } from "./automation-runner";
 import {
@@ -194,8 +197,10 @@ export class AgentService {
   private readonly profileService: ProfileService;
   private readonly superBotSessionState = new SuperBotSessionState();
   private readonly agentTodoState: AgentTodoState;
+  private readonly agentQuestionnaireState: AgentQuestionnaireState;
   private readonly superBotTools: ToolDefinition[];
   private automationTools: ToolDefinition[] = [];
+  private questionTools: ToolDefinition[] = [];
   private todoTools: ToolDefinition[] = [];
   private automationRunner: AutomationRunner | null = null;
   private taskRunner: TaskRunner | null = null;
@@ -222,6 +227,8 @@ export class AgentService {
       () => this._providerConfigured,
     );
     this.agentTodoState = new AgentTodoState(db);
+    this.agentQuestionnaireState = new AgentQuestionnaireState(db);
+    this.questionTools = createAskUserQuestionTools(this.agentQuestionnaireState);
     this.todoTools = createTodoTools(this.agentTodoState);
     this.superBotTools = createSuperBotTools(this.profileService, this.superBotSessionState);
     this._providerConfigured = isProviderConfigured(userConfig) && provider !== null;
@@ -723,6 +730,7 @@ export class AgentService {
       createdAt: new Date().toISOString(),
       title: null,
       agentTodos: [],
+      agentQuestionnaire: null,
     });
 
     const session = await this.buildChatSession(
@@ -746,6 +754,16 @@ export class AgentService {
     }
 
     return this.agentTodoState.listActive(sessionId);
+  }
+
+  async getSessionQuestionnaire(sessionId: string): Promise<AgentQuestionnaire | null> {
+    const record = await this.db.getSession(sessionId);
+
+    if (!record) {
+      return null;
+    }
+
+    return this.agentQuestionnaireState.get(sessionId);
   }
 
   async getSessionMessages(sessionId: string): Promise<{
@@ -802,6 +820,7 @@ export class AgentService {
       createdAt: new Date().toISOString(),
       title: null,
       agentTodos: [],
+      agentQuestionnaire: null,
     });
 
     await replaceSessionHistory(
@@ -872,6 +891,7 @@ export class AgentService {
     this.sessions.delete(sessionId);
     this.superBotSessionState.clearSession(sessionId);
     this.agentTodoState.clearSession(sessionId);
+    this.agentQuestionnaireState.clearSession(sessionId);
     await this.db.deleteSession(sessionId);
     return true;
   }
@@ -928,6 +948,7 @@ export class AgentService {
     }
 
     await this.db.deleteMessagesForSession(sessionId);
+    await this.agentQuestionnaireState.clear(sessionId);
     return true;
   }
 
@@ -949,6 +970,7 @@ export class AgentService {
 
     if (deleted) {
       this.agentTodoState.clearSession(sessionId);
+      this.agentQuestionnaireState.clearSession(sessionId);
       await this.db.deleteSession(sessionId);
     }
 
@@ -1751,6 +1773,10 @@ export class AgentService {
       resolved = [...resolved, ...this.todoTools];
     }
 
+    if (this.questionTools.length > 0) {
+      resolved = [...resolved, ...this.questionTools];
+    }
+
     if (this.skillsService) {
       const orgId = profile.orgId;
 
@@ -1871,7 +1897,10 @@ export class AgentService {
     });
 
     return wrapPersistedSession(sessionId, session, this.db, {
-      onBeginTurn: (id) => this.superBotSessionState.beginTurn(id),
+      onBeginTurn: (id) => {
+        this.superBotSessionState.beginTurn(id);
+        void this.agentQuestionnaireState.clear(id);
+      },
     });
   }
 

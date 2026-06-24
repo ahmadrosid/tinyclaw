@@ -1,4 +1,5 @@
 import type {
+  AgentQuestionnaire,
   AgentTodo,
   AutomationDefinition,
   ChatMessage,
@@ -30,6 +31,7 @@ export interface StreamHandlers {
     result: unknown;
   }) => void;
   onTodosUpdated?: (todos: AgentTodo[]) => void;
+  onQuestionnaireUpdated?: (questionnaire: AgentQuestionnaire | null) => void;
 }
 
 export type SendMessageArg = string | SendMessageInput;

@@ -1,4 +1,4 @@
-import type { AgentTodo, OrgRole, ThinkingEffort } from "@tinyclaw/core";
+import type { AgentQuestionnaire, AgentTodo, OrgRole, ThinkingEffort } from "@tinyclaw/core";
 
 export type { OrgRole } from "@tinyclaw/core";
 export type ChannelType = "telegram" | "whatsapp";
@@ -61,6 +61,7 @@ export interface StoredSessionRecord {
   createdAt: string;
   title: string | null;
   agentTodos: AgentTodo[];
+  agentQuestionnaire: AgentQuestionnaire | null;
 }
 
 export interface StoredSessionMessageRecord {
@@ -306,6 +307,11 @@ export interface DatabaseAdapter {
   updateSessionTitle(sessionId: string, title: string): Promise<boolean>;
   getSessionTodos(sessionId: string): Promise<AgentTodo[]>;
   updateSessionTodos(sessionId: string, todos: AgentTodo[]): Promise<void>;
+  getSessionQuestionnaire(sessionId: string): Promise<AgentQuestionnaire | null>;
+  updateSessionQuestionnaire(
+    sessionId: string,
+    questionnaire: AgentQuestionnaire | null,
+  ): Promise<void>;
   deleteSession(id: string): Promise<boolean>;
 
   listMessagesForSession(sessionId: string): Promise<StoredSessionMessageRecord[]>;

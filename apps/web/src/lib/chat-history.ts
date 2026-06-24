@@ -1,7 +1,9 @@
 import type {
+  AgentQuestionAnswer,
   ChatMessage,
   SessionMessageMeta,
 } from "@tinyclaw/core/contract";
+import { parseAgentQuestionnaireAnswersMessage } from "@tinyclaw/core/agent-questionnaire";
 import { extractThinkingFromAssistantMessage } from "@tinyclaw/core/thinking-content";
 import { userContentToDisplayDocuments, userContentToDisplayImageAttachments, userContentToDisplayImages, stripImageDescriptionsFromDisplayText } from "@/lib/chat-images";
 
@@ -104,6 +106,7 @@ export interface ChatListItem {
   images?: Array<{ url: string; mediaType: string }>;
   imageAttachments?: Array<{ url?: string; mediaType: string; description?: string | null }>;
   documents?: Array<{ filename: string; mediaType: string }>;
+  questionnaireAnswers?: AgentQuestionAnswer[];
   streaming?: boolean;
   toolCallId?: string;
   tool?: string;
@@ -151,6 +154,8 @@ export function chatMessagesToListItems(
       const images = userContentToDisplayImages(content);
       const imageAttachments = userContentToDisplayImageAttachments(content);
       const documents = userContentToDisplayDocuments(content);
+      const questionnaireAnswers =
+        typeof content === "string" ? parseAgentQuestionnaireAnswersMessage(content) : null;
 
       items.push({
         id: `history-${index}`,
@@ -161,6 +166,7 @@ export function chatMessagesToListItems(
         ...(images.length > 0 ? { images } : {}),
         ...(imageAttachments.length > 0 ? { imageAttachments } : {}),
         ...(documents.length > 0 ? { documents } : {}),
+        ...(questionnaireAnswers ? { questionnaireAnswers } : {}),
       });
       continue;
     }

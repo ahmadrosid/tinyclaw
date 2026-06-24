@@ -600,6 +600,12 @@ function migrateSessionsTable(db: Database): void {
     `);
   }
 
+  if (!columnNames.has("agent_questionnaire")) {
+    db.exec(`
+      ALTER TABLE sessions ADD COLUMN agent_questionnaire TEXT;
+    `);
+  }
+
   if (!columnNames.has("user_id")) {
     db.exec(`
       ALTER TABLE sessions ADD COLUMN user_id TEXT REFERENCES users (id) ON DELETE SET NULL;

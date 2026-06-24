@@ -1,5 +1,11 @@
 import { hasActiveAgentTodos } from "@tinyclaw/core/agent-todo";
-import type { AgentTodo, ProviderModelOption, ProfileSummary } from "@tinyclaw/core/contract";
+import type {
+  AgentQuestionAnswer,
+  AgentQuestionnaire,
+  AgentTodo,
+  ProviderModelOption,
+  ProfileSummary,
+} from "@tinyclaw/core/contract";
 import type { ChatStatus } from "ai";
 import type { FileUIPart } from "ai";
 import { ArrowUpIcon, FileTextIcon, PlusIcon, WifiOffIcon, XIcon } from "lucide-react";
@@ -47,6 +53,7 @@ import {
   composerToolbarClass,
 } from "@/lib/chat-stream";
 import { AgentTodoPanel } from "@/components/chat/AgentTodoPanel";
+import { AgentQuestionnairePanel } from "@/components/chat/AgentQuestionnairePanel";
 import { TextAttachmentPreview } from "@/components/chat/text-attachment-preview";
 import { ImageAttachmentPreview } from "@/components/chat/image-attachment-preview";
 import { cn } from "@/lib/utils";
@@ -71,6 +78,8 @@ interface ChatComposerBaseProps {
   className?: string;
   footerClassName?: string;
   todos?: AgentTodo[];
+  questionnaire?: AgentQuestionnaire | null;
+  onSubmitQuestionnaire?: (answers: AgentQuestionAnswer[]) => void;
 }
 
 interface ChatComposerMinimalProps extends ChatComposerBaseProps {
@@ -113,10 +122,13 @@ export function ChatComposer(props: ChatComposerProps) {
     className,
     footerClassName,
     todos = [],
+    questionnaire = null,
+    onSubmitQuestionnaire,
   } = props;
 
   const isMinimal = props.variant === "minimal";
   const hasTodos = hasActiveAgentTodos(todos);
+  const hasQuestionnaire = Boolean(questionnaire && questionnaire.questions.length > 0);
   const shellClass = isMinimal ? composerShellCompactClass : composerShellClass;
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const displayError = error ?? attachmentError;
@@ -148,8 +160,15 @@ export function ChatComposer(props: ChatComposerProps) {
           </span>
         </p>
       ) : null}
-      {hasTodos && !isMinimal ? (
+      {(hasQuestionnaire || hasTodos) && !isMinimal ? (
         <div className="relative flex w-full flex-col">
+          {hasQuestionnaire ? (
+            <AgentQuestionnairePanel
+              questionnaire={questionnaire}
+              disabled={disabled || busy}
+              onSubmit={(answers) => onSubmitQuestionnaire?.(answers)}
+            />
+          ) : null}
           <AgentTodoPanel todos={todos} stack />
           <div className="relative z-10 -mt-2 w-full">
             <PromptInput

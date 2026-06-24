@@ -332,6 +332,24 @@ function AssistantMessageActions({
 }
 
 function UserMessageContent({ message }: { message: ChatListItem }) {
+  if (message.questionnaireAnswers?.length) {
+    return (
+      <div className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3">
+        <p className="mb-2 text-sm font-medium text-muted-foreground">Answers</p>
+        <div className="space-y-3">
+          {message.questionnaireAnswers.map((entry) => (
+            <div key={`${entry.questionId}:${entry.prompt}`} className="space-y-1">
+              <p className="whitespace-pre-wrap text-foreground">{entry.prompt}</p>
+              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                {entry.answer}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const pastedTextDocuments =
     message.documents?.filter((document) =>
       isPastedTextDocument(document.filename, document.mediaType),

@@ -62,10 +62,27 @@ export function registerSessionRoutes(app: HonoApp, options: ServerOptions): voi
     content: z.string(),
     status: z.string(),
   }).openapi("AgentTodo");
+  const agentQuestionChoiceSchema = z.object({
+    id: z.string(),
+    label: z.string(),
+  }).openapi("AgentQuestionChoice");
+  const agentQuestionItemSchema = z.object({
+    id: z.string(),
+    prompt: z.string(),
+    allowCustomAnswer: z.boolean(),
+    placeholder: z.string().optional(),
+    choices: z.array(agentQuestionChoiceSchema),
+  }).openapi("AgentQuestionItem");
+  const agentQuestionnaireSchema = z.object({
+    id: z.string(),
+    title: z.string(),
+    questions: z.array(agentQuestionItemSchema),
+  }).openapi("AgentQuestionnaire");
   const sessionMessagesResponseSchema = z.object({
     messages: z.array(z.object({}).passthrough()),
     messageMeta: z.array(sessionMessageMetaSchema),
     todos: z.array(agentTodoSchema),
+    questionnaire: agentQuestionnaireSchema.nullable(),
   }).openapi("SessionMessagesResponse");
   const branchSessionRequestSchema = z.object({ messageIndex: z.number() }).openapi("BranchSessionRequest");
   const branchSessionResponseSchema = z.object({ sessionId: z.string() }).openapi("BranchSessionResponse");
@@ -234,10 +251,12 @@ export function registerSessionRoutes(app: HonoApp, options: ServerOptions): voi
     }
 
     const todos = (await agent.getSessionTodos(sessionId)) ?? [];
+    const questionnaire = (await agent.getSessionQuestionnaire(sessionId)) ?? null;
     return json<SessionMessagesResponse>({
       messages: result.messages,
       messageMeta: result.messageMeta,
       todos,
+      questionnaire,
     });
   });
 

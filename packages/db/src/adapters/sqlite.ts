@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import type { ChatMessage } from "@tinyclaw/core";
+import type { AgentQuestionnaire, ChatMessage } from "@tinyclaw/core";
 import { getUserMessageText } from "@tinyclaw/core";
 import { ensureDatabaseDirectory, resolveDatabasePath } from "../database-url";
 import { migrateDatabase } from "../migrate";
@@ -87,6 +87,7 @@ interface SessionRow {
   created_at: string;
   title: string | null;
   agent_todos: string;
+  agent_questionnaire: string | null;
 }
 
 interface SessionMessageRow {
@@ -367,6 +368,12 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
   );
   const updateSessionTodosStmt = db.prepare(
     "UPDATE sessions SET agent_todos = ? WHERE id = ?",
+  );
+  const getSessionQuestionnaireStmt = db.prepare(
+    "SELECT agent_questionnaire FROM sessions WHERE id = ?",
+  );
+  const updateSessionQuestionnaireStmt = db.prepare(
+    "UPDATE sessions SET agent_questionnaire = ? WHERE id = ?",
   );
 
   const listMessagesForSessionStmt = db.prepare(`
@@ -1108,6 +1115,20 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
       updateSessionTodosStmt.run(JSON.stringify(todos), sessionId);
     },
 
+    async getSessionQuestionnaire(sessionId) {
+      const row = getSessionQuestionnaireStmt.get(sessionId) as {
+        agent_questionnaire: string | null;
+      } | null;
+      return row ? parseAgentQuestionnaire(row.agent_questionnaire) : null;
+    },
+
+    async updateSessionQuestionnaire(sessionId, questionnaire) {
+      updateSessionQuestionnaireStmt.run(
+        questionnaire ? JSON.stringify(questionnaire) : null,
+        sessionId,
+      );
+    },
+
     async deleteSession(id) {
       const result = deleteSessionStmt.run(id);
       return result.changes > 0;
@@ -1465,6 +1486,62 @@ function parseAgentTodos(raw: string | null | undefined): StoredSessionRecord["a
   }
 }
 
+function parseAgentQuestionnaire(raw: string | null | undefined): AgentQuestionnaire | null {
+  if (!raw || raw.trim() === "") {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+
+    if (typeof parsed !== "object" || parsed === null) {
+      return null;
+    }
+
+    const record = parsed as Record<string, unknown>;
+    const questions = record.questions;
+
+    if (
+      typeof record.id !== "string" ||
+      typeof record.title !== "string" ||
+      !Array.isArray(questions)
+    ) {
+      return null;
+    }
+
+    const validQuestions = questions.filter(
+      (item): item is AgentQuestionnaire["questions"][number] =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as { id?: unknown }).id === "string" &&
+        typeof (item as { prompt?: unknown }).prompt === "string" &&
+        typeof (item as { allowCustomAnswer?: unknown }).allowCustomAnswer === "boolean" &&
+        Array.isArray((item as { choices?: unknown }).choices) &&
+        ((item as { choices: unknown[] }).choices).every(
+          (choice) =>
+            typeof choice === "object" &&
+            choice !== null &&
+            typeof (choice as { id?: unknown }).id === "string" &&
+            typeof (choice as { label?: unknown }).label === "string",
+        ) &&
+        ((item as { placeholder?: unknown }).placeholder === undefined ||
+          typeof (item as { placeholder?: unknown }).placeholder === "string"),
+    );
+
+    if (validQuestions.length !== questions.length) {
+      return null;
+    }
+
+    return {
+      id: record.id,
+      title: record.title,
+      questions: validQuestions,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function toSessionRecord(row: SessionRow): StoredSessionRecord {
   return {
     id: row.id,
@@ -1474,6 +1551,7 @@ function toSessionRecord(row: SessionRow): StoredSessionRecord {
     createdAt: row.created_at,
     title: row.title ?? null,
     agentTodos: parseAgentTodos(row.agent_todos),
+    agentQuestionnaire: parseAgentQuestionnaire(row.agent_questionnaire),
   };
 }
 

@@ -56,6 +56,13 @@ export function buildChatSystemPrompt(
       );
     }
 
+    if (tools.some((tool) => tool.name === "ask_user_question")) {
+      sections.push(
+        "Use ask_user_question when you need missing information before you can continue.",
+        "Ask one concise batch at a time, prefer predefined choices when possible, and wait for the user's answers before proceeding.",
+      );
+    }
+
     if (tools.some((tool) => tool.name === "update_profile_memory")) {
       sections.push(
         "Use update_profile_memory to record facts, preferences, and personal context — things you know about the user. Do not use it for step-by-step procedures; use create_skill for those.",

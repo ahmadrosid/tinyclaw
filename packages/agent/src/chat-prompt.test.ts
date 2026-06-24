@@ -37,6 +37,17 @@ test("buildChatSystemPrompt includes todo_write guidance when tool is available"
   expect(prompt).toContain("continue unfinished tasks");
 });
 
+test("buildChatSystemPrompt includes ask_user_question guidance when tool is available", () => {
+  const prompt = buildChatSystemPrompt(
+    [{ name: "ask_user_question", description: "Questions", parameters: { type: "object", properties: {} } }],
+    { enableToolLoop: true },
+  );
+
+  expect(prompt).toContain("ask_user_question");
+  expect(prompt).toContain("missing information");
+  expect(prompt).toContain("wait for the user's answers");
+});
+
 test("buildChatSystemPrompt includes update_profile_memory guidance when tool is available", () => {
   const prompt = buildChatSystemPrompt(
     [{ name: "update_profile_memory", description: "Memory", parameters: { type: "object", properties: {} } }],

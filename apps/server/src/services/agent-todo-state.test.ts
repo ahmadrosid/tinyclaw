@@ -13,6 +13,7 @@ async function createState() {
     createdAt: new Date().toISOString(),
     title: null,
     agentTodos: [],
+    agentQuestionnaire: null,
   });
 
   return { db, state };

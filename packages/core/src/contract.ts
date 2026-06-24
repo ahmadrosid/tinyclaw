@@ -316,6 +316,31 @@ export interface AgentTodo {
   status: AgentTodoStatus;
 }
 
+export interface AgentQuestionChoice {
+  id: string;
+  label: string;
+}
+
+export interface AgentQuestionItem {
+  id: string;
+  prompt: string;
+  choices: AgentQuestionChoice[];
+  allowCustomAnswer: boolean;
+  placeholder?: string;
+}
+
+export interface AgentQuestionnaire {
+  id: string;
+  title: string;
+  questions: AgentQuestionItem[];
+}
+
+export interface AgentQuestionAnswer {
+  questionId: string;
+  prompt: string;
+  answer: string;
+}
+
 export interface SessionMessageMeta {
   id: string;
   seq: number;
@@ -326,6 +351,7 @@ export interface SessionMessagesResponse {
   messages: ChatMessage[];
   messageMeta: SessionMessageMeta[];
   todos: AgentTodo[];
+  questionnaire: AgentQuestionnaire | null;
 }
 
 export interface SessionSummary {
@@ -403,6 +429,7 @@ export type StreamEvent =
       result: unknown;
     }
   | { type: "todos_updated"; todos: AgentTodo[] }
+  | { type: "questionnaire_updated"; questionnaire: AgentQuestionnaire | null }
   | { type: "done"; reply: string }
   | { type: "error"; error: string };
 

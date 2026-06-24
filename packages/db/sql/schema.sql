@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TEXT NOT NULL,
   title TEXT,
   agent_todos TEXT DEFAULT '[]' NOT NULL,
+  agent_questionnaire TEXT,
   FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 );
