@@ -61,6 +61,11 @@ describe("WorkerManagerService", () => {
       expect(service.isValidWorker("whatsapp")).toBe(true);
     });
 
+    test("returns true for automation", () => {
+      const service = new WorkerManagerService(projectRoot, createMockPm2());
+      expect(service.isValidWorker("automation")).toBe(true);
+    });
+
     test("returns false for unknown worker", () => {
       const service = new WorkerManagerService(projectRoot, createMockPm2());
       expect(service.isValidWorker("foobar")).toBe(false);
@@ -81,7 +86,7 @@ describe("WorkerManagerService", () => {
       expect(opts.args).toContain("apps/platform/telegram/src/index.ts");
       expect(opts.interpreter).toBeUndefined();
       expect(opts.name).toBe("telegram");
-      expect(await readWorkerDesiredState()).toEqual({ telegram: true, whatsapp: false });
+      expect(await readWorkerDesiredState()).toEqual({ telegram: true, whatsapp: false, automation: true });
     });
 
     test("starts whatsapp worker", async () => {
@@ -96,6 +101,21 @@ describe("WorkerManagerService", () => {
       expect(opts.script).toBe("bun");
       expect(opts.args).toContain("apps/platform/whatsapp/src/index.ts");
       expect(opts.interpreter).toBeUndefined();
+    });
+
+    test("starts automation worker", async () => {
+      const mockPm2 = createMockPm2();
+      const service = new WorkerManagerService(projectRoot, mockPm2);
+
+      await service.startWorker("automation");
+
+      expect(mockPm2.start).toHaveBeenCalledTimes(1);
+      const opts = (mockPm2.start as ReturnType<typeof mock>).mock.calls[0][0];
+      expect(opts.name).toBe("automation");
+      expect(opts.script).toBe("bun");
+      expect(opts.args).toContain("apps/platform/automation/src/index.ts");
+      expect(opts.interpreter).toBeUndefined();
+      expect(await readWorkerDesiredState()).toEqual({ telegram: false, whatsapp: false, automation: true });
     });
 
     test("starts worker from dist when dist build exists", async () => {
@@ -132,6 +152,23 @@ describe("WorkerManagerService", () => {
       await rm(tmpProjectRoot, { recursive: true, force: true });
     });
 
+    test("starts automation worker from dist when dist build exists", async () => {
+      const tmpProjectRoot = await mkdtemp(join(tmpdir(), "tinyclaw-worker-dist-"));
+      const distFilePath = join(tmpProjectRoot, "apps/platform/automation/dist/index.js");
+      await mkdir(join(tmpProjectRoot, "apps/platform/automation/dist"), { recursive: true });
+      await writeFile(distFilePath, "console.log('ok')");
+
+      const mockPm2 = createMockPm2();
+      const service = new WorkerManagerService(tmpProjectRoot, mockPm2);
+
+      await service.startWorker("automation");
+
+      const opts = (mockPm2.start as ReturnType<typeof mock>).mock.calls[0][0];
+      expect(opts.args).toContain("apps/platform/automation/dist/index.js");
+
+      await rm(tmpProjectRoot, { recursive: true, force: true });
+    });
+
     test("throws for unknown worker", async () => {
       const service = new WorkerManagerService(projectRoot, createMockPm2());
       expect(service.startWorker("foobar")).rejects.toThrow("Unknown worker");
@@ -156,7 +193,7 @@ describe("WorkerManagerService", () => {
       await service.stopWorker("telegram");
 
       expect(mockPm2.stop).toHaveBeenCalledWith("telegram", expect.any(Function));
-      expect(await readWorkerDesiredState()).toEqual({ telegram: false, whatsapp: false });
+      expect(await readWorkerDesiredState()).toEqual({ telegram: false, whatsapp: false, automation: true });
     });
 
     test("throws for unknown worker", async () => {
@@ -383,10 +420,26 @@ describe("WorkerManagerService", () => {
       );
       const service = new WorkerManagerService(projectRoot, mockPm2);
 
+      await setWorkerDesiredRunning("automation", false);
       await setWorkerDesiredRunning("telegram", true);
       await service.recoverDesiredWorkers();
 
       expect(mockPm2.start).toHaveBeenCalledTimes(1);
+    });
+
+    test("recovers automation worker when desired", async () => {
+      const mockPm2 = createMockPm2();
+      mockPm2.list = mock((cb: (err: Error | null, list: unknown[]) => void) =>
+        cb(null, []),
+      );
+      const service = new WorkerManagerService(projectRoot, mockPm2);
+
+      await setWorkerDesiredRunning("automation", true);
+      await service.recoverDesiredWorkers();
+
+      const calls = (mockPm2.start as ReturnType<typeof mock>).mock.calls;
+      const opts = calls[0]?.[0];
+      expect(opts?.name).toBe("automation");
     });
 
     test("skips workers that are already online", async () => {
@@ -402,6 +455,7 @@ describe("WorkerManagerService", () => {
       );
       const service = new WorkerManagerService(projectRoot, mockPm2);
 
+      await setWorkerDesiredRunning("automation", false);
       await setWorkerDesiredRunning("telegram", true);
       await service.recoverDesiredWorkers();
 

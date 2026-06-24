@@ -2,14 +2,15 @@ import { join } from "node:path";
 import { readTextOrNull, writePrivateTextFile } from "./fs";
 import { getUserConfigDir } from "./user-config";
 
-export type PlatformWorkerName = "telegram" | "whatsapp";
+export type PlatformWorkerName = "telegram" | "whatsapp" | "automation";
 
 export interface WorkerDesiredState {
   telegram: boolean;
   whatsapp: boolean;
+  automation: boolean;
 }
 
-const DEFAULT_STATE: WorkerDesiredState = { telegram: false, whatsapp: false };
+const DEFAULT_STATE: WorkerDesiredState = { telegram: false, whatsapp: false, automation: true };
 
 function getWorkerDesiredStatePath(): string {
   return join(getUserConfigDir(), "runtime", "worker-desired-state.json");
@@ -28,6 +29,7 @@ export function parseWorkerDesiredState(raw: string): WorkerDesiredState {
     return {
       telegram: record.telegram === true,
       whatsapp: record.whatsapp === true,
+      automation: record.automation === undefined ? true : record.automation === true,
     };
   } catch {
     return { ...DEFAULT_STATE };
