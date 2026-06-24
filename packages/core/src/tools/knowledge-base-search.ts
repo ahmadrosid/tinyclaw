@@ -1,25 +1,30 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "../contract";
 import { getKnowledgeBaseDir, getKnowledgeBaseExtractedPath } from "../knowledge-base/paths";
 import { ensureKnowledgeBaseDirs, listKnowledgeBaseDocuments } from "../knowledge-base/store";
 import { getProfileSoulDir } from "../soul/resolve";
+import { buildRipgrepArgs, runRipgrep, type RipgrepMatch } from "./ripgrep";
 import {
-  buildRipgrepArgs,
-  readMaxResults,
-  readOptionalBoolean,
-  readOptionalString,
-  readRequiredString,
-  runRipgrep,
-  type RipgrepMatch,
-} from "./ripgrep";
+  jsonSchemaFromZod,
+  maxResultsSchema,
+  optionalRegexFlag,
+  parseToolInput,
+  requiredTrimmedString,
+  trimmedOptionalString,
+} from "./schema";
 
-export interface KnowledgeBaseSearchInput {
-  query: string;
-  filename?: string;
-  regex?: boolean;
-  maxResults?: number;
-}
+export const knowledgeBaseSearchInputSchema = z
+  .object({
+    query: requiredTrimmedString("query"),
+    filename: trimmedOptionalString,
+    regex: optionalRegexFlag,
+    maxResults: maxResultsSchema,
+  })
+  .strict();
+
+export type KnowledgeBaseSearchInput = z.infer<typeof knowledgeBaseSearchInputSchema>;
 
 export interface KnowledgeBaseSearchMatch extends RipgrepMatch {}
 
@@ -42,30 +47,7 @@ export const knowledgeBaseSearchTool: ToolDefinition<
   name: "knowledge_base_search",
   description:
     "Search uploaded knowledge base documents for relevant facts. Use this for project data and reference docs instead of guessing or loading full files into context.",
-  parameters: {
-    type: "object",
-    properties: {
-      query: {
-        type: "string",
-        description: "Keyword or regex pattern to search for in knowledge base documents.",
-      },
-      filename: {
-        type: "string",
-        description:
-          "Optional source filename filter (e.g. report.pdf) to narrow search to one document.",
-      },
-      regex: {
-        type: "boolean",
-        description: "Treat query as regex when true. Defaults to true.",
-      },
-      maxResults: {
-        type: "number",
-        description: "Maximum number of matches to return. Defaults to 50, max 200.",
-      },
-    },
-    required: ["query"],
-    additionalProperties: false,
-  },
+  parameters: jsonSchemaFromZod(knowledgeBaseSearchInputSchema),
   run(input, context) {
     return runKnowledgeBaseSearch(input, context);
   },
@@ -82,21 +64,18 @@ export async function runKnowledgeBaseSearch(
     throw new Error("orgId and profileId are required.");
   }
 
-  const query = readRequiredString(input, "query");
-  const filename = readOptionalString(input, "filename");
-  const regex = readOptionalBoolean(input, "regex") ?? true;
-  const maxResults = readMaxResults(input);
+  const parsed = parseToolInput(knowledgeBaseSearchInputSchema, input);
 
   await ensureKnowledgeBaseDirs(orgId, profileId);
 
   const workspaceRoot = await resolveWorkspaceRoot(
     options.workspaceRoot ?? getProfileSoulDir(orgId, profileId),
   );
-  const searchTarget = await resolveSearchTarget(orgId, profileId, filename);
+  const searchTarget = await resolveSearchTarget(orgId, profileId, parsed.filename ?? null);
 
   if (searchTarget.kind === "missing") {
     return {
-      query,
+      query: parsed.query,
       root: searchTarget.root,
       matches: [],
       matchCount: 0,
@@ -105,21 +84,21 @@ export async function runKnowledgeBaseSearch(
   }
 
   const args = buildRipgrepArgs({
-    query,
+    query: parsed.query,
     searchRoot: searchTarget.root,
     glob: searchTarget.glob,
-    regex,
-    maxResults,
+    regex: parsed.regex,
+    maxResults: parsed.maxResults,
   });
 
   const searchResult = await runRipgrep(args, {
     workspaceRoot,
     searchRoot: searchTarget.root,
-    maxResults,
+    maxResults: parsed.maxResults,
   });
 
   return {
-    query,
+    query: parsed.query,
     root: searchTarget.root,
     matches: searchResult.matches,
     matchCount: searchResult.matches.length,

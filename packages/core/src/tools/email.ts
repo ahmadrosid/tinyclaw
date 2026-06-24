@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { JsonSchema, ToolDefinition } from "../contract";
+import type { ToolDefinition } from "../contract";
 import {
   emailConfigToMailboxConfig,
   isEmailConfigComplete,
@@ -11,6 +11,7 @@ import { createSmtpSender } from "../mail/smtp-sender";
 import { sanitizeMailError } from "../mail/sanitize";
 import type { MailReader, MailSender } from "../mail/types";
 import { MAX_EMAIL_BODY_BYTES } from "../mail/types";
+import { jsonSchemaFromZod, parseToolInput } from "./schema";
 
 const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -80,9 +81,8 @@ export const emailInputSchema = z.discriminatedUnion("action", [
 export type EmailAction = z.infer<typeof emailInputSchema>["action"];
 export type EmailToolInput = z.infer<typeof emailInputSchema>;
 
-export function emailParameters(): JsonSchema {
-  const { $schema, ...schema } = emailInputSchema.toJSONSchema();
-  return schema as JsonSchema;
+export function emailParameters() {
+  return jsonSchemaFromZod(emailInputSchema);
 }
 
 export interface EmailToolSuccess {
@@ -124,14 +124,7 @@ export interface EmailToolDependencies {
 }
 
 function parseEmailToolInput(input: unknown): EmailToolInput {
-  try {
-    return emailInputSchema.parse(input);
-  } catch (err) {
-    if (err instanceof z.ZodError) {
-      throw new Error(err.issues[0]?.message ?? "Invalid email tool input.");
-    }
-    throw err;
-  }
+  return parseToolInput(emailInputSchema, input);
 }
 
 export async function runEmailTool(

@@ -1,25 +1,34 @@
 import { realpath } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "../contract";
 import { getProfileSoulDir } from "../soul/resolve";
 import { guardFilePath } from "./paths";
 import {
   buildRipgrepArgs,
-  readMaxResults,
-  readOptionalBoolean,
-  readOptionalString,
-  readRequiredString,
   runRipgrep,
   type RipgrepMatch,
 } from "./ripgrep";
+import {
+  jsonSchemaFromZod,
+  maxResultsSchema,
+  optionalRegexFlag,
+  parseToolInput,
+  requiredTrimmedString,
+  trimmedOptionalString,
+} from "./schema";
 
-export interface SearchFilesInput {
-  query: string;
-  path?: string;
-  glob?: string;
-  regex?: boolean;
-  maxResults?: number;
-}
+export const searchFilesInputSchema = z
+  .object({
+    query: requiredTrimmedString("query"),
+    path: trimmedOptionalString,
+    glob: trimmedOptionalString,
+    regex: optionalRegexFlag,
+    maxResults: maxResultsSchema,
+  })
+  .strict();
+
+export type SearchFilesInput = z.infer<typeof searchFilesInputSchema>;
 
 export interface SearchFilesMatch extends RipgrepMatch {}
 
@@ -39,33 +48,7 @@ export const searchFilesTool: ToolDefinition<SearchFilesInput, SearchFilesOutput
   name: "search_files",
   description:
     "Search text in files under the active profile workspace and return compact matching snippets.",
-  parameters: {
-    type: "object",
-    properties: {
-      query: {
-        type: "string",
-        description: "Keyword or regex pattern to search for.",
-      },
-      path: {
-        type: "string",
-        description: "Optional file or subdirectory within the profile workspace.",
-      },
-      glob: {
-        type: "string",
-        description: "Optional ripgrep glob filter such as *.md or data/**.",
-      },
-      regex: {
-        type: "boolean",
-        description: "Treat query as regex when true. Defaults to true.",
-      },
-      maxResults: {
-        type: "number",
-        description: "Maximum number of matches to return. Defaults to 50, max 200.",
-      },
-    },
-    required: ["query"],
-    additionalProperties: false,
-  },
+  parameters: jsonSchemaFromZod(searchFilesInputSchema),
   run(input, context) {
     return runSearchFiles(input, context);
   },
@@ -82,32 +65,28 @@ export async function runSearchFiles(
     throw new Error("orgId and profileId are required.");
   }
 
-  const query = readRequiredString(input, "query");
-  const subPath = readOptionalString(input, "path");
-  const glob = readOptionalString(input, "glob");
-  const regex = readOptionalBoolean(input, "regex") ?? true;
-  const maxResults = readMaxResults(input);
+  const parsed = parseToolInput(searchFilesInputSchema, input);
 
   const workspaceRoot = await resolveWorkspaceRoot(
     options.workspaceRoot ?? getProfileSoulDir(orgId, profileId),
   );
-  const searchRoot = await resolveSearchRoot(workspaceRoot, subPath);
+  const searchRoot = await resolveSearchRoot(workspaceRoot, parsed.path ?? null);
   const args = buildRipgrepArgs({
-    query,
+    query: parsed.query,
     searchRoot,
-    glob,
-    regex,
-    maxResults,
+    glob: parsed.glob ?? null,
+    regex: parsed.regex,
+    maxResults: parsed.maxResults,
   });
 
   const searchResult = await runRipgrep(args, {
     workspaceRoot,
     searchRoot,
-    maxResults,
+    maxResults: parsed.maxResults,
   });
 
   return {
-    query,
+    query: parsed.query,
     root: searchRoot,
     matches: searchResult.matches,
     matchCount: searchResult.matches.length,

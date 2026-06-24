@@ -1,15 +1,20 @@
 import { join } from "node:path";
+import { z } from "zod";
 import type { ToolContext, ToolDefinition } from "../contract";
 import { readTextIfExists, writePrivateTextFile } from "../fs";
 import { getProfileSoulDir } from "../soul/resolve";
 import { MEMORY_TEMPLATE } from "../soul/templates";
-import { readRequiredString } from "./ripgrep";
+import { jsonSchemaFromZod, parseToolInput, requiredTrimmedString } from "./schema";
 
 export const MEMORY_MAX_BYTES = 4096;
 
-export interface MemoryAppendInput {
-  content: string;
-}
+export const updateProfileMemoryInputSchema = z
+  .object({
+    content: requiredTrimmedString("content"),
+  })
+  .strict();
+
+export type MemoryAppendInput = z.infer<typeof updateProfileMemoryInputSchema>;
 
 export interface MemoryAppendOutput {
   path: string;
@@ -40,17 +45,7 @@ export const updateProfileMemoryTool: ToolDefinition<
   name: "update_profile_memory",
   description:
     "Record a fact, preference, decision, or observation in the active profile's MEMORY.md for cross-session continuity. Creates MEMORY.md if it doesn't exist. Use for things you know about the user — not step-by-step procedures (use create_skill for those).",
-  parameters: {
-    type: "object",
-    properties: {
-      content: {
-        type: "string",
-        description: "Fact, preference, or observation to remember across sessions.",
-      },
-    },
-    required: ["content"],
-    additionalProperties: false,
-  },
+  parameters: jsonSchemaFromZod(updateProfileMemoryInputSchema),
   run(input, context) {
     return runUpdateProfileMemory(input, context);
   },
@@ -66,7 +61,7 @@ export async function runUpdateProfileMemory(
     throw new Error("orgId and profileId are required.");
   }
 
-  const content = readRequiredString(input, "content");
+  const { content } = parseToolInput(updateProfileMemoryInputSchema, input);
 
   const soulDir = getProfileSoulDir(orgId, profileId);
   const memoryPath = join(soulDir, "MEMORY.md");
