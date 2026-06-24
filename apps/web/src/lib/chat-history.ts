@@ -25,6 +25,52 @@ export function readRequestedProfileFromNewChatSearch(search: string): string | 
   return profileId || null;
 }
 
+/** Draft message from `?new=1&draft=…` when opening a new chat. */
+export function readRequestedDraftFromNewChatSearch(search: string): string | null {
+  const params = new URLSearchParams(search);
+  if (params.get("new") !== "1") {
+    return null;
+  }
+
+  const draft = params.get("draft");
+  return draft ?? null;
+}
+
+/** Session-storage draft key from `?new=1&draftKey=…`. */
+export function readRequestedDraftKeyFromNewChatSearch(search: string): string | null {
+  const params = new URLSearchParams(search);
+  if (params.get("new") !== "1") {
+    return null;
+  }
+
+  const draftKey = params.get("draftKey")?.trim();
+  return draftKey || null;
+}
+
+export const CHAT_DRAFT_STORAGE_PREFIX = "tinyclaw:chat-draft:";
+
+export function consumeStoredChatDraft(key: string): string | null {
+  if (typeof sessionStorage === "undefined") {
+    return null;
+  }
+
+  const value = sessionStorage.getItem(`${CHAT_DRAFT_STORAGE_PREFIX}${key}`);
+
+  if (value !== null) {
+    sessionStorage.removeItem(`${CHAT_DRAFT_STORAGE_PREFIX}${key}`);
+  }
+
+  return value;
+}
+
+export function storeChatDraft(draft: string): string {
+  const key = `d${Date.now()}`;
+  sessionStorage.setItem(`${CHAT_DRAFT_STORAGE_PREFIX}${key}`, draft);
+  return key;
+}
+
+export const MAX_URL_CHAT_DRAFT_LENGTH = 1500;
+
 export function chatProfileIdFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/chat\/([^/]+)\//);
   return match?.[1] ? decodeURIComponent(match[1]) : null;

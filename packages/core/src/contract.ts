@@ -963,6 +963,24 @@ export interface AssignToolRequest {
   toolId: string;
 }
 
+export interface RunToolRequest {
+  parameters: Record<string, unknown>;
+}
+
+export interface RunToolResponse {
+  ok: boolean;
+  result?: unknown;
+  error?: string;
+}
+
+export interface SuggestToolParamsRequest {
+  prompt: string;
+}
+
+export interface SuggestToolParamsResponse {
+  parameters: Record<string, unknown>;
+}
+
 import type { SoulFileStatus, SoulStackFiles } from "./soul/types";
 
 export type { SoulFileStatus, SoulStackFiles } from "./soul/types";

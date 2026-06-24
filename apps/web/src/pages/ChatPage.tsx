@@ -17,10 +17,14 @@ import {
   buildChatPath,
   chatMessagesToListItems,
   parseChatRouteParams,
+  readRequestedDraftFromNewChatSearch,
+  readRequestedDraftKeyFromNewChatSearch,
+  consumeStoredChatDraft,
   readRequestedProfileFromNewChatSearch,
   sessionStorageKey,
   type ChatListItem,
 } from "@/lib/chat-history";
+import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
 import {
   appendOutgoingMessages,
   buildStreamHandlers,
@@ -62,6 +66,7 @@ export function ChatPage() {
   const [branchingMessageId, setBranchingMessageId] = useState<string | null>(null);
   const [canStop, setCanStop] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [composerDraft, setComposerDraft] = useState("");
   const streamAbortRef = useRef<AbortController | null>(null);
   const skipNextProfileSessionRef = useRef(false);
   const loadedRouteRef = useRef<string | null>(null);
@@ -287,6 +292,11 @@ export function ChatPage() {
     }
 
     const requestedProfile = searchParams.get("profile")?.trim() || null;
+    const inlineDraft = readRequestedDraftFromNewChatSearch(location.search);
+    const draftKey = readRequestedDraftKeyFromNewChatSearch(location.search);
+    const storedDraft = draftKey ? consumeStoredChatDraft(draftKey) : null;
+    const requestedDraft = inlineDraft ?? storedDraft;
+
     setSearchParams({}, { replace: true });
 
     const targetProfileId = requestedProfile || profileId;
@@ -300,8 +310,12 @@ export function ChatPage() {
       setProfileId(requestedProfile);
     }
 
+    if (requestedDraft) {
+      setComposerDraft(requestedDraft);
+    }
+
     enterDraftChat(targetProfileId);
-  }, [searchParams, setSearchParams, profileId, enterDraftChat]);
+  }, [searchParams, setSearchParams, profileId, enterDraftChat, location.search]);
 
   useEffect(() => {
     if (!profileId) {
@@ -536,30 +550,35 @@ export function ChatPage() {
   const isEmptyState = messages.length === 0 && !busy;
 
   const composer = (
-    <ChatComposer
-      className={isEmptyState && !error ? "py-0 [&>p:first-child]:min-h-0" : "py-0"}
-      chatStatus={chatStatus}
-      busy={busy}
-      canStop={canStop}
-      disabled={!profileId}
-      error={error}
-      profileId={profileId}
-      profiles={profiles}
-      activeProfile={activeProfile}
-      onProfileSwitch={handleProfileSwitch}
-      showOfflineHint={showOfflineHint}
-      providerConfigured={health?.providerConfigured}
-      onNavigateSetup={() => navigate(SETUP_PATH)}
-      providerModelGroups={providerModelGroups}
-      profileModelId={extractModelId(activeProfile?.model)}
-      currentModelSelection={currentModelSelection}
-      primarySupportsVision={activeModelSupportsVision}
-      onModelChange={handleModelChange}
-      renderModelLabel={renderModelLabel}
-      todos={agentTodos}
-      onSubmit={(text, files) => void sendMessage(text, files)}
-      onStop={stopStreaming}
-    />
+    <PromptInputProvider key={composerDraft || "empty"} initialInput={composerDraft}>
+      <ChatComposer
+        className={isEmptyState && !error ? "py-0 [&>p:first-child]:min-h-0" : "py-0"}
+        chatStatus={chatStatus}
+        busy={busy}
+        canStop={canStop}
+        disabled={!profileId}
+        error={error}
+        profileId={profileId}
+        profiles={profiles}
+        activeProfile={activeProfile}
+        onProfileSwitch={handleProfileSwitch}
+        showOfflineHint={showOfflineHint}
+        providerConfigured={health?.providerConfigured}
+        onNavigateSetup={() => navigate(SETUP_PATH)}
+        providerModelGroups={providerModelGroups}
+        profileModelId={extractModelId(activeProfile?.model)}
+        currentModelSelection={currentModelSelection}
+        primarySupportsVision={activeModelSupportsVision}
+        onModelChange={handleModelChange}
+        renderModelLabel={renderModelLabel}
+        todos={agentTodos}
+        onSubmit={(text, files) => {
+          setComposerDraft("");
+          void sendMessage(text, files);
+        }}
+        onStop={stopStreaming}
+      />
+    </PromptInputProvider>
   );
 
   if (isEmptyState) {

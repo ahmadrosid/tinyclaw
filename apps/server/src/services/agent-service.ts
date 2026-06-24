@@ -1,6 +1,8 @@
 import {
   createAgentHarness,
   draftTaskPromptFromFields,
+  executeToolCall,
+  suggestToolParamsFromPrompt,
   type AgentChatSession,
   type AgentHarness,
   type CompactionConfig,
@@ -26,6 +28,8 @@ import type {
   ProfileResponse,
   ToolResponse,
   ToolSourceResponse,
+  RunToolResponse,
+  SuggestToolParamsResponse,
   ConfigureProviderRequest,
   ConfigureProviderResponse,
   CreateProviderRequest,
@@ -161,6 +165,11 @@ import type { SkillsService } from "./skills-service";
 import { SessionTitleService } from "./session-title-service";
 import { SuperBotSessionState } from "./super-bot-session-state";
 import { resolveProfileStoredTools } from "./tool-resolver";
+import {
+  invalidateJavascriptModuleCache,
+  loadJavascriptTool,
+  resolveJavascriptModulePath,
+} from "./javascript-tool-loader";
 import { wrapProviderWithUsageTracking } from "../providers/usage-tracking";
 import type { LlmUsageTracker } from "./llm-usage-tracker";
 import {
@@ -1307,6 +1316,93 @@ export class AgentService {
 
   async deleteTool(toolId: string): Promise<void> {
     return this.profileService.deleteTool(toolId);
+  }
+
+  async runToolPlayground(
+    toolId: string,
+    parameters: Record<string, unknown>,
+    context: { orgId: string; userId: string },
+  ): Promise<RunToolResponse> {
+    const { tool } = await this.profileService.getTool(toolId);
+
+    if (tool.handlerType !== "javascript") {
+      throw new Error("Only custom JavaScript tools can be run in the playground.");
+    }
+
+    const record = await this.db.getTool(toolId);
+
+    if (!record) {
+      throw new Error("Tool not found.");
+    }
+
+    const handlerConfig =
+      typeof record.handlerConfig === "object" && record.handlerConfig !== null
+        ? (record.handlerConfig as { modulePath?: string })
+        : null;
+
+    if (handlerConfig?.modulePath) {
+      try {
+        invalidateJavascriptModuleCache(
+          resolveJavascriptModulePath(handlerConfig.modulePath),
+        );
+      } catch {
+        // Invalid module paths fail when loading the tool.
+      }
+    }
+
+    const loaded = await loadJavascriptTool(record);
+
+    if (!loaded) {
+      throw new Error(`Failed to load tool "${tool.name}".`);
+    }
+
+    const raw = await executeToolCall(
+      [loaded],
+      { name: loaded.name, arguments: parameters },
+      { orgId: context.orgId, userId: context.userId },
+    );
+
+    if (
+      raw !== null &&
+      typeof raw === "object" &&
+      "error" in raw &&
+      typeof (raw as { error?: unknown }).error === "string"
+    ) {
+      return { ok: false, error: (raw as { error: string }).error };
+    }
+
+    return { ok: true, result: raw };
+  }
+
+  async suggestToolPlaygroundParams(
+    toolId: string,
+    prompt: string,
+  ): Promise<SuggestToolParamsResponse> {
+    const { tool } = await this.profileService.getTool(toolId);
+
+    if (tool.handlerType !== "javascript") {
+      throw new Error("Only custom JavaScript tools support parameter suggestions.");
+    }
+
+    const record = await this.db.getTool(toolId);
+
+    if (!record) {
+      throw new Error("Tool not found.");
+    }
+
+    const loaded = await loadJavascriptTool(record);
+    const provider = createProviderFromSources(process.env, this.userConfig);
+    const parameters = await suggestToolParamsFromPrompt(
+      {
+        toolName: tool.name,
+        description: tool.description,
+        parameters: loaded?.parameters,
+        prompt,
+      },
+      { provider: provider ?? undefined },
+    );
+
+    return { parameters };
   }
 
   async listProfileTools(orgId: string, profileId: string): Promise<ListToolsResponse> {

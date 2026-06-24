@@ -4,11 +4,20 @@ import type {
   CreateToolRequest,
   ListToolsResponse,
   ProfileResponse,
+  RunToolRequest,
+  RunToolResponse,
+  SuggestToolParamsRequest,
+  SuggestToolParamsResponse,
   ToolResponse,
   ToolSourceResponse,
 } from "@tinyclaw/core";
 import { json, readJson } from "../shared";
-import { requirePlatformAdminFromContext, requireActiveOrgIdFromContext } from "../org-guards";
+import {
+  requireOrgAdminFromContext,
+  requireOrgAdminOrPlatformAdminFromContext,
+  requirePlatformAdminFromContext,
+  requireActiveOrgIdFromContext,
+} from "../org-guards";
 import type { HonoApp } from "../types";
 import type { ServerOptions } from "../context";
 
@@ -32,6 +41,13 @@ export function registerToolRoutes(app: HonoApp, options: ServerOptions): void {
   const toolSourceSchema = z.object({}).passthrough().openapi("ToolSourceResponse");
   const assignToolSchema = z.object({}).passthrough().openapi("AssignToolRequest");
   const profileSchema = z.object({}).passthrough().openapi("ProfileResponse");
+  const runToolSchema = z.object({}).passthrough().openapi("RunToolRequest");
+  const runToolResponseSchema = z.object({}).passthrough().openapi("RunToolResponse");
+  const suggestToolParamsSchema = z.object({}).passthrough().openapi("SuggestToolParamsRequest");
+  const suggestToolParamsResponseSchema = z
+    .object({})
+    .passthrough()
+    .openapi("SuggestToolParamsResponse");
 
   app.openAPIRegistry.registerPath(createRoute({
     method: "get",
@@ -92,6 +108,47 @@ export function registerToolRoutes(app: HonoApp, options: ServerOptions): void {
     },
   }));
   app.openAPIRegistry.registerPath(createRoute({
+    method: "post",
+    path: "/v1/tools/{toolId}/run",
+    tags: ["Tools"],
+    summary: "Run a custom JavaScript tool in the playground",
+    operationId: "runTool",
+    request: {
+      params: toolIdParam,
+      body: { required: true, content: { "application/json": { schema: runToolSchema } } },
+    },
+    responses: {
+      200: {
+        description: "Tool run result",
+        content: { "application/json": { schema: runToolResponseSchema } },
+      },
+      400: { description: "Error", content: { "application/json": { schema: errorSchema } } },
+      403: { description: "Error", content: { "application/json": { schema: errorSchema } } },
+    },
+  }));
+  app.openAPIRegistry.registerPath(createRoute({
+    method: "post",
+    path: "/v1/tools/{toolId}/params/suggest",
+    tags: ["Tools"],
+    summary: "Suggest playground parameters for a tool",
+    operationId: "suggestToolParams",
+    request: {
+      params: toolIdParam,
+      body: {
+        required: true,
+        content: { "application/json": { schema: suggestToolParamsSchema } },
+      },
+    },
+    responses: {
+      200: {
+        description: "Suggested parameters",
+        content: { "application/json": { schema: suggestToolParamsResponseSchema } },
+      },
+      400: { description: "Error", content: { "application/json": { schema: errorSchema } } },
+      403: { description: "Error", content: { "application/json": { schema: errorSchema } } },
+    },
+  }));
+  app.openAPIRegistry.registerPath(createRoute({
     method: "get",
     path: "/v1/profiles/{profileId}/tools",
     tags: ["Profiles", "Tools"],
@@ -139,14 +196,14 @@ export function registerToolRoutes(app: HonoApp, options: ServerOptions): void {
   });
 
   app.get("/v1/tools/:toolId/source", async (c) => {
-    requirePlatformAdminFromContext(c);
+    requireOrgAdminOrPlatformAdminFromContext(c);
     return json<ToolSourceResponse>(
       await agent.getToolSource(decodeURIComponent(c.req.param("toolId"))),
     );
   });
 
   app.get("/v1/tools/:toolId", async (c) => {
-    requirePlatformAdminFromContext(c);
+    requireOrgAdminOrPlatformAdminFromContext(c);
     return json<ToolResponse>(await agent.getTool(decodeURIComponent(c.req.param("toolId"))));
   });
 
@@ -154,6 +211,42 @@ export function registerToolRoutes(app: HonoApp, options: ServerOptions): void {
     requirePlatformAdminFromContext(c);
     await agent.deleteTool(decodeURIComponent(c.req.param("toolId")));
     return new Response(null, { status: 204 });
+  });
+
+  app.post("/v1/tools/:toolId/run", async (c) => {
+    const auth = requireOrgAdminFromContext(c);
+    const orgId = requireActiveOrgIdFromContext(c);
+    const toolId = decodeURIComponent(c.req.param("toolId"));
+    const body = await readJson<RunToolRequest>(c.req.raw);
+
+    try {
+      return json<RunToolResponse>(
+        await agent.runToolPlayground(toolId, body.parameters ?? {}, {
+          orgId,
+          userId: auth.user.id,
+        }),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes("not found") ? 404 : 400;
+      return json({ error: message }, status);
+    }
+  });
+
+  app.post("/v1/tools/:toolId/params/suggest", async (c) => {
+    requireOrgAdminFromContext(c);
+    const toolId = decodeURIComponent(c.req.param("toolId"));
+    const body = await readJson<SuggestToolParamsRequest>(c.req.raw);
+
+    try {
+      return json<SuggestToolParamsResponse>(
+        await agent.suggestToolPlaygroundParams(toolId, body.prompt ?? ""),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes("not found") ? 404 : 400;
+      return json({ error: message }, status);
+    }
   });
 
   app.get("/v1/profiles/:profileId/tools", async (c) => {

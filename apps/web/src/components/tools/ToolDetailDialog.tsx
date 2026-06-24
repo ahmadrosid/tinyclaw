@@ -14,12 +14,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToolQuery, useToolSourceQuery } from "@/hooks/use-app-queries";
 import { formatError } from "@/lib/client";
 import { cn } from "@/lib/utils";
+import { ToolPlaygroundPanel } from "@/components/tools/ToolPlaygroundPanel";
 
 const SHARED_BUILTIN_FILE = "packages/core/src/tools/builtin.ts";
 
 interface ToolDetailDialogProps {
   toolId: string | null;
   busy: boolean;
+  isOrgAdmin: boolean;
+  superBotProfileId: string | null;
   onOpenChange: (open: boolean) => void;
   onDelete: (toolId: string, toolName: string) => void;
 }
@@ -55,6 +58,8 @@ function isEmptyHandlerConfig(handlerConfig: unknown): boolean {
 export function ToolDetailDialog({
   toolId,
   busy,
+  isOrgAdmin,
+  superBotProfileId,
   onOpenChange,
   onDelete,
 }: ToolDetailDialogProps) {
@@ -145,6 +150,10 @@ export function ToolDetailDialog({
                   </pre>
                 )}
               </div>
+
+              {isOrgAdmin && tool.handlerType === "javascript" ? (
+                <ToolPlaygroundPanel tool={tool} superBotProfileId={superBotProfileId} />
+              ) : null}
 
               <div className="space-y-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">

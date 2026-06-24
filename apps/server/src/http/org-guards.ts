@@ -27,6 +27,22 @@ export function requireOrgAdminFromContext(c: Context<AppEnv>): RequestAuthConte
   return auth;
 }
 
+export function requireOrgAdminOrPlatformAdmin(auth: RequestAuthContext): void {
+  if (auth.orgRole === "admin" || auth.isPlatformAdmin) {
+    return;
+  }
+
+  throw new TinyClawApiError("Forbidden", 403);
+}
+
+export function requireOrgAdminOrPlatformAdminFromContext(
+  c: Context<AppEnv>,
+): RequestAuthContext {
+  const auth = getRequestAuth(c);
+  requireOrgAdminOrPlatformAdmin(auth);
+  return auth;
+}
+
 export function requireNotViewerFromContext(c: Context<AppEnv>): RequestAuthContext {
   const auth = getRequestAuth(c);
   requireNotViewer(auth);

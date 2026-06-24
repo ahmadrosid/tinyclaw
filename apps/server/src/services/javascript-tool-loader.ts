@@ -129,6 +129,10 @@ async function importJavascriptModule(
   return module;
 }
 
+export function invalidateJavascriptModuleCache(modulePath: string): void {
+  moduleCache.delete(modulePath);
+}
+
 function normalizeJavascriptModule(imported: unknown): JavascriptToolModule {
   if (typeof imported !== "object" || imported === null) {
     throw new Error("Tool module must export a run function.");

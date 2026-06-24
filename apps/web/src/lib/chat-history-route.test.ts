@@ -3,6 +3,8 @@ import {
   buildChatPath,
   chatProfileIdFromPath,
   parseChatRouteParams,
+  readRequestedDraftFromNewChatSearch,
+  readRequestedDraftKeyFromNewChatSearch,
   readRequestedProfileFromNewChatSearch,
   sessionStorageKey,
 } from "./chat-history";
@@ -21,6 +23,12 @@ describe("chat history route helpers", () => {
   test("reads the requested profile only for new chat links", () => {
     expect(readRequestedProfileFromNewChatSearch("?new=1&profile=default")).toBe("default");
     expect(readRequestedProfileFromNewChatSearch("?profile=default")).toBeNull();
+  });
+
+  test("reads draft params for new chat links", () => {
+    expect(readRequestedDraftFromNewChatSearch("?new=1&draft=fix%20tool")).toBe("fix tool");
+    expect(readRequestedDraftKeyFromNewChatSearch("?new=1&draftKey=abc")).toBe("abc");
+    expect(readRequestedDraftFromNewChatSearch("?draft=fix")).toBeNull();
   });
 
   test("uses a profile-scoped session storage key", () => {

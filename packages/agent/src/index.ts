@@ -60,6 +60,12 @@ export type {
 export type { CompactionConfig } from "./history-compaction";
 export type { DraftTaskPromptInput } from "./task-prompt";
 export { draftTaskPromptFromFields } from "./task-prompt";
+export { executeToolCall } from "./tool-loop";
+export {
+  suggestToolParamsFromPrompt,
+  parseSuggestedParams,
+  buildSuggestParamsUserPrompt,
+} from "./tool-playground-params";
 export {
   buildSessionTitlePrompt,
   generateSessionTitleFromMessages,

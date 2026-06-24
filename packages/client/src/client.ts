@@ -29,6 +29,10 @@ import type {
   SyncSkillsResponse,
   ToolResponse,
   ToolSourceResponse,
+  RunToolRequest,
+  RunToolResponse,
+  SuggestToolParamsRequest,
+  SuggestToolParamsResponse,
   ListSessionsResponse,
   ModelsResponse,
   CreateProviderRequest,
@@ -365,6 +369,29 @@ export class TinyClawClient {
     await this.request(`/v1/tools/${encodeURIComponent(toolId)}`, {
       method: "DELETE",
     });
+  }
+
+  async runTool(toolId: string, request: RunToolRequest): Promise<RunToolResponse> {
+    return this.request<RunToolResponse>(
+      `/v1/tools/${encodeURIComponent(toolId)}/run`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      },
+    );
+  }
+
+  async suggestToolParams(
+    toolId: string,
+    request: SuggestToolParamsRequest,
+  ): Promise<SuggestToolParamsResponse> {
+    return this.request<SuggestToolParamsResponse>(
+      `/v1/tools/${encodeURIComponent(toolId)}/params/suggest`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      },
+    );
   }
 
   async assignTool(profileId: string, request: AssignToolRequest): Promise<ProfileResponse> {

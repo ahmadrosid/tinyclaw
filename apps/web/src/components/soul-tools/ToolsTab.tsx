@@ -242,6 +242,8 @@ export function ToolsTab() {
       <ToolDetailDialog
         toolId={detailToolId}
         busy={busy}
+        isOrgAdmin={isOrgAdmin}
+        superBotProfileId={superBotProfile?.id ?? null}
         onOpenChange={(open) => {
           if (!open) {
             setDetailToolId(null);
