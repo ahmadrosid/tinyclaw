@@ -1,4 +1,5 @@
-import type { ToolDefinition } from "../contract";
+import { z } from "zod";
+import type { JsonSchema, ToolDefinition } from "../contract";
 import {
   emailConfigToMailboxConfig,
   isEmailConfigComplete,
@@ -11,18 +12,77 @@ import { sanitizeMailError } from "../mail/sanitize";
 import type { MailReader, MailSender } from "../mail/types";
 import { MAX_EMAIL_BODY_BYTES } from "../mail/types";
 
-export type EmailAction = "list" | "read" | "search" | "send";
+const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export interface EmailToolInput {
-  action: EmailAction;
-  folder?: string;
-  limit?: number;
-  uid?: number;
-  query?: string;
-  to?: string;
-  subject?: string;
-  text?: string;
-  html?: string;
+const folderSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() ? value.trim() : undefined),
+  z.string().optional().default("INBOX"),
+);
+
+const limitSchema = z.preprocess(
+  (value) => {
+    if (value === undefined) {
+      return 20;
+    }
+    if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+      return 20;
+    }
+    return Math.min(value, 100);
+  },
+  z.number().int().positive().max(100),
+);
+
+const emailListInputSchema = z
+  .object({
+    action: z.literal("list"),
+    folder: folderSchema,
+    limit: limitSchema,
+  })
+  .strict();
+
+const emailReadInputSchema = z
+  .object({
+    action: z.literal("read"),
+    folder: folderSchema,
+    uid: z
+      .number({ error: "uid is required." })
+      .int()
+      .positive({ error: "uid must be a positive integer." }),
+  })
+  .strict();
+
+const emailSearchInputSchema = z
+  .object({
+    action: z.literal("search"),
+    folder: folderSchema,
+    query: z.string({ error: "query is required." }).trim().min(1),
+    limit: limitSchema,
+  })
+  .strict();
+
+const emailSendInputSchema = z
+  .object({
+    action: z.literal("send"),
+    to: z.string({ error: "to is required." }).trim().min(1),
+    subject: z.string({ error: "subject is required." }).trim().min(1),
+    text: z.string({ error: "text is required." }).trim().min(1),
+    html: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+export const emailInputSchema = z.discriminatedUnion("action", [
+  emailListInputSchema,
+  emailReadInputSchema,
+  emailSearchInputSchema,
+  emailSendInputSchema,
+]);
+
+export type EmailAction = z.infer<typeof emailInputSchema>["action"];
+export type EmailToolInput = z.infer<typeof emailInputSchema>;
+
+export function emailParameters(): JsonSchema {
+  const { $schema, ...schema } = emailInputSchema.toJSONSchema();
+  return schema as JsonSchema;
 }
 
 export interface EmailToolSuccess {
@@ -63,7 +123,16 @@ export interface EmailToolDependencies {
   createSender?: (config: ReturnType<typeof emailConfigToMailboxConfig>) => MailSender;
 }
 
-const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function parseEmailToolInput(input: unknown): EmailToolInput {
+  try {
+    return emailInputSchema.parse(input);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      throw new Error(err.issues[0]?.message ?? "Invalid email tool input.");
+    }
+    throw err;
+  }
+}
 
 export async function runEmailTool(
   input: unknown,
@@ -79,16 +148,11 @@ export async function runEmailTool(
     };
   }
 
-  const action = readRequiredString(input, "action") as EmailAction;
-
-  if (!["list", "read", "search", "send"].includes(action)) {
-    return { error: `Unsupported email action: ${action}` };
-  }
-
+  const parsed = parseEmailToolInput(input);
   const mailboxConfig = emailConfigToMailboxConfig(config!);
 
-  if (action === "send") {
-    return sendEmail(input, mailboxConfig, dependencies.createSender);
+  if (parsed.action === "send") {
+    return sendEmail(parsed, mailboxConfig, dependencies.createSender);
   }
 
   const readerFactory = dependencies.createReader ?? createImapReader;
@@ -97,30 +161,23 @@ export async function runEmailTool(
   try {
     await reader.connect();
 
-    if (action === "list") {
-      const folder = readOptionalString(input, "folder") ?? "INBOX";
-      const limit = readLimit(input);
-      const messages = await reader.listMessages(folder, limit);
-      return { action, messages };
+    if (parsed.action === "list") {
+      const messages = await reader.listMessages(parsed.folder, parsed.limit);
+      return { action: parsed.action, messages };
     }
 
-    if (action === "read") {
-      const folder = readOptionalString(input, "folder") ?? "INBOX";
-      const uid = readRequiredNumber(input, "uid");
-      const message = await reader.readMessage(folder, uid);
+    if (parsed.action === "read") {
+      const message = await reader.readMessage(parsed.folder, parsed.uid);
 
       if (!message) {
-        return { error: `No message found with uid ${uid} in ${folder}.` };
+        return { error: `No message found with uid ${parsed.uid} in ${parsed.folder}.` };
       }
 
-      return { action, message };
+      return { action: parsed.action, message };
     }
 
-    const folder = readOptionalString(input, "folder") ?? "INBOX";
-    const query = readRequiredString(input, "query");
-    const limit = readLimit(input);
-    const messages = await reader.searchMessages(folder, query, limit);
-    return { action, messages };
+    const messages = await reader.searchMessages(parsed.folder, parsed.query, parsed.limit);
+    return { action: parsed.action, messages };
   } catch (err) {
     return { error: sanitizeMailError(err) };
   } finally {
@@ -129,14 +186,11 @@ export async function runEmailTool(
 }
 
 async function sendEmail(
-  input: unknown,
+  input: Extract<EmailToolInput, { action: "send" }>,
   mailboxConfig: ReturnType<typeof emailConfigToMailboxConfig>,
   createSender: EmailToolDependencies["createSender"],
 ): Promise<EmailToolResult> {
-  const to = readRequiredString(input, "to");
-  const subject = readRequiredString(input, "subject");
-  const text = readRequiredString(input, "text");
-  const html = readOptionalString(input, "html") ?? undefined;
+  const { to, subject, text, html } = input;
 
   if (!EMAIL_ADDRESS_PATTERN.test(to)) {
     return { error: "Invalid recipient email address." };
@@ -176,100 +230,10 @@ export const emailTool: ToolDefinition<EmailToolInput, EmailToolResult> = {
   name: "email",
   description:
     "List, read, search, and send email through the deployment mailbox configured in Settings. Use list/search to find messages, read to fetch one message body, and send for outbound mail.",
-  parameters: {
-    type: "object",
-    properties: {
-      action: {
-        type: "string",
-        enum: ["list", "read", "search", "send"],
-        description: "Email operation to perform.",
-      },
-      folder: {
-        type: "string",
-        description: "Mailbox folder to use. Defaults to INBOX.",
-      },
-      limit: {
-        type: "number",
-        description: "Maximum number of messages to return for list/search.",
-      },
-      uid: {
-        type: "number",
-        description: "IMAP UID for read.",
-      },
-      query: {
-        type: "string",
-        description: "Search query for subject/from/body contains.",
-      },
-      to: {
-        type: "string",
-        description: "Recipient email address for send.",
-      },
-      subject: {
-        type: "string",
-        description: "Email subject for send.",
-      },
-      text: {
-        type: "string",
-        description: "Plain text body for send.",
-      },
-      html: {
-        type: "string",
-        description: "Optional HTML body for send.",
-      },
-    },
-    required: ["action"],
-    additionalProperties: false,
-  },
+  parameters: emailParameters(),
   run(input) {
     return runEmailTool(input);
   },
 };
-
-function readRequiredString(input: unknown, key: string): string {
-  const value = readOptionalString(input, key);
-
-  if (!value) {
-    throw new Error(`${key} is required.`);
-  }
-
-  return value;
-}
-
-function readOptionalString(input: unknown, key: string): string | null {
-  if (typeof input !== "object" || input === null || !(key in input)) {
-    return null;
-  }
-
-  const value = (input as Record<string, unknown>)[key];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function readRequiredNumber(input: unknown, key: string): number {
-  if (typeof input !== "object" || input === null || !(key in input)) {
-    throw new Error(`${key} is required.`);
-  }
-
-  const value = (input as Record<string, unknown>)[key];
-
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    throw new Error(`${key} must be a positive integer.`);
-  }
-
-  return value;
-}
-
-function readLimit(input: unknown): number {
-  if (typeof input !== "object" || input === null || !("limit" in input)) {
-    return 20;
-  }
-
-  const value = (input as Record<string, unknown>).limit;
-
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-    return 20;
-  }
-
-  return Math.min(value, 100);
-}
 
 export { createFakeMailReader, createFakeMailSender };
