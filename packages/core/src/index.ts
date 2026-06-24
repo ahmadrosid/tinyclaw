@@ -3,6 +3,7 @@ export * from "./agent-questionnaire";
 export * from "./api-error";
 export * from "./automation-validate";
 export * from "./automation-scheduler";
+export * from "./automation-worker";
 export * from "./config";
 export * from "./contract";
 export * from "./fs";
