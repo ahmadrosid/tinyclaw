@@ -1,4 +1,4 @@
-import type { ToolCall, ToolDefinition } from "@tinyclaw/core";
+import type { ToolCall, ToolDefinition, ToolContext } from "@tinyclaw/core";
 
 export function findTool(
   tools: ToolDefinition[],

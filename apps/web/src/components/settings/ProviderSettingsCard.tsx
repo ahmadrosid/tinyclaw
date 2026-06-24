@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangleIcon, CheckCircle2Icon, PlusIcon } from "lucide-react";
+import { AlertTriangleIcon, PlusIcon } from "lucide-react";
 import { ProviderSetupForm } from "@/components/ProviderSetupForm";
 import {
   Card,
@@ -22,6 +22,7 @@ import {
   useUpdateProviderMutation,
 } from "@/hooks/use-app-queries";
 import { formatError } from "@/lib/client";
+import { toast } from "@/lib/toast";
 import { ProviderInstanceCard } from "./provider-instance-card";
 
 interface ProviderSettingsCardProps {
@@ -36,7 +37,6 @@ export function ProviderSettingsCard({ formError, onFormError }: ProviderSetting
   const updateProviderMutation = useUpdateProviderMutation();
   const deleteProviderMutation = useDeleteProviderMutation();
   const [addOpen, setAddOpen] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const providers = providersResponse?.providers ?? [];
   const catalog = catalogResponse?.models ?? [];
@@ -87,7 +87,7 @@ export function ProviderSettingsCard({ formError, onFormError }: ProviderSetting
               <div className="px-4 py-4">
                 <ProviderSetupForm
                   onSuccess={() => {
-                    setSuccessMessage("Provider added.");
+                    toast("Provider added.");
                     onFormError(null);
                   }}
                 />
@@ -101,12 +101,12 @@ export function ProviderSettingsCard({ formError, onFormError }: ProviderSetting
                 catalog={catalog}
                 onUpdate={async (providerId, request) => {
                   await updateProviderMutation.mutateAsync({ providerId, request });
-                  setSuccessMessage("Provider updated.");
+                  toast("Provider updated.");
                   onFormError(null);
                 }}
                 onDelete={async (providerId) => {
                   await deleteProviderMutation.mutateAsync(providerId);
-                  setSuccessMessage("Provider removed.");
+                  toast("Provider removed.");
                   onFormError(null);
                 }}
                 onError={onFormError}
@@ -122,13 +122,6 @@ export function ProviderSettingsCard({ formError, onFormError }: ProviderSetting
         </p>
       ) : null}
 
-      {successMessage ? (
-        <div className="flex items-start gap-3" role="status" aria-live="polite">
-          <CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-emerald-300" />
-          <p className="text-sm text-emerald-100">{successMessage}</p>
-        </div>
-      ) : null}
-
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="w-[min(96vw,56rem)] sm:max-w-3xl">
           <DialogHeader>
@@ -139,7 +132,7 @@ export function ProviderSettingsCard({ formError, onFormError }: ProviderSetting
             submitLabel="Add provider"
             onSuccess={() => {
               setAddOpen(false);
-              setSuccessMessage("Provider added.");
+              toast("Provider added.");
               onFormError(null);
             }}
           />

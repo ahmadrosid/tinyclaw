@@ -1161,6 +1161,8 @@ export interface ToolContext {
   orgId?: string;
   profileId?: string;
   sessionId?: string;
+  /** Profile workspace root (~/.tinyclaw/orgs/{orgId}/profiles/{profileId}/). */
+  workspaceRoot?: string;
 }
 
 export interface ToolDefinition<Input = unknown, Output = unknown> {

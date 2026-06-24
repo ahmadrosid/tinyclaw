@@ -67,7 +67,7 @@ The system prompt is built in three layers. Know which one to edit:
 
 ## Soul System (`packages/core/src/soul/`)
 
-Each profile's soul lives at `~/.tinyclaw/profiles/{profileId}/`:
+Each profile's soul lives at `~/.tinyclaw/orgs/{orgId}/profiles/{profileId}/` (`getProfileSoulDir` in `packages/core/src/soul/resolve.ts`):
 
 | File | Purpose |
 |---|---|
@@ -81,11 +81,77 @@ Soul files are read by `loadSoulStack()` (`load.ts`) and injected by `composeSou
 
 ## Tools (`packages/core/src/tools/`)
 
+Builtin tool implementations and shared helpers live here. See **Tool execution & workspace** below for how paths and context work at runtime.
+
 - `update_profile_memory` — writes to MEMORY.md
 - `knowledge_base_search` — search uploaded documents
 - `web_search` — web search
 - `email` — list, read, search, and send mail via deployment mailbox settings
 - `search_files` / `ripgrep` — file/content search
+
+## Tool execution & workspace
+
+**Start here for path/context bugs** (e.g. custom tool resolving files under the repo instead of `~/.tinyclaw`).
+
+### On-disk layout
+
+| Path | Purpose |
+|---|---|
+| `~/.tinyclaw/orgs/{orgId}/profiles/{profileId}/` | Profile workspace (soul files, KB, agent file I/O) — `getProfileSoulDir()` |
+| `~/.tinyclaw/tools/*.js` | Custom JavaScript tool modules — `getCustomToolsDir()` |
+
+Override config root with `TINYCLAW_CONFIG_DIR`.
+
+### `ToolContext` (passed to every `tool.run(input, context)`)
+
+Type: `packages/core/src/contract.ts` (`ToolContext`). Populated by the server, not by the web UI.
+
+| Field | Set in chat | Set in playground |
+|---|---|---|
+| `orgId`, `profileId`, `sessionId` | Yes | `profileId` resolved server-side |
+| `workspaceRoot` | Yes (via helper below) | Yes (via helper below) |
+| `userId` | When known | Yes |
+
+**Always use `buildToolExecutionContext()`** (`packages/core/src/tools/context.ts`) when constructing context. It sets `workspaceRoot` from `getProfileSoulDir(orgId, profileId)` unless already explicit.
+
+Custom JS tools should resolve relative paths against `context.workspaceRoot` — **not** `process.cwd()` (dev server cwd is often the monorepo root).
+
+### Built-in vs custom JavaScript tools
+
+| | Built-in tools | Custom JS tools |
+|---|---|---|
+| Code | `packages/core/src/tools/builtin.ts`, `apps/server/src/tools/bash.ts`, etc. | `~/.tinyclaw/tools/*.js` |
+| Workspace | Resolved inside each handler via `getProfileSoulDir(orgId, profileId)` | Must use `context.workspaceRoot` (or absolute paths) |
+| Loader | Registered in tool resolver / builtins map | `apps/server/src/services/javascript-tool-loader.ts` |
+
+### Execution paths (grep these first)
+
+| Flow | Entry | Context built |
+|---|---|---|
+| Agent chat | `apps/server/src/services/agent-service.ts` → `buildChatSession()` | `buildToolExecutionContext({ orgId, profileId, sessionId, userId })` |
+| Tool loop | `packages/agent/src/tool-loop.ts` → `executeToolCall()` | Passed through unchanged |
+| Tools playground | `POST /v1/tools/:toolId/run` → `apps/server/src/http/routes/tools.ts` → `agent.runToolPlayground()` | Profile: first assignee of tool, else org default — `resolvePlaygroundProfileId()` in `agent-service.ts` |
+| Param suggest | `POST /v1/tools/:toolId/params/suggest` | Same service, no execution |
+
+### Tools playground (web)
+
+| What | Where |
+|---|---|
+| Page route | `/system/playground/:toolId` — `apps/web/src/pages/ToolPlaygroundPage.tsx` |
+| Run UI | `apps/web/src/components/tools/ToolPlaygroundPanel.tsx` |
+| Tools list link | `apps/web/src/components/soul-tools/ToolsTab.tsx` |
+| Path helpers | `toolPlaygroundPath()`, `toolsTabPath()` in `apps/web/src/lib/navigation.ts` |
+| Access | Org admin or platform admin — `canUseToolPlayground()` in `navigation.ts` |
+| Requirements doc | `docs/brainstorms/2026-06-24-tools-playground-requirements.md` |
+
+### Debugging checklist
+
+1. Read the custom tool module in `~/.tinyclaw/tools/` — check how it resolves paths.
+2. Grep `runToolPlayground` and confirm `buildToolExecutionContext` is used with a real `profileId`.
+3. If the error path is under the monorepo root, the tool likely fell back to `process.cwd()` because `workspaceRoot` was missing.
+4. Put test files under the **assigned profile's** workspace dir, not the repo.
+
+Super Bot tool-authoring rules (write modules to `~/.tinyclaw/tools/`, export `run(input, context)`) live in `packages/db/src/constants.ts` (`SUPER_BOT_SYSTEM_PROMPT`).
 
 ## Key packages
 

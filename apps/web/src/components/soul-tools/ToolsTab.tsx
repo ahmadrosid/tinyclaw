@@ -1,6 +1,7 @@
 import type { ToolDetail } from "@tinyclaw/core/contract";
 import { BUILTIN_TOOL_IDS, isProtectedToolId } from "@tinyclaw/core/tools/protected";
-import { PlusIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, RefreshCwIcon, Trash2Icon, WrenchIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ToolDetailDialog } from "@/components/tools/ToolDetailDialog";
@@ -14,7 +15,7 @@ import { useDeleteToolMutation } from "@/hooks/use-resource-mutations";
 import { formatError } from "@/lib/client";
 import { findSuperBotProfile } from "@/lib/profiles";
 import { queryKeys } from "@/lib/query-keys";
-import { canUseToolPlayground } from "@/lib/navigation";
+import { canUseToolPlayground, toolPlaygroundPath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 const sectionClass = "rounded-md border border-border bg-card";
@@ -103,9 +104,10 @@ export function ToolsTab() {
           className="mb-4 rounded-md border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
           role="status"
         >
-          The Tools Playground opens inside a tool&apos;s detail view. Create a custom JavaScript
-          tool with Super Bot first — built-in tools like <code className="type-code">web_search</code>{" "}
-          do not have a playground.
+          The Tools Playground lives at{" "}
+          <code className="type-code">/system/playground/&lt;tool-id&gt;</code>. Create a custom
+          JavaScript tool with Super Bot first — built-in tools like{" "}
+          <code className="type-code">web_search</code> do not have a playground.
         </p>
       ) : null}
 
@@ -243,7 +245,6 @@ export function ToolsTab() {
         toolId={detailToolId}
         busy={busy}
         canUsePlayground={canUsePlayground}
-        superBotProfileId={superBotProfile?.id ?? null}
         onOpenChange={(open) => {
           if (!open) {
             setDetailToolId(null);
@@ -302,9 +303,17 @@ function ToolListItem({
         </span>
 
         {showPlayground ? (
-          <span className="inline-flex w-fit items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            render={<Link to={toolPlaygroundPath(tool.id)} />}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <WrenchIcon className="size-4" aria-hidden />
             Playground
-          </span>
+          </Button>
         ) : null}
 
         {onConfigure ? (

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 interface ToolPlaygroundPanelProps {
   tool: ToolDetail;
   superBotProfileId: string | null;
+  showHeader?: boolean;
 }
 
 type RunState =
@@ -43,7 +44,11 @@ function formatResult(value: unknown): string {
   }
 }
 
-export function ToolPlaygroundPanel({ tool, superBotProfileId }: ToolPlaygroundPanelProps) {
+export function ToolPlaygroundPanel({
+  tool,
+  superBotProfileId,
+  showHeader = true,
+}: ToolPlaygroundPanelProps) {
   const { navigateToNewChat } = useAppNavigation();
   const [parametersJson, setParametersJson] = useState("{}");
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -124,16 +129,26 @@ export function ToolPlaygroundPanel({ tool, superBotProfileId }: ToolPlaygroundP
 
   return (
     <div className="space-y-4 rounded-md border border-border bg-muted/20 p-4">
-      <div className="flex items-center gap-2">
-        <WrenchIcon className="size-4 text-muted-foreground" aria-hidden />
-        <p className="text-sm font-medium text-foreground">Playground</p>
-      </div>
+      {showHeader ? (
+        <>
+          <div className="flex items-center gap-2">
+            <WrenchIcon className="size-4 text-muted-foreground" aria-hidden />
+            <p className="text-sm font-medium text-foreground">Playground</p>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Run this tool outside chat with real execution. Side effects apply.
+          </p>
+        </>
+      ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Run this tool outside chat with real execution. Side effects apply.
+        Relative paths resolve against the assigned profile workspace under{" "}
+        <code className="type-code">~/.tinyclaw/orgs/…/profiles/…/</code>, not the server
+        process directory.
       </p>
 
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2.5">
         <label className="text-xs font-medium text-foreground" htmlFor={`${tool.id}-assist`}>
           Describe test (optional)
         </label>
@@ -159,7 +174,7 @@ export function ToolPlaygroundPanel({ tool, superBotProfileId }: ToolPlaygroundP
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2.5">
         <label className="text-xs font-medium text-foreground" htmlFor={`${tool.id}-params`}>
           Parameters (JSON)
         </label>

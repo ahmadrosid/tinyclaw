@@ -112,6 +112,41 @@ describe("getModelsForProviderInstance openrouter", () => {
     ).toBe(true);
     expect(models.some((model) => model.id === "openai/gpt-5.4")).toBe(false);
     expect(models[0]?.providerId).toBe("or-1");
+    expect(models[0]?.supportsThinking).toBe(false);
+  });
+
+  test("maps supportsThinking for reasoning-capable OpenRouter models", () => {
+    const models = getModelsForProviderInstance({
+      id: "or-1",
+      type: "openrouter",
+      label: "OpenRouter",
+      apiKey: "sk-test",
+      createdAt: "2026-06-07T10:00:00.000Z",
+      customModels: [{ id: "anthropic/claude-sonnet-4-6", name: "Sonnet", default: true }],
+    });
+
+    expect(models[0]?.supportsThinking).toBe(true);
+  });
+
+  test("honors explicit supportsThinking overrides", () => {
+    const models = getModelsForProviderInstance({
+      id: "or-1",
+      type: "openrouter",
+      label: "OpenRouter",
+      apiKey: "sk-test",
+      createdAt: "2026-06-07T10:00:00.000Z",
+      customModels: [
+        { id: "some-vendor/some-model", supportsThinking: true },
+        { id: "anthropic/claude-sonnet-4-6", supportsThinking: false },
+      ],
+    });
+
+    expect(
+      models.find((model) => model.id === "some-vendor/some-model")?.supportsThinking,
+    ).toBe(true);
+    expect(
+      models.find((model) => model.id === "anthropic/claude-sonnet-4-6")?.supportsThinking,
+    ).toBe(false);
   });
 
   test("includes only the active model when no shortlist is saved", () => {
@@ -128,6 +163,7 @@ describe("getModelsForProviderInstance openrouter", () => {
 
     expect(models).toHaveLength(1);
     expect(models[0]?.id).toBe("google/gemma-4-31b-it:free");
+    expect(models[0]?.supportsThinking).toBe(false);
     expect(models.some((model) => model.id === "openai/gpt-5.4")).toBe(false);
   });
 });

@@ -13,6 +13,7 @@ import { OpenRouterError } from "@openrouter/sdk/models/errors";
 import type {
   ChatCompletionResult,
   ChatMessage,
+  CustomModelEntry,
   GenerateChatInput,
   GenerateTextInput,
   LlmToolDefinition,
@@ -36,6 +37,7 @@ const PROVIDER_LABEL = "OpenRouter";
 export interface OpenRouterProviderOptions {
   apiKey: string;
   model?: string;
+  customModels?: CustomModelEntry[];
   /** Injected in tests to mock HTTP without touching global fetch. */
   fetcher?: Fetcher;
 }
@@ -165,8 +167,12 @@ function parseSdkToolCalls(toolCalls: ChatToolCall[] | undefined): ToolCall[] {
 function buildOpenRouterReasoningRequest(
   model: string,
   providerOptions: ProviderChatOptions | undefined,
+  customModels: CustomModelEntry[] | undefined,
 ): Pick<ChatRequest, "reasoning"> | undefined {
-  if (!providerOptions?.thinking?.enabled || !openRouterModelSupportsThinking(model)) {
+  if (
+    !providerOptions?.thinking?.enabled ||
+    !openRouterModelSupportsThinking(model, customModels)
+  ) {
     return undefined;
   }
 
@@ -212,11 +218,13 @@ async function buildChatRequestBase(options: {
   messages: ChatMessage[];
   tools?: LlmToolDefinition[];
   providerOptions?: ProviderChatOptions;
+  customModels?: CustomModelEntry[];
 }): Promise<Omit<ChatRequest, "stream">> {
   const tools = toSdkTools(options.tools);
   const reasoningRequest = buildOpenRouterReasoningRequest(
     options.model,
     options.providerOptions,
+    options.customModels,
   );
 
   return {
@@ -326,6 +334,7 @@ export function createOpenRouterProvider(
   options: OpenRouterProviderOptions,
 ): ProviderClient {
   const model = options.model ?? "anthropic/claude-sonnet-4-6";
+  const customModels = options.customModels;
   const client = createOpenRouterClient(options.apiKey, options.fetcher);
 
   return {
@@ -368,6 +377,7 @@ export function createOpenRouterProvider(
           messages: input.messages,
           tools: input.tools,
           providerOptions: input.providerOptions,
+          customModels,
         });
         const result = await client.chat.send({
           chatRequest: { ...chatRequest, stream: false as const },
@@ -384,6 +394,7 @@ export function createOpenRouterProvider(
           messages: input.messages,
           tools: input.tools,
           providerOptions: input.providerOptions,
+          customModels,
         });
         const stream = await client.chat.send({
           chatRequest: { ...chatRequest, stream: true as const },

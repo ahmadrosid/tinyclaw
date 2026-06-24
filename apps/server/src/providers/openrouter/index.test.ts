@@ -158,6 +158,35 @@ describe("createOpenRouterProvider", () => {
     expect(result.assistantMessage.thinking).toBe("Plan");
   });
 
+  test("omits reasoning when custom model disables thinking", async () => {
+    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init);
+      const body = (await request.json()) as { reasoning?: unknown };
+
+      expect(body.reasoning).toBeUndefined();
+
+      return new Response(chatCompletionResponse("Answer"), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    const provider = createOpenRouterProvider({
+      apiKey: "sk-or-v1-test",
+      model: "anthropic/claude-sonnet-4-6",
+      customModels: [{ id: "anthropic/claude-sonnet-4-6", supportsThinking: false }],
+      fetcher: fetchMock as typeof fetch,
+    });
+
+    await provider.generateChat({
+      system: "You are helpful.",
+      messages: [{ role: "user", content: "Think, then answer" }],
+      providerOptions: {
+        thinking: { enabled: true, effort: "high" },
+      },
+    });
+  });
+
   test("omits reasoning for models that do not support thinking", async () => {
     const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = input instanceof Request ? input : new Request(input, init);

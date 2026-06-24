@@ -1,5 +1,6 @@
 import { isProtectedToolId } from "@tinyclaw/core/tools/protected";
-import { BlocksIcon, Trash2Icon } from "lucide-react";
+import { BlocksIcon, ExternalLinkIcon, Trash2Icon } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,8 +14,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useToolQuery, useToolSourceQuery } from "@/hooks/use-app-queries";
 import { formatError } from "@/lib/client";
+import { toolPlaygroundPath } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
-import { ToolPlaygroundPanel } from "@/components/tools/ToolPlaygroundPanel";
 
 const SHARED_BUILTIN_FILE = "packages/core/src/tools/builtin.ts";
 
@@ -22,7 +23,6 @@ interface ToolDetailDialogProps {
   toolId: string | null;
   busy: boolean;
   canUsePlayground: boolean;
-  superBotProfileId: string | null;
   onOpenChange: (open: boolean) => void;
   onDelete: (toolId: string, toolName: string) => void;
 }
@@ -59,7 +59,6 @@ export function ToolDetailDialog({
   toolId,
   busy,
   canUsePlayground,
-  superBotProfileId,
   onOpenChange,
   onDelete,
 }: ToolDetailDialogProps) {
@@ -130,7 +129,21 @@ export function ToolDetailDialog({
               ) : null}
 
               {canUsePlayground && tool.handlerType === "javascript" ? (
-                <ToolPlaygroundPanel tool={tool} superBotProfileId={superBotProfileId} />
+                <div className="rounded-md border border-border bg-muted/20 p-4">
+                  <p className="text-sm font-medium text-foreground">Playground</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Run this tool outside chat with real execution. Side effects apply.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-3"
+                    render={<Link to={toolPlaygroundPath(tool.id)} />}
+                  >
+                    <ExternalLinkIcon className="size-4" aria-hidden />
+                    Open playground
+                  </Button>
+                </div>
               ) : canUsePlayground ? (
                 <p
                   className="rounded-md border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"

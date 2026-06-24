@@ -1,3 +1,4 @@
+export * from "./context";
 export * from "./builtin";
 export * from "./protected";
 export * from "./paths";

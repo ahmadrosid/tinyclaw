@@ -31,6 +31,7 @@ export function OpenRouterProviderModelFields({
     const nextModel: ModelListRow = {
       id: row.id,
       name: row.name,
+      supportsThinking: row.reasoning,
       ...(row.inputPerMillionUsd !== undefined
         ? { inputPerMillionUsd: row.inputPerMillionUsd }
         : {}),
@@ -90,6 +91,7 @@ export function OpenRouterProviderModelFields({
           models={customModels}
           disabled={disabled}
           showPricing
+          showThinkingToggle
           browseLabel="Browse OpenRouter"
           onBrowse={() => setIsBrowsing(true)}
           onChange={onCustomModelsChange}

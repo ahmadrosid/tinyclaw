@@ -51,6 +51,7 @@ function createProvider(options: CreateProviderOptions): ProviderClient {
       return createOpenRouterProvider({
         apiKey: options.apiKey,
         model,
+        customModels: options.instance?.customModels,
       });
     case "gemini":
       return createGeminiProvider({

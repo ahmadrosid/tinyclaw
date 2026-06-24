@@ -3,7 +3,7 @@ import { encodeModelSelection, resolveModelThinkingSupport, resolveModelVisionSu
 
 function group(
   providerId: string,
-  provider: "openai_compatible" | "openai" | "opencode_go",
+  provider: "openai_compatible" | "openai" | "opencode_go" | "openrouter",
   flags?: { supportsThinking?: boolean; supportsVision?: boolean },
 ) {
   return [
@@ -58,6 +58,22 @@ describe("resolveModelThinkingSupport", () => {
         group("openai-1", "openai", { supportsThinking: false }),
       ),
     ).toBe(false);
+  });
+
+  test("treats openrouter models as opt-in only", () => {
+    expect(
+      resolveModelThinkingSupport(
+        encodeModelSelection("or-1", "model-1"),
+        group("or-1", "openrouter"),
+      ),
+    ).toBe(false);
+
+    expect(
+      resolveModelThinkingSupport(
+        encodeModelSelection("or-1", "model-1"),
+        group("or-1", "openrouter", { supportsThinking: true }),
+      ),
+    ).toBe(true);
   });
 });
 

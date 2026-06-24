@@ -76,6 +76,7 @@ import {
   DEFAULT_THINKING_EFFORT,
   DEFAULT_THINKING_ENABLED,
   buildThinkingProviderOptions,
+  buildToolExecutionContext,
   composeKnowledgeBaseCatalog,
   composeSoulSystemPrompt,
   createId,
@@ -558,10 +559,10 @@ export class AgentService {
       enableToolLoop: true,
       soul: soulActive,
       userTimezone,
-      toolContext: {
+      toolContext: buildToolExecutionContext({
         orgId,
         profileId,
-      },
+      }),
     });
 
     return session.send(prompt);
@@ -1335,6 +1336,8 @@ export class AgentService {
       throw new Error("Tool not found.");
     }
 
+    const profileId = await this.resolvePlaygroundProfileId(context.orgId, toolId);
+
     const handlerConfig =
       typeof record.handlerConfig === "object" && record.handlerConfig !== null
         ? (record.handlerConfig as { modulePath?: string })
@@ -1356,10 +1359,16 @@ export class AgentService {
       throw new Error(`Failed to load tool "${tool.name}".`);
     }
 
+    const toolContext = buildToolExecutionContext({
+      orgId: context.orgId,
+      profileId,
+      userId: context.userId,
+    });
+
     const raw = await executeToolCall(
       [loaded],
       { name: loaded.name, arguments: parameters },
-      { orgId: context.orgId, userId: context.userId },
+      toolContext,
     );
 
     if (
@@ -1794,11 +1803,12 @@ export class AgentService {
       initialHistory,
       userTimezone,
       compaction,
-      toolContext: {
+      toolContext: buildToolExecutionContext({
         orgId,
         profileId,
         sessionId,
-      },
+        userId: userId ?? undefined,
+      }),
       resolvePromptContext: async (context) => {
         const parts: string[] = [];
         const todoContext = await this.agentTodoState.formatForPrompt(sessionId);
@@ -1933,6 +1943,30 @@ export class AgentService {
       modelId: resolved.model,
       thinking: this.resolveWorkspaceThinkingDefaults(),
     });
+  }
+
+  private async resolvePlaygroundProfileId(orgId: string, toolId: string): Promise<string> {
+    const profiles = await this.db.listProfilesForOrg(orgId);
+
+    for (const profile of profiles) {
+      const tools = await this.db.listToolsForProfile(profile.id);
+
+      if (tools.some((tool) => tool.id === toolId)) {
+        return profile.id;
+      }
+    }
+
+    const defaultProfile = await this.db.getDefaultProfileForOrg(orgId);
+
+    if (defaultProfile) {
+      return defaultProfile.id;
+    }
+
+    if (profiles[0]) {
+      return profiles[0].id;
+    }
+
+    throw new Error("No profile available for playground execution.");
   }
 
   private resolveCompactionConfig(

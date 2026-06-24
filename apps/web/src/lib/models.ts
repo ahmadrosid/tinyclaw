@@ -597,7 +597,7 @@ export function resolveModelThinkingSupport(
     return undefined;
   }
 
-  if (model.provider === "openai_compatible") {
+  if (model.provider === "openai_compatible" || model.provider === "openrouter") {
     return model.supportsThinking === true;
   }
 

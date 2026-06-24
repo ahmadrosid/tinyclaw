@@ -125,6 +125,14 @@ export function canUseToolPlayground(
   return isPlatformAdmin || orgRole === "admin";
 }
 
+export function toolsTabPath(): string {
+  return `${PAGE_PATHS.soul}?tab=tools`;
+}
+
+export function toolPlaygroundPath(toolId: string): string {
+  return `${PAGE_PATHS.soul}/playground/${encodeURIComponent(toolId)}`;
+}
+
 export const PAGE_PATHS: Record<PageId, string> = {
   status: "/status",
   chat: "/chat",
@@ -166,6 +174,10 @@ export function findNavItem(pageId: PageId): NavItem | undefined {
 export function pageIdFromPath(pathname: string): PageId | null {
   if (pathname === "/chat" || pathname.startsWith("/chat/")) {
     return "chat";
+  }
+
+  if (pathname === PAGE_PATHS.soul || pathname.startsWith(`${PAGE_PATHS.soul}/`)) {
+    return "soul";
   }
 
   for (const [pageId, path] of Object.entries(PAGE_PATHS) as [PageId, string][]) {

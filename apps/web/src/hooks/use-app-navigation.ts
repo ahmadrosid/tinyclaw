@@ -6,7 +6,7 @@ import {
   MAX_URL_CHAT_DRAFT_LENGTH,
   storeChatDraft,
 } from "@/lib/chat-history";
-import { pathForPage, type PageId } from "@/lib/navigation";
+import { pathForPage, toolPlaygroundPath, type PageId } from "@/lib/navigation";
 
 export function useAppNavigation() {
   const navigate = useNavigate();
@@ -17,6 +17,9 @@ export function useAppNavigation() {
     },
     navigateToChat(session: RequestedChatSession) {
       navigate(buildChatPath(session.profileId, session.sessionId));
+    },
+    navigateToToolPlayground(toolId: string) {
+      navigate(toolPlaygroundPath(toolId));
     },
     navigateToNewChat(profileId?: string | null, options?: { draft?: string }) {
       const params = new URLSearchParams({ new: "1", _: String(Date.now()) });

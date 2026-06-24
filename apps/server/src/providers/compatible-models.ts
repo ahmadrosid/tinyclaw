@@ -7,9 +7,18 @@ import type { ProviderInstance, ProviderName } from "@tinyclaw/core";
 import OpenAI from "openai";
 import type { ProviderModelOption } from "./models";
 import { AVAILABLE_MODELS, getDefaultModel } from "./models";
+import { openRouterSlugSupportsThinking } from "./openrouter/thinking";
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 const DEFAULT_MAX_OUTPUT = 8_192;
+
+function resolveOpenRouterCatalogThinking(entry: CustomModelEntry): boolean {
+  if (entry.supportsThinking !== undefined) {
+    return entry.supportsThinking;
+  }
+
+  return openRouterSlugSupportsThinking(entry.id);
+}
 
 export function openRouterCustomModelsToCatalog(
   entries: CustomModelEntry[],
@@ -20,6 +29,7 @@ export function openRouterCustomModelsToCatalog(
     provider: "openrouter" as const,
     contextWindow: DEFAULT_CONTEXT_WINDOW,
     maxOutputTokens: DEFAULT_MAX_OUTPUT,
+    supportsThinking: resolveOpenRouterCatalogThinking(entry),
     ...(entry.default ? { default: true } : {}),
     ...(entry.inputPerMillionUsd !== undefined
       ? { inputPerMillionUsd: entry.inputPerMillionUsd }
@@ -86,6 +96,7 @@ export function mergeOpenRouterCatalog(
       id: entry.id,
       name: entry.name?.trim() || existing?.name || entry.id,
       provider: "openrouter",
+      supportsThinking: resolveOpenRouterCatalogThinking(entry),
       ...(entry.default ? { default: true } : existing?.default ? { default: true } : {}),
       ...(entry.inputPerMillionUsd !== undefined
         ? { inputPerMillionUsd: entry.inputPerMillionUsd }
@@ -140,6 +151,9 @@ export function ensureCurrentModelInCatalog(
       provider,
       contextWindow: DEFAULT_CONTEXT_WINDOW,
       maxOutputTokens: DEFAULT_MAX_OUTPUT,
+      ...(provider === "openrouter"
+        ? { supportsThinking: openRouterSlugSupportsThinking(trimmed) }
+        : {}),
     },
   ];
 }

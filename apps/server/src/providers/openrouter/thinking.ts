@@ -1,4 +1,4 @@
-import { getModelById } from "../models";
+import { findCustomModel, type CustomModelEntry } from "@tinyclaw/core";
 
 /** OpenRouter slugs known not to accept the `reasoning` request parameter. */
 const THINKING_DENY_PREFIXES = [
@@ -23,15 +23,8 @@ const THINKING_ALLOW_PREFIXES = [
   "qwen/qwq",
 ] as const;
 
-export function openRouterModelSupportsThinking(model: string): boolean {
-  const trimmed = model.trim();
-  const slug = trimmed.toLowerCase();
-
-  const catalog = getModelById(trimmed);
-
-  if (catalog?.provider === "openrouter" && catalog.supportsThinking !== undefined) {
-    return catalog.supportsThinking;
-  }
+export function openRouterSlugSupportsThinking(model: string): boolean {
+  const slug = model.trim().toLowerCase();
 
   for (const prefix of THINKING_DENY_PREFIXES) {
     if (slug.startsWith(prefix)) {
@@ -47,4 +40,18 @@ export function openRouterModelSupportsThinking(model: string): boolean {
 
   // Unknown custom slugs: omit reasoning to avoid upstream 400s.
   return false;
+}
+
+export function openRouterModelSupportsThinking(
+  model: string,
+  customModels?: CustomModelEntry[],
+): boolean {
+  const trimmed = model.trim();
+  const custom = findCustomModel(customModels, trimmed);
+
+  if (custom?.supportsThinking !== undefined) {
+    return custom.supportsThinking;
+  }
+
+  return openRouterSlugSupportsThinking(trimmed);
 }
