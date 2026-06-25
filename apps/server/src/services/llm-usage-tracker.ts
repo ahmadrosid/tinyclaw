@@ -1,4 +1,4 @@
-import type { LlmUsageStats } from "@tinyclaw/core";
+import type { LlmUsageModelStats, LlmUsageStats } from "@tinyclaw/core";
 import type { DatabaseAdapter } from "@tinyclaw/db";
 import {
   estimateUsageCostUsd,
@@ -11,6 +11,10 @@ export class LlmUsageTracker {
   private outputTokens = 0;
   private estimatedCostUsd = 0;
   private trackedSince = new Date().toISOString();
+  private readonly usageByModel = new Map<
+    string,
+    Omit<LlmUsageModelStats, "totalTokens">
+  >();
   private pricingContext: PricingContext = {};
 
   private constructor(private readonly db?: DatabaseAdapter) {}
@@ -27,15 +31,25 @@ export class LlmUsageTracker {
     }
 
     const stored = await this.db.getLlmUsageStats();
-    if (!stored) {
-      return;
+    if (stored) {
+      this.requestCount = stored.requestCount;
+      this.inputTokens = stored.inputTokens;
+      this.outputTokens = stored.outputTokens;
+      this.estimatedCostUsd = stored.estimatedCostUsd;
+      this.trackedSince = stored.trackedSince;
     }
 
-    this.requestCount = stored.requestCount;
-    this.inputTokens = stored.inputTokens;
-    this.outputTokens = stored.outputTokens;
-    this.estimatedCostUsd = stored.estimatedCostUsd;
-    this.trackedSince = stored.trackedSince;
+    const byModel = await this.db.listLlmUsageStatsByModel();
+    for (const entry of byModel) {
+      this.usageByModel.set(entry.modelId, {
+        modelId: entry.modelId,
+        requestCount: entry.requestCount,
+        inputTokens: entry.inputTokens,
+        outputTokens: entry.outputTokens,
+        estimatedCostUsd: entry.estimatedCostUsd,
+        trackedSince: entry.trackedSince,
+      });
+    }
   }
 
   setPricingContext(context: PricingContext): void {
@@ -55,12 +69,22 @@ export class LlmUsageTracker {
     this.outputTokens += outputTokens;
     this.estimatedCostUsd += costDelta;
 
+    const existing = this.usageByModel.get(modelId);
+    this.usageByModel.set(modelId, {
+      modelId,
+      requestCount: (existing?.requestCount ?? 0) + 1,
+      inputTokens: (existing?.inputTokens ?? 0) + inputTokens,
+      outputTokens: (existing?.outputTokens ?? 0) + outputTokens,
+      estimatedCostUsd: (existing?.estimatedCostUsd ?? 0) + costDelta,
+      trackedSince: existing?.trackedSince ?? new Date().toISOString(),
+    });
+
     void this.persist({
       requestCount: 1,
       inputTokens,
       outputTokens,
       estimatedCostUsd: costDelta,
-    });
+    }, modelId);
   }
 
   private async persist(delta: {
@@ -68,13 +92,14 @@ export class LlmUsageTracker {
     inputTokens: number;
     outputTokens: number;
     estimatedCostUsd: number;
-  }): Promise<void> {
+  }, modelId: string): Promise<void> {
     if (!this.db) {
       return;
     }
 
     try {
       await this.db.incrementLlmUsageStats(delta, this.trackedSince);
+      await this.db.incrementLlmUsageStatsByModel(modelId, delta, this.usageByModel.get(modelId)?.trackedSince ?? this.trackedSince);
     } catch (error) {
       console.warn("Failed to persist LLM usage stats:", error);
     }
@@ -89,5 +114,24 @@ export class LlmUsageTracker {
       estimatedCostUsd: this.estimatedCostUsd,
       trackedSince: this.trackedSince,
     };
+  }
+
+  getStatsByModel(): LlmUsageModelStats[] {
+    return [...this.usageByModel.values()]
+      .map((entry) => ({
+        ...entry,
+        totalTokens: entry.inputTokens + entry.outputTokens,
+      }))
+      .sort((left, right) => {
+        if (right.requestCount !== left.requestCount) {
+          return right.requestCount - left.requestCount;
+        }
+
+        if (right.totalTokens !== left.totalTokens) {
+          return right.totalTokens - left.totalTokens;
+        }
+
+        return left.modelId.localeCompare(right.modelId);
+      });
   }
 }

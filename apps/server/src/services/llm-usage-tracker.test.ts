@@ -30,9 +30,32 @@ describe("LlmUsageTracker", () => {
     });
 
     const persisted = await db.getLlmUsageStats();
+    const persistedByModel = await db.listLlmUsageStatsByModel();
     expect(persisted?.requestCount).toBe(4);
     expect(persisted?.inputTokens).toBe(1000);
     expect(persisted?.outputTokens).toBe(350);
     expect(persisted?.trackedSince).toBe(trackedSince);
+    expect(tracker.getStatsByModel()).toEqual([
+      {
+        modelId: "gpt-4o",
+        requestCount: 1,
+        inputTokens: 100,
+        outputTokens: 50,
+        totalTokens: 150,
+        estimatedCostUsd: expect.any(Number),
+        trackedSince: expect.any(String),
+      },
+    ]);
+    expect(persistedByModel).toEqual([
+      {
+        modelId: "gpt-4o",
+        requestCount: 1,
+        inputTokens: 100,
+        outputTokens: 50,
+        estimatedCostUsd: expect.any(Number),
+        trackedSince: expect.any(String),
+        updatedAt: expect.any(String),
+      },
+    ]);
   });
 });

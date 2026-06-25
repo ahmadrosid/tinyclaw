@@ -1269,6 +1269,10 @@ export class AgentService {
     );
   }
 
+  getLlmUsageStatsByModel() {
+    return this.llmUsageTracker?.getStatsByModel() ?? [];
+  }
+
   async configureProvider(
     request: ConfigureProviderRequest,
   ): Promise<ConfigureProviderResponse> {

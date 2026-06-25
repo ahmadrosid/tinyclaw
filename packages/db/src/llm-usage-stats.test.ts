@@ -28,6 +28,7 @@ describe("llm usage stats persistence", () => {
     );
 
     const stats = await db.getLlmUsageStats();
+    const byModel = await db.listLlmUsageStatsByModel();
     expect(stats).toEqual({
       id: LLM_USAGE_STATS_ID,
       requestCount: 2,
@@ -37,6 +38,7 @@ describe("llm usage stats persistence", () => {
       trackedSince,
       updatedAt: expect.any(String),
     });
+    expect(byModel).toEqual([]);
   });
 
   test("sqlite adapter accumulates usage deltas", async () => {
@@ -56,6 +58,7 @@ describe("llm usage stats persistence", () => {
       );
 
       const stats = await db.getLlmUsageStats();
+      const byModel = await db.listLlmUsageStatsByModel();
       expect(stats).toEqual({
         id: LLM_USAGE_STATS_ID,
         requestCount: 2,
@@ -65,6 +68,69 @@ describe("llm usage stats persistence", () => {
         trackedSince,
         updatedAt: expect.any(String),
       });
+      expect(byModel).toEqual([]);
+    } finally {
+      database.close();
+    }
+  });
+
+  test("adapters accumulate per-model usage deltas", async () => {
+    const database = await createSqliteDatabase(":memory:");
+    const db = database.adapter;
+    const trackedSince = "2026-06-05T00:00:00.000Z";
+
+    try {
+      await db.incrementLlmUsageStatsByModel(
+        "gpt-4o",
+        {
+          requestCount: 1,
+          inputTokens: 100,
+          outputTokens: 50,
+          estimatedCostUsd: 0.01,
+        },
+        trackedSince,
+      );
+      await db.incrementLlmUsageStatsByModel(
+        "gpt-4o-mini",
+        {
+          requestCount: 2,
+          inputTokens: 120,
+          outputTokens: 30,
+          estimatedCostUsd: 0.005,
+        },
+        trackedSince,
+      );
+      await db.incrementLlmUsageStatsByModel(
+        "gpt-4o",
+        {
+          requestCount: 1,
+          inputTokens: 80,
+          outputTokens: 20,
+          estimatedCostUsd: 0.008,
+        },
+        trackedSince,
+      );
+
+      expect(await db.listLlmUsageStatsByModel()).toEqual([
+        {
+          modelId: "gpt-4o",
+          requestCount: 2,
+          inputTokens: 180,
+          outputTokens: 70,
+          estimatedCostUsd: 0.018000000000000002,
+          trackedSince,
+          updatedAt: expect.any(String),
+        },
+        {
+          modelId: "gpt-4o-mini",
+          requestCount: 2,
+          inputTokens: 120,
+          outputTokens: 30,
+          estimatedCostUsd: 0.005,
+          trackedSince,
+          updatedAt: expect.any(String),
+        },
+      ]);
     } finally {
       database.close();
     }

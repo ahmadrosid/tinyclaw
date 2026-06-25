@@ -114,12 +114,17 @@ export interface LlmUsageStats {
   trackedSince: string;
 }
 
+export interface LlmUsageModelStats extends LlmUsageStats {
+  modelId: string;
+}
+
 export interface LlmUsageStatus extends LlmUsageStats {
   provider: ProviderName | null;
   currentModel: string | null;
   providerConfigured: boolean;
   displayName: string | null;
   costEstimated: boolean;
+  models: LlmUsageModelStats[];
 }
 
 export interface McpStatus {

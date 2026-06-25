@@ -21,9 +21,20 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-export function McpPageState({ message }: { message: string }) {
+export function McpPageState({
+  message,
+  embedded = false,
+}: {
+  message: string;
+  embedded?: boolean;
+}) {
   return (
-    <div className="flex items-center gap-2 rounded-md border border-border bg-card p-6 text-sm text-muted-foreground">
+    <div
+      className={cn(
+        "flex items-center gap-2 p-6 text-sm text-muted-foreground",
+        !embedded && "rounded-md border border-border bg-card",
+      )}
+    >
       <Spinner className="size-4" />
       {message}
     </div>
@@ -122,6 +133,7 @@ function McpServerActions({
 export function McpServersSection({
   servers,
   busy,
+  embedded = false,
   onAddServer,
   onViewTools,
   onEdit,
@@ -131,6 +143,7 @@ export function McpServersSection({
 }: {
   servers: McpServerSummary[];
   busy: boolean;
+  embedded?: boolean;
   onAddServer: () => void;
   onViewTools: (serverId: string) => void;
   onEdit: (serverId: string) => void;
@@ -139,7 +152,7 @@ export function McpServersSection({
   onDelete: (server: McpServerSummary) => void;
 }) {
   return (
-    <section className={cn(sectionClass, "overflow-hidden")}>
+    <section className={cn(!embedded && sectionClass, "overflow-hidden")}>
       <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">
         <div className="min-w-0 flex-1">
           <h2 className="type-section-title">MCP servers</h2>

@@ -166,6 +166,8 @@ function LlmUsageSection({ usage }: { usage: LlmUsageStatus }) {
     usage.currentModel ??
     (usage.providerConfigured ? "Default model" : "Not configured");
   const hasUsage = usage.requestCount > 0;
+  const trackedModelCount = usage.models.length;
+  const maxModelTokens = usage.models[0]?.totalTokens ?? 0;
 
   return (
     <section className={cn(sectionClass, "min-w-0 overflow-hidden")}>
@@ -189,9 +191,6 @@ function LlmUsageSection({ usage }: { usage: LlmUsageStatus }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center rounded-full border border-border bg-muted/30 px-2.5 py-1 text-xs font-medium text-foreground">
               {formatProviderLabel(usage.provider, usage.displayName)}
-            </span>
-            <span className="inline-flex max-w-[16rem] items-center truncate rounded-full border border-border bg-background px-2.5 py-1 font-mono text-xs text-muted-foreground">
-              {modelLabel}
             </span>
           </div>
         ) : null}
@@ -219,77 +218,80 @@ function LlmUsageSection({ usage }: { usage: LlmUsageStatus }) {
         />
       ) : (
         <div className="space-y-4 p-5">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)]">
-            <div className="rounded-lg border border-border p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="type-label">
-                    {usage.costEstimated ? "Estimated API cost" : "API cost"}
-                  </p>
-                  <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
-                    {usage.costEstimated ? formatUsd(usage.estimatedCostUsd) : "—"}
-                  </p>
-                </div>
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <CoinsIcon className="size-5" aria-hidden />
-                </div>
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                {usage.costEstimated
-                  ? usage.provider === "openai_compatible" || usage.provider === "openrouter"
-                    ? `Based on pricing saved in Settings for ${modelLabel}. Actual billing may differ.`
-                    : `Based on catalog pricing for ${modelLabel}. Actual billing may differ.`
-                  : usage.provider === "openrouter"
-                    ? "Browse or add models in Settings → Manage model to save OpenRouter pricing for cost estimates."
-                    : "Add input/output $/1M per model in Settings → Manage models to estimate cost."}
-              </p>
+          <div className="rounded-lg border border-border bg-background/50 p-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+              <CompactUsageStat
+                icon={CoinsIcon}
+                label="API cost"
+                value={usage.costEstimated ? formatUsd(usage.estimatedCostUsd) : "—"}
+              />
+              <CompactUsageStat
+                icon={ZapIcon}
+                label="Requests"
+                value={usage.requestCount.toLocaleString()}
+              />
+              <CompactUsageStat
+                icon={ArrowDownLeftIcon}
+                label="Input"
+                value={usage.inputTokens.toLocaleString()}
+              />
+              <CompactUsageStat
+                icon={ArrowUpRightIcon}
+                label="Output"
+                value={usage.outputTokens.toLocaleString()}
+              />
+              <CompactUsageStat
+                icon={SparklesIcon}
+                label="Total"
+                value={usage.totalTokens.toLocaleString()}
+              />
             </div>
 
-            <div className="rounded-lg border border-border bg-muted/20 p-5 dark:bg-muted/10">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="type-label">Token mix</p>
-                <p className="text-sm font-medium tabular-nums text-foreground">
-                  {usage.totalTokens.toLocaleString()} total
+            <div className="mt-4 border-t border-border pt-4">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Token mix
+                </p>
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  {usage.inputTokens.toLocaleString()} in / {usage.outputTokens.toLocaleString()} out
                 </p>
               </div>
               <TokenMixBar inputTokens={usage.inputTokens} outputTokens={usage.outputTokens} />
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <TokenMixLegend
-                  icon={ArrowDownLeftIcon}
-                  label="Input"
-                  value={usage.inputTokens}
-                  tone="primary"
-                />
-                <TokenMixLegend
-                  icon={ArrowUpRightIcon}
-                  label="Output"
-                  value={usage.outputTokens}
-                  tone="emerald"
-                />
-              </div>
             </div>
+
+            <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+              {usage.costEstimated
+                ? trackedModelCount > 1
+                  ? `Based on tracked usage across ${trackedModelCount} models. Actual billing may differ.`
+                  : usage.provider === "openai_compatible" || usage.provider === "openrouter"
+                    ? `Based on pricing saved in Settings for ${modelLabel}. Actual billing may differ.`
+                    : `Based on catalog pricing for ${modelLabel}. Actual billing may differ.`
+                : usage.provider === "openrouter"
+                  ? "Browse or add models in Settings → Manage model to save OpenRouter pricing for cost estimates."
+                  : "Add input/output $/1M per model in Settings → Manage models to estimate cost."}
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <UsageMetricTile
-              icon={ZapIcon}
-              label="Requests"
-              value={usage.requestCount.toLocaleString()}
-              hint="Completed LLM calls"
-            />
-            <UsageMetricTile
-              icon={ArrowDownLeftIcon}
-              label="Input tokens"
-              value={usage.inputTokens.toLocaleString()}
-              hint="Prompt and context"
-            />
-            <UsageMetricTile
-              icon={ArrowUpRightIcon}
-              label="Output tokens"
-              value={usage.outputTokens.toLocaleString()}
-              hint="Model responses"
-            />
-          </div>
+          {trackedModelCount > 0 ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="type-label">By model</p>
+                <p className="text-xs text-muted-foreground">
+                  {trackedModelCount} tracked
+                </p>
+              </div>
+              <div className="overflow-hidden rounded-lg border border-border bg-background/40">
+                {usage.models.map((modelUsage) => (
+                  <ModelUsageRow
+                    key={modelUsage.modelId}
+                    usage={modelUsage}
+                    costEstimated={usage.costEstimated}
+                    maxTokens={maxModelTokens}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -356,60 +358,89 @@ function TokenMixBar({
   );
 }
 
-function TokenMixLegend({
+function CompactUsageStat({
   icon: Icon,
   label,
   value,
-  tone,
 }: {
   icon: LucideIcon;
   label: string;
-  value: number;
-  tone: "primary" | "emerald";
+  value: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-md border border-border/70 bg-background/70 px-3 py-2.5">
-      <div
-        className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-md",
-          tone === "primary" ? "bg-primary/10 text-primary" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-        )}
-      >
-        <Icon className="size-4" aria-hidden />
+    <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-3">
+      <div className="flex items-center gap-2">
+        <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <p className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
       </div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-semibold tabular-nums text-foreground">
-          {value.toLocaleString()}
-        </p>
+      <p className="mt-1 text-lg font-semibold tabular-nums tracking-tight text-foreground">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ModelUsageRow({
+  usage,
+  costEstimated,
+  maxTokens,
+}: {
+  usage: LlmUsageStatus["models"][number];
+  costEstimated: boolean;
+  maxTokens: number;
+}) {
+  return (
+    <div className="border-t border-border px-4 py-3 first:border-t-0">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 space-y-2 lg:flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="truncate font-mono text-sm text-foreground">{usage.modelId}</p>
+            <p className="text-xs text-muted-foreground">
+              {usage.totalTokens.toLocaleString()} tokens
+            </p>
+          </div>
+          <UsageShareBar value={usage.totalTokens} max={maxTokens} />
+        </div>
+
+        <div className="flex items-center justify-between gap-4 lg:min-w-[9rem] lg:justify-end">
+          <UsageInlineMetric label="Req" value={usage.requestCount.toLocaleString()} align="right" />
+          <UsageInlineMetric
+            label="Cost"
+            value={costEstimated ? formatUsd(usage.estimatedCostUsd) : "—"}
+            align="right"
+          />
+        </div>
       </div>
     </div>
   );
 }
 
-function UsageMetricTile({
-  icon: Icon,
+function UsageShareBar({ value, max }: { value: number; max: number }) {
+  const percent = max > 0 ? Math.max((value / max) * 100, 6) : 0;
+
+  return (
+    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+      <div
+        className="h-full rounded-full bg-primary/80 transition-[width] duration-300 motion-reduce:transition-none"
+        style={{ width: `${percent}%` }}
+      />
+    </div>
+  );
+}
+
+function UsageInlineMetric({
   label,
   value,
-  hint,
+  align = "left",
 }: {
-  icon: LucideIcon;
   label: string;
   value: string;
-  hint: string;
+  align?: "left" | "right";
 }) {
   return (
-    <div className="rounded-lg border border-border bg-background/60 px-4 py-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="break-words text-lg font-semibold leading-tight tabular-nums tracking-tight text-foreground sm:text-xl">
-            {value}
-          </p>
-          <p className="text-xs text-muted-foreground">{hint}</p>
-        </div>
-        <Icon className="size-4 shrink-0 text-muted-foreground/70" aria-hidden />
-      </div>
+    <div className={cn("min-w-0", align === "right" ? "text-right" : undefined)}>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="truncate text-sm font-semibold tabular-nums text-foreground">{value}</p>
     </div>
   );
 }

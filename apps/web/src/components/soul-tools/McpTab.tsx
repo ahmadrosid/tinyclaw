@@ -13,7 +13,7 @@ import {
 } from "@/hooks/use-resource-mutations";
 import { formatError } from "@/lib/client";
 
-export function McpTab() {
+export function McpTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: servers = [], isLoading, error } = useMcpServersQuery();
   const createMutation = useCreateMcpServerMutation();
   const updateMutation = useUpdateMcpServerMutation();
@@ -78,7 +78,7 @@ export function McpTab() {
   }
 
   if (loading) {
-    return <McpPageState message="Loading MCP servers…" />;
+    return <McpPageState message="Loading MCP servers…" embedded={embedded} />;
   }
 
   return (
@@ -92,6 +92,7 @@ export function McpTab() {
       <McpServersSection
         servers={servers}
         busy={busy}
+        embedded={embedded}
         onAddServer={() => setCreateOpen(true)}
         onViewTools={setDetailServerId}
         onEdit={setEditServerId}

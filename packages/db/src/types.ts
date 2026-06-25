@@ -121,6 +121,17 @@ export interface StoredLlmUsageStatsRecord {
   orgId?: string | null;
 }
 
+export interface StoredLlmUsageModelStatsRecord {
+  modelId: string;
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  trackedSince: string;
+  updatedAt: string;
+  orgId?: string | null;
+}
+
 export interface StoredWorkspaceSettingsRecord {
   id: string;
   visionModel: string | null;
@@ -342,7 +353,13 @@ export interface DatabaseAdapter {
   updateTaskRun(record: StoredTaskRunRecord): Promise<void>;
 
   getLlmUsageStats(): Promise<StoredLlmUsageStatsRecord | null>;
+  listLlmUsageStatsByModel(): Promise<StoredLlmUsageModelStatsRecord[]>;
   incrementLlmUsageStats(
+    delta: LlmUsageStatsDelta,
+    trackedSince: string,
+  ): Promise<void>;
+  incrementLlmUsageStatsByModel(
+    modelId: string,
     delta: LlmUsageStatsDelta,
     trackedSince: string,
   ): Promise<void>;

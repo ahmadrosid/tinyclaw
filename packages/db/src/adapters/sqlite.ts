@@ -10,6 +10,7 @@ import type {
   LlmUsageStatsDelta,
   StoredAutomationRecord,
   StoredAutomationRunRecord,
+  StoredLlmUsageModelStatsRecord,
   StoredLlmUsageStatsRecord,
   StoredMcpServerRecord,
   StoredSkillRecord,
@@ -135,6 +136,16 @@ interface SessionSummaryRow {
 
 interface LlmUsageStatsRow {
   id: string;
+  request_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+  tracked_since: string;
+  updated_at: string;
+}
+
+interface LlmUsageModelStatsRow {
+  model_id: string;
   request_count: number;
   input_tokens: number;
   output_tokens: number;
@@ -461,6 +472,10 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
   const getLlmUsageStatsStmt = db.prepare(
     "SELECT * FROM llm_usage_stats WHERE id = ?",
   );
+  const listLlmUsageStatsByModelStmt = db.prepare(`
+    SELECT * FROM llm_usage_model_stats
+    ORDER BY request_count DESC, input_tokens + output_tokens DESC, model_id ASC
+  `);
   const listMcpServersStmt = db.prepare("SELECT * FROM mcp_servers");
   const getMcpServerStmt = db.prepare("SELECT * FROM mcp_servers WHERE id = ?");
   const getMcpServerByNameStmt = db.prepare("SELECT * FROM mcp_servers WHERE name = ?");
@@ -562,6 +577,24 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
       input_tokens = llm_usage_stats.input_tokens + excluded.input_tokens,
       output_tokens = llm_usage_stats.output_tokens + excluded.output_tokens,
       estimated_cost_usd = llm_usage_stats.estimated_cost_usd + excluded.estimated_cost_usd,
+      updated_at = excluded.updated_at
+  `);
+  const incrementLlmUsageStatsByModelStmt = db.prepare(`
+    INSERT INTO llm_usage_model_stats (
+      model_id,
+      request_count,
+      input_tokens,
+      output_tokens,
+      estimated_cost_usd,
+      tracked_since,
+      updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(model_id) DO UPDATE SET
+      request_count = llm_usage_model_stats.request_count + excluded.request_count,
+      input_tokens = llm_usage_model_stats.input_tokens + excluded.input_tokens,
+      output_tokens = llm_usage_model_stats.output_tokens + excluded.output_tokens,
+      estimated_cost_usd = llm_usage_model_stats.estimated_cost_usd + excluded.estimated_cost_usd,
       updated_at = excluded.updated_at
   `);
   const getWorkspaceSettingsStmt = db.prepare(
@@ -1265,10 +1298,29 @@ function createSqliteDatabaseAdapter(db: Database): DatabaseAdapter {
       return row ? toLlmUsageStatsRecord(row) : null;
     },
 
+    async listLlmUsageStatsByModel() {
+      return listLlmUsageStatsByModelStmt
+        .all()
+        .map((row) => toLlmUsageModelStatsRecord(row as LlmUsageModelStatsRow));
+    },
+
     async incrementLlmUsageStats(delta, trackedSince) {
       const updatedAt = new Date().toISOString();
       incrementLlmUsageStatsStmt.run(
         LLM_USAGE_STATS_ID,
+        delta.requestCount,
+        delta.inputTokens,
+        delta.outputTokens,
+        delta.estimatedCostUsd,
+        trackedSince,
+        updatedAt,
+      );
+    },
+
+    async incrementLlmUsageStatsByModel(modelId, delta, trackedSince) {
+      const updatedAt = new Date().toISOString();
+      incrementLlmUsageStatsByModelStmt.run(
+        modelId,
         delta.requestCount,
         delta.inputTokens,
         delta.outputTokens,
@@ -1668,6 +1720,20 @@ function toSessionSummaryRecord(row: SessionSummaryRow): StoredSessionSummaryRec
 function toLlmUsageStatsRecord(row: LlmUsageStatsRow): StoredLlmUsageStatsRecord {
   return {
     id: row.id,
+    requestCount: row.request_count,
+    inputTokens: row.input_tokens,
+    outputTokens: row.output_tokens,
+    estimatedCostUsd: row.estimated_cost_usd,
+    trackedSince: row.tracked_since,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toLlmUsageModelStatsRecord(
+  row: LlmUsageModelStatsRow,
+): StoredLlmUsageModelStatsRecord {
+  return {
+    modelId: row.model_id,
     requestCount: row.request_count,
     inputTokens: row.input_tokens,
     outputTokens: row.output_tokens,

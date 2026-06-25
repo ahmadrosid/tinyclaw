@@ -7,6 +7,7 @@ import { ToolsTab } from "@/components/soul-tools/ToolsTab";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/context/auth-context";
 import { canAccessSystemPage } from "@/lib/navigation";
+import { cn } from "@/lib/utils";
 
 const TABS = [
   { id: "tools" as const, label: "Tools", icon: BlocksIcon },
@@ -66,14 +67,14 @@ export function SystemPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <section className="overflow-hidden rounded-md border border-border bg-card">
       <div
         role="tablist"
         aria-label="System tools"
-        className="segmented-control"
+        className="flex shrink-0 border-b border-border px-4 sm:px-5"
       >
         {visibleTabs.map((item) => (
-          <SegmentedTab
+          <SystemTabButton
             key={item.id}
             id={`system-tab-${item.id}`}
             label={item.label}
@@ -90,13 +91,13 @@ export function SystemPage() {
         role="tabpanel"
         aria-labelledby={`system-tab-${tab}`}
       >
-        {tab === "tools" ? <ToolsTab /> : <McpTab />}
+        {tab === "tools" ? <ToolsTab embedded /> : <McpTab embedded />}
       </div>
-    </div>
+    </section>
   );
 }
 
-function SegmentedTab({
+function SystemTabButton({
   id,
   label,
   icon: Icon,
@@ -119,7 +120,12 @@ function SegmentedTab({
       aria-selected={active}
       aria-controls={controls}
       data-active={active || undefined}
-      className="segmented-control-item"
+      className={cn(
+        "relative -mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors sm:px-4",
+        active
+          ? "border-foreground text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground",
+      )}
       onClick={onSelect}
     >
       <Icon className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />

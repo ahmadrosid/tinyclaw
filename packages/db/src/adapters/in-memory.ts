@@ -6,6 +6,7 @@ import type {
   LlmUsageStatsDelta,
   StoredAutomationRecord,
   StoredAutomationRunRecord,
+  StoredLlmUsageModelStatsRecord,
   StoredLlmUsageStatsRecord,
   StoredMcpServerRecord,
   StoredSkillRecord,
@@ -52,6 +53,7 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
   const orgInvites = new Map<string, StoredOrgInviteRecord>();
   const orgInvitesByTokenHash = new Map<string, StoredOrgInviteRecord>();
   let llmUsageStats: StoredLlmUsageStatsRecord | null = null;
+  const llmUsageByModel = new Map<string, StoredLlmUsageModelStatsRecord>();
   let workspaceSettings: StoredWorkspaceSettingsRecord | null = null;
 
   return {
@@ -558,6 +560,22 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
       return llmUsageStats;
     },
 
+    async listLlmUsageStatsByModel() {
+      return [...llmUsageByModel.values()].sort((left, right) => {
+        if (right.requestCount !== left.requestCount) {
+          return right.requestCount - left.requestCount;
+        }
+
+        const rightTotal = right.inputTokens + right.outputTokens;
+        const leftTotal = left.inputTokens + left.outputTokens;
+        if (rightTotal !== leftTotal) {
+          return rightTotal - leftTotal;
+        }
+
+        return left.modelId.localeCompare(right.modelId);
+      });
+    },
+
     async incrementLlmUsageStats(delta: LlmUsageStatsDelta, trackedSince: string) {
       const updatedAt = new Date().toISOString();
 
@@ -582,6 +600,37 @@ export function createInMemoryDatabaseAdapter(): DatabaseAdapter {
         estimatedCostUsd: llmUsageStats.estimatedCostUsd + delta.estimatedCostUsd,
         updatedAt,
       };
+    },
+
+    async incrementLlmUsageStatsByModel(
+      modelId: string,
+      delta: LlmUsageStatsDelta,
+      trackedSince: string,
+    ) {
+      const updatedAt = new Date().toISOString();
+      const existing = llmUsageByModel.get(modelId);
+
+      if (!existing) {
+        llmUsageByModel.set(modelId, {
+          modelId,
+          requestCount: delta.requestCount,
+          inputTokens: delta.inputTokens,
+          outputTokens: delta.outputTokens,
+          estimatedCostUsd: delta.estimatedCostUsd,
+          trackedSince,
+          updatedAt,
+        });
+        return;
+      }
+
+      llmUsageByModel.set(modelId, {
+        ...existing,
+        requestCount: existing.requestCount + delta.requestCount,
+        inputTokens: existing.inputTokens + delta.inputTokens,
+        outputTokens: existing.outputTokens + delta.outputTokens,
+        estimatedCostUsd: existing.estimatedCostUsd + delta.estimatedCostUsd,
+        updatedAt,
+      });
     },
 
     async getWorkspaceSettings() {

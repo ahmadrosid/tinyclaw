@@ -47,6 +47,7 @@ const healthyStatus: SystemStatusResponse = {
     costEstimated: false,
     totalTokens: 0,
     trackedSince: "2026-06-22T10:00:00.000Z",
+    models: [],
   },
 };
 

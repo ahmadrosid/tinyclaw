@@ -29,7 +29,7 @@ function isDeletableTool(tool: ToolDetail): boolean {
   return !isProtectedToolId(tool.id);
 }
 
-export function ToolsTab() {
+export function ToolsTab({ embedded = false }: { embedded?: boolean } = {}) {
   const { navigateToNewChat } = useAppNavigation();
   const { user, activeOrg } = useAuth();
   const isOrgAdmin = activeOrg?.role === "admin";
@@ -84,74 +84,78 @@ export function ToolsTab() {
   }
 
   if (loading) {
-    return <PageState message="Loading tools…" />;
+    return <PageState message="Loading tools…" embedded={embedded} />;
   }
+
+  const content = (
+    <div className="min-w-0 p-4 sm:p-5">
+      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="type-section-title">All tools</h2>
+          <p className="type-body mt-1 text-xs">
+            {tools.length === 0
+              ? "No tools registered yet"
+              : `${tools.length} registered · ${customTools.length} custom · ${builtinTools.length} built-in`}
+          </p>
+        </div>
+
+        <Button type="button" size="sm" onClick={goToCreateTool}>
+          <PlusIcon className="size-4" aria-hidden />
+          Create tool
+        </Button>
+      </div>
+
+      {tools.length === 0 ? (
+        <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
+          <p>No tools yet. Ask Super Bot to create one.</p>
+          <Button type="button" size="sm" onClick={goToCreateTool}>
+            Create tool
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <ToolListSection
+            title="Custom tools"
+            description={
+              customTools.length === 0
+                ? "No custom tools yet. Ask Super Bot to create one."
+                : `${customTools.length} registered`
+            }
+            tools={customTools}
+            busy={busy}
+            canUsePlayground={canUsePlayground}
+            isOrgAdmin={isOrgAdmin}
+            onCreateTool={goToCreateTool}
+            onDelete={requestDeleteTool}
+            onConfigureEmail={() => setEmailConfigOpen(true)}
+          />
+
+          <ToolListSection
+            title="Built-in tools"
+            description={`${builtinTools.length} registered`}
+            tools={builtinTools}
+            busy={busy}
+            canUsePlayground={canUsePlayground}
+            isOrgAdmin={isOrgAdmin}
+            onDelete={requestDeleteTool}
+            onConfigureEmail={() => setEmailConfigOpen(true)}
+          />
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
-      {errorMessage ? (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {errorMessage}
-        </p>
-      ) : null}
+      <div className="space-y-4">
+        {errorMessage ? (
+          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {errorMessage}
+          </p>
+        ) : null}
 
-      <section className={cn(sectionClass, "overflow-hidden")}>
-        <div className="min-w-0 p-4 sm:p-5">
-          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <h2 className="type-section-title">All tools</h2>
-              <p className="type-body mt-1 text-xs">
-                {tools.length === 0
-                  ? "No tools registered yet"
-                  : `${tools.length} registered · ${customTools.length} custom · ${builtinTools.length} built-in`}
-              </p>
-            </div>
-
-            <Button type="button" size="sm" onClick={goToCreateTool}>
-              <PlusIcon className="size-4" aria-hidden />
-              Create tool
-            </Button>
-          </div>
-
-            {tools.length === 0 ? (
-              <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
-                <p>No tools yet. Ask Super Bot to create one.</p>
-                <Button type="button" size="sm" onClick={goToCreateTool}>
-                  Create tool
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <ToolListSection
-                  title="Custom tools"
-                  description={
-                    customTools.length === 0
-                      ? "No custom tools yet. Ask Super Bot to create one."
-                      : `${customTools.length} registered`
-                  }
-                  tools={customTools}
-                  busy={busy}
-                  canUsePlayground={canUsePlayground}
-                  isOrgAdmin={isOrgAdmin}
-                  onCreateTool={goToCreateTool}
-                  onDelete={requestDeleteTool}
-                  onConfigureEmail={() => setEmailConfigOpen(true)}
-                />
-
-                <ToolListSection
-                  title="Built-in tools"
-                  description={`${builtinTools.length} registered`}
-                  tools={builtinTools}
-                  busy={busy}
-                  canUsePlayground={canUsePlayground}
-                  isOrgAdmin={isOrgAdmin}
-                  onDelete={requestDeleteTool}
-                  onConfigureEmail={() => setEmailConfigOpen(true)}
-                />
-              </div>
-            )}
-        </div>
-      </section>
+        {embedded ? content : <section className={cn(sectionClass, "overflow-hidden")}>{content}</section>}
+      </div>
 
       {isOrgAdmin ? (
         <EmailSettingsDialog open={emailConfigOpen} onOpenChange={setEmailConfigOpen} />
@@ -346,11 +350,11 @@ function ToolListItem({
   );
 }
 
-function PageState({ message }: { message: string }) {
+function PageState({ message, embedded = false }: { message: string; embedded?: boolean }) {
   return (
     <div
       className={cn(
-        sectionClass,
+        !embedded && sectionClass,
         "flex min-h-64 flex-col items-center justify-center gap-3 p-8 text-sm text-muted-foreground",
       )}
     >

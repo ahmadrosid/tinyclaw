@@ -41,6 +41,7 @@ function createService(automationProcess: WorkerProcessInfo | null) {
         estimatedCostUsd: 0,
         trackedSince: new Date().toISOString(),
       }),
+      getLlmUsageStatsByModel: () => [],
     } as any,
     { getActiveRunCount: () => 2 } as any,
     { getActiveRunCount: () => 1 } as any,

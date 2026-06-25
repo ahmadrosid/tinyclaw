@@ -59,6 +59,7 @@ export class SystemStatusService {
         usageFields.currentModel,
         providerConfigured,
         usageFields,
+        this.agent.getLlmUsageStatsByModel(),
       ),
       mcp: this.mcpService
         ? await this.mcpService.getStatusSummary()
@@ -105,6 +106,7 @@ export class SystemStatusService {
     currentModel: string | null,
     providerConfigured: boolean,
     usageFields: { displayName: string | null; costEstimated: boolean },
+    models: LlmUsageStatus["models"],
   ): LlmUsageStatus {
     return {
       ...this.agent.getLlmUsageStats(),
@@ -113,6 +115,7 @@ export class SystemStatusService {
       providerConfigured,
       displayName: usageFields.displayName,
       costEstimated: usageFields.costEstimated,
+      models,
     };
   }
 
