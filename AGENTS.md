@@ -155,11 +155,10 @@ Super Bot tool-authoring rules (write modules to `~/.tinyclaw/tools/`, export `r
 
 ## Key packages
 
-- `packages/core` — soul system, tools, contracts, types
+- `packages/core` — soul system, tools, skills, contracts, types
 - `packages/agent` — chat loop, prompt composition, history compaction
 - `packages/db` — database layer
 - `packages/client` — API client
-- `packages/skills` — skill definitions
 
 ## Server notes
 

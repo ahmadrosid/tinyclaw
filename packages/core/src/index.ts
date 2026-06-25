@@ -21,6 +21,7 @@ export * from "./channel-org";
 export * from "./compatible-provider-config";
 export * from "./provider-label";
 export * from "./provider-setup-prompt";
+export * from "./skills";
 export * from "./soul";
 export * from "./telegram-config";
 export * from "./email-config";

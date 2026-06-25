@@ -56,7 +56,6 @@
         "@tinyclaw/agent": "workspace:*",
         "@tinyclaw/core": "workspace:*",
         "@tinyclaw/db": "workspace:*",
-        "@tinyclaw/skills": "workspace:*",
         "bcryptjs": "^3.0.3",
         "croner": "^10.0.1",
         "hono": "^4.12.22",
@@ -143,12 +142,6 @@
       "dependencies": {
         "@tinyclaw/core": "workspace:*",
         "bcryptjs": "^3.0.3",
-      },
-    },
-    "packages/skills": {
-      "name": "@tinyclaw/skills",
-      "dependencies": {
-        "@tinyclaw/core": "workspace:*",
       },
     },
   },
@@ -659,8 +652,6 @@
     "@tinyclaw/db": ["@tinyclaw/db@workspace:packages/db"],
 
     "@tinyclaw/server": ["@tinyclaw/server@workspace:apps/server"],
-
-    "@tinyclaw/skills": ["@tinyclaw/skills@workspace:packages/skills"],
 
     "@tinyclaw/telegram": ["@tinyclaw/telegram@workspace:apps/platform/telegram"],
 

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { JsonSchema, ToolContext, ToolDefinition } from "@tinyclaw/core";
-import { permissiveObjectSchema } from "@tinyclaw/core";
+import type { JsonSchema, ToolContext, ToolDefinition } from "../contract";
+import { permissiveObjectSchema } from "../tools/schema";
 import type { DiscoveredSkill } from "./types";
 
 const moduleCache = new Map<string, SkillToolModule>();

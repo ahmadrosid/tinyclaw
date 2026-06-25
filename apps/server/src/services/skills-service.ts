@@ -9,11 +9,10 @@ import type {
   SyncSkillsResponse,
   ToolDefinition,
 } from "@tinyclaw/core";
-import { createId } from "@tinyclaw/core";
-import type { DatabaseAdapter, StoredSkillRecord } from "@tinyclaw/db";
 import {
   composeMatchedSkillsPrompt,
   composeSkillsCatalog,
+  createId,
   createSkillFile,
   deleteSkillDirectory,
   discoverSkills,
@@ -23,7 +22,8 @@ import {
   loadSkillTools,
   matchSkillsForMessage,
   type DiscoveredSkill,
-} from "@tinyclaw/skills";
+} from "@tinyclaw/core";
+import type { DatabaseAdapter, StoredSkillRecord } from "@tinyclaw/db";
 
 export class SkillsService {
   private discoveredCache: DiscoveredSkill[] | null = null;

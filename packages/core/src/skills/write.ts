@@ -1,6 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getUserConfigDir, pathExists } from "@tinyclaw/core";
+import { pathExists } from "../fs";
+import { getUserConfigDir } from "../user-config";
 import { parseSkillMarkdown } from "./parse";
 import {
   getGlobalSkillsDir,

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathExists } from "@tinyclaw/core";
+import { pathExists } from "../fs";
 import { composeSkillMarkdown, createSkillFile, deleteSkillDirectory } from "./write";
 
 const ORG_ID = "org_test";

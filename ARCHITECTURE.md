@@ -74,7 +74,7 @@ tinyclaw/
 │   │   └── whatsapp/        # WhatsApp bot bridge; auto-starts server
 │   └── server/              # HTTP API, agent runtime, LLM providers
 ├── packages/
-│   ├── core/                # Config, API types, provider interfaces, builtin tools
+│   ├── core/                # Config, API types, provider interfaces, builtin tools, skills
 │   ├── agent/               # Chat harness, tool loop, automation engine
 │   ├── db/                  # SQLite via bun:sqlite
 │   └── client/              # HTTP SDK for apps
@@ -93,6 +93,7 @@ tinyclaw/
 | Profile CRUD, soul files, avatar, knowledge base | `apps/server/src/http/routes/profiles.ts`, `AgentService` |
 | Resolving DB-backed tools a session may call | `tool-resolver.ts` |
 | Builtin tool schemas and handlers | `packages/core/src/tools/*`, `schema.ts` |
+| Skill discovery, matching, prompt composition, tool loading | `packages/core/src/skills/*`, `apps/server/src/services/skills-service.ts` |
 | MCP server registry, connections, profile assignment | `mcp-service.ts`, `mcp-client-manager.ts` |
 | Runtime MCP tool expansion for assigned servers | `mcp-tool-bridge.ts` in `AgentService.resolveProfileTools` |
 | Super Bot meta-tools, bash | `super-bot-tools.ts`, `bash.ts` |
