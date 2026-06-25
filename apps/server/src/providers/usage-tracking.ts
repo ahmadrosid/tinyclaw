@@ -70,8 +70,8 @@ export function wrapProviderWithUsageTracking(
   modelId: string,
 ): ProviderClient {
   function recordChat(input: GenerateChatInput, result: ChatCompletionResult): void {
-    const inputTokens = estimateChatInputTokens(input);
-    const outputTokens = estimateChatOutputTokens(result);
+    const inputTokens = result.usage?.inputTokens ?? estimateChatInputTokens(input);
+    const outputTokens = result.usage?.outputTokens ?? estimateChatOutputTokens(result);
     tracker.record(modelId, inputTokens, outputTokens);
   }
 

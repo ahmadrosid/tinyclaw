@@ -13,6 +13,7 @@ import {
   WEB_SEARCH_TOOL_NAME,
 } from "@tinyclaw/core";
 import {
+  buildTokenUsage,
   normalizeThinkingEffort,
   parseJsonRecord,
   readRecord,
@@ -59,8 +60,11 @@ export async function generateOpenAIResponsesChat(options: {
     return readOpenAIResponsesStream(response.body, options.handlers);
   }
 
-  const payload = (await response.json()) as { output?: ResponseItem[] };
-  return parseResponsesOutput(payload.output ?? [], options.handlers);
+  const payload = (await response.json()) as {
+    output?: ResponseItem[];
+    usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+  };
+  return parseResponsesOutput(payload.output ?? [], options.handlers, payload.usage);
 }
 
 async function buildResponsesRequestBody(
@@ -216,6 +220,7 @@ function toResponsesToolOutput(
 function parseResponsesOutput(
   output: ResponseItem[],
   handlers?: StreamChatHandlers,
+  usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number },
 ): ChatCompletionResult {
   const textParts: string[] = [];
   const thinkingParts: string[] = [];
@@ -266,6 +271,11 @@ function parseResponsesOutput(
   const content = textParts.join("").trim();
   const thinking = thinkingParts.join("\n\n").trim();
   const providerContent = output.length > 0 ? output : undefined;
+  const normalizedUsage = buildTokenUsage({
+    inputTokens: usage?.input_tokens,
+    outputTokens: usage?.output_tokens,
+    totalTokens: usage?.total_tokens,
+  });
 
   if (!content && toolCalls.length === 0 && !providerContent?.length) {
     throw new Error("OpenAI returned an empty response.");
@@ -281,6 +291,7 @@ function parseResponsesOutput(
       ...(toolCalls.length > 0 ? { toolCalls } : {}),
       ...(providerContent ? { providerContent } : {}),
     },
+    ...(normalizedUsage ? { usage: normalizedUsage } : {}),
   };
 }
 
@@ -337,12 +348,20 @@ async function readOpenAIResponsesStream(
 ): Promise<ChatCompletionResult> {
   let content = "";
   let thinking = "";
+  let usage: ChatCompletionResult["usage"];
   const output: ResponseItem[] = [];
   const outputIndex = new Map<string, ResponseItem>();
 
   await readSseEvents(body, ({ data }) => {
     const payload = JSON.parse(data) as Record<string, unknown>;
     const type = String(payload.type ?? "");
+    const responseRecord = readRecord(payload.response);
+    usage =
+      buildTokenUsage({
+        inputTokens: responseRecord.usage && readRecord(responseRecord.usage).input_tokens,
+        outputTokens: responseRecord.usage && readRecord(responseRecord.usage).output_tokens,
+        totalTokens: responseRecord.usage && readRecord(responseRecord.usage).total_tokens,
+      }) ?? usage;
 
     if (type === "response.output_text.delta") {
       const delta = String(payload.delta ?? "");
@@ -391,6 +410,7 @@ async function readOpenAIResponsesStream(
   return {
     ...parsed,
     content: content.trim() || parsed.content,
+    ...(usage ? { usage } : {}),
     assistantMessage: {
       ...parsed.assistantMessage,
       content: content.trim() || parsed.content,

@@ -15,7 +15,12 @@ import type {
   ToolCall,
 } from "@tinyclaw/core";
 import { toAnthropicUserContent, WEB_SEARCH_TOOL_NAME } from "@tinyclaw/core";
-import { normalizeThinkingEffort, parseJsonRecord, readRecord } from "../shared";
+import {
+  buildTokenUsage,
+  normalizeThinkingEffort,
+  parseJsonRecord,
+  readRecord,
+} from "../shared";
 
 const MAX_PAUSE_CONTINUATIONS = 5;
 const WEB_SEARCH_MAX_USES = 5;
@@ -171,6 +176,8 @@ export async function continueAnthropicUntilDone(
 ): Promise<ChatCompletionResult> {
   let apiMessages = await toAnthropicMessages(options.messages, options.provider);
   let combinedContent: AnthropicContentBlock[] = [];
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
   const tools = buildAnthropicTools(options.tools, options.webSearch);
   const thinkingRequest = buildAnthropicThinkingRequest(options.thinking);
   const requestBase = {
@@ -191,6 +198,8 @@ export async function continueAnthropicUntilDone(
       });
 
       const streamed = await readAnthropicStream(stream, options.handlers);
+      totalInputTokens += streamed.usage?.inputTokens ?? 0;
+      totalOutputTokens += streamed.usage?.outputTokens ?? 0;
       combinedContent.push(
         ...((streamed.assistantMessage.providerContent ?? []) as AnthropicContentBlock[]),
       );
@@ -200,6 +209,10 @@ export async function continueAnthropicUntilDone(
           parsed: parseAnthropicContent(combinedContent),
           content: streamed.content,
           toolCalls: streamed.toolCalls,
+          usage: buildTokenUsage({
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+          }),
         });
       }
 
@@ -211,6 +224,8 @@ export async function continueAnthropicUntilDone(
       ...requestBase,
       messages: apiMessages,
     });
+    totalInputTokens += payload.usage?.input_tokens ?? 0;
+    totalOutputTokens += payload.usage?.output_tokens ?? 0;
 
     const content = payload.content as unknown as AnthropicContentBlock[];
     emitHostedToolEvents(content, options.handlers);
@@ -219,6 +234,10 @@ export async function continueAnthropicUntilDone(
     if (payload.stop_reason !== "pause_turn") {
       return finalizeAnthropicResult({
         parsed: parseAnthropicContent(combinedContent),
+        usage: buildTokenUsage({
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+        }),
       });
     }
 
@@ -227,6 +246,10 @@ export async function continueAnthropicUntilDone(
 
   return finalizeAnthropicResult({
     parsed: parseAnthropicContent(combinedContent),
+    usage: buildTokenUsage({
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+    }),
   });
 }
 
@@ -240,13 +263,38 @@ async function readAnthropicStream(
 ): Promise<StreamedAnthropicResult> {
   let content = "";
   let stopReason: string | undefined;
+  let inputTokens: number | undefined;
+  let outputTokens: number | undefined;
   const pending = new Map<number, { id: string; name: string; inputJson: string }>();
   const providerContent: AnthropicContentBlock[] = [];
   const contentBlocks = new Map<number, AnthropicContentBlock>();
 
   for await (const event of stream) {
+    if (event.type === "message_start") {
+      const messageUsage = readRecord(
+        (event as unknown as { message?: { usage?: Record<string, unknown> } }).message?.usage,
+      );
+      if (typeof messageUsage.input_tokens === "number") {
+        inputTokens = messageUsage.input_tokens;
+      }
+
+      if (typeof messageUsage.output_tokens === "number") {
+        outputTokens = messageUsage.output_tokens;
+      }
+    }
+
     if (event.type === "message_delta") {
       stopReason = event.delta.stop_reason ?? stopReason;
+      const deltaUsage = readRecord(
+        (event as unknown as { delta?: { usage?: Record<string, unknown> } }).delta?.usage,
+      );
+      if (typeof deltaUsage.input_tokens === "number") {
+        inputTokens = deltaUsage.input_tokens;
+      }
+
+      if (typeof deltaUsage.output_tokens === "number") {
+        outputTokens = deltaUsage.output_tokens;
+      }
     }
 
     if (event.type === "content_block_start") {
@@ -326,6 +374,7 @@ async function readAnthropicStream(
       parsed,
       content,
       toolCalls,
+      usage: buildTokenUsage({ inputTokens, outputTokens }),
     }),
     stopReason,
   };
@@ -416,6 +465,7 @@ function finalizeAnthropicResult(options: {
   parsed: ChatCompletionResult;
   content?: string;
   toolCalls?: ToolCall[];
+  usage?: ChatCompletionResult["usage"];
 }): ChatCompletionResult {
   const content = options.content?.trim() || options.parsed.content;
   const toolCalls = options.toolCalls ?? options.parsed.toolCalls;
@@ -429,6 +479,7 @@ function finalizeAnthropicResult(options: {
     ...options.parsed,
     content,
     toolCalls,
+    ...(options.usage ? { usage: options.usage } : {}),
     assistantMessage: {
       ...options.parsed.assistantMessage,
       content,

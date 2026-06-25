@@ -13,6 +13,7 @@ import { normalizeBaseUrl } from "@tinyclaw/core";
 import OpenAI from "openai";
 import {
   buildChatCompletionResult,
+  extractOpenAITokenUsage,
   formatHttpErrorBody,
   normalizeThinkingEffort,
   parseJsonRecord,
@@ -189,7 +190,12 @@ async function requestChatCompletion(
       throw new Error(`${label} returned an empty response.`);
     }
 
-    return buildChatCompletionResult({ content, toolCalls, thinking });
+    return buildChatCompletionResult({
+      content,
+      toolCalls,
+      thinking,
+      usage: extractOpenAITokenUsage(completion.usage),
+    });
   } catch (error) {
     throw formatSdkError(label, error);
   }
@@ -216,6 +222,7 @@ async function streamChatCompletion(options: {
       model: options.model,
       stream: true,
       messages: await buildMessages(options.system, options.messages),
+      stream_options: { include_usage: true },
       ...(options.thinking?.enabled
         ? { reasoning: { effort: normalizeThinkingEffort(options.thinking.effort) } }
         : {}),
@@ -254,10 +261,12 @@ async function streamChatCompletion(options: {
 
   let content = "";
   let thinking = "";
+  let usage: ChatCompletionResult["usage"];
   const pending = new Map<number, PendingToolCall>();
 
   await readSseEvents(response.body, ({ data }) => {
     const payload = JSON.parse(data) as {
+      usage?: Record<string, unknown>;
       choices?: Array<{
         delta?: {
           content?: string | null;
@@ -269,6 +278,8 @@ async function streamChatCompletion(options: {
         };
       }>;
     };
+
+    usage = extractOpenAITokenUsage(payload.usage) ?? usage;
 
     const delta = payload.choices?.[0]?.delta;
 
@@ -297,7 +308,7 @@ async function streamChatCompletion(options: {
     throw new Error(`${options.label} returned an empty response.`);
   }
 
-  return buildChatCompletionResult({ content, toolCalls, thinking });
+  return buildChatCompletionResult({ content, toolCalls, thinking, usage });
 }
 
 async function requestCompletion(

@@ -12,7 +12,7 @@ import {
   parseGeminiFunctionCalls,
   toGeminiContents,
 } from "./messages";
-import { buildChatCompletionResult } from "../shared";
+import { buildChatCompletionResult, extractGeminiTokenUsage } from "../shared";
 
 const PROVIDER_LABEL = "Gemini";
 const DEFAULT_MODEL = "gemini-2.5-flash";
@@ -64,7 +64,14 @@ function parseGenerateContentResponse(
     throw new Error(`${PROVIDER_LABEL} returned an empty response.`);
   }
 
-  return buildChatCompletionResult({ content, toolCalls, thinking });
+  return buildChatCompletionResult({
+    content,
+    toolCalls,
+    thinking,
+    usage: extractGeminiTokenUsage(
+      (response as unknown as { usageMetadata?: Record<string, unknown> }).usageMetadata,
+    ),
+  });
 }
 
 interface PendingFunctionCall {
@@ -149,8 +156,13 @@ async function readGeminiStream(
 ): Promise<ChatCompletionResult> {
   const state = { content: "", thinking: "" };
   const pending = new Map<string, PendingFunctionCall>();
+  let usage: ChatCompletionResult["usage"];
 
   for await (const chunk of stream) {
+    usage =
+      extractGeminiTokenUsage(
+        (chunk as unknown as { usageMetadata?: Record<string, unknown> }).usageMetadata,
+      ) ?? usage;
     const parts = chunk.candidates?.[0]?.content?.parts;
     accumulateStreamParts(parts, state, handlers);
 
@@ -170,6 +182,7 @@ async function readGeminiStream(
     content: state.content,
     toolCalls,
     thinking,
+    usage,
   });
 }
 

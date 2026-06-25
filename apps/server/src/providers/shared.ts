@@ -5,10 +5,75 @@ import type {
   ToolCall,
 } from "@tinyclaw/core";
 
+function readNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function buildTokenUsage(options: {
+  inputTokens?: unknown;
+  outputTokens?: unknown;
+  totalTokens?: unknown;
+}): ChatCompletionResult["usage"] | undefined {
+  let inputTokens = readNumber(options.inputTokens);
+  let outputTokens = readNumber(options.outputTokens);
+  let totalTokens = readNumber(options.totalTokens);
+
+  if (inputTokens === undefined && outputTokens === undefined) {
+    return undefined;
+  }
+
+  if (inputTokens === undefined && totalTokens !== undefined && outputTokens !== undefined) {
+    inputTokens = Math.max(totalTokens - outputTokens, 0);
+  }
+
+  if (outputTokens === undefined && totalTokens !== undefined && inputTokens !== undefined) {
+    outputTokens = Math.max(totalTokens - inputTokens, 0);
+  }
+
+  if (inputTokens === undefined || outputTokens === undefined) {
+    return undefined;
+  }
+
+  if (totalTokens === undefined) {
+    totalTokens = inputTokens + outputTokens;
+  }
+
+  return { inputTokens, outputTokens, totalTokens };
+}
+
+export function extractOpenAITokenUsage(value: unknown): ChatCompletionResult["usage"] | undefined {
+  const record = readRecord(value);
+  return buildTokenUsage({
+    inputTokens: record.prompt_tokens,
+    outputTokens: record.completion_tokens,
+    totalTokens: record.total_tokens,
+  });
+}
+
+export function extractAnthropicTokenUsage(
+  value: unknown,
+): ChatCompletionResult["usage"] | undefined {
+  const record = readRecord(value);
+  return buildTokenUsage({
+    inputTokens: record.input_tokens,
+    outputTokens: record.output_tokens,
+  });
+}
+
+export function extractGeminiTokenUsage(value: unknown): ChatCompletionResult["usage"] | undefined {
+  const record = readRecord(value);
+  return buildTokenUsage({
+    inputTokens: record.promptTokenCount,
+    outputTokens: record.candidatesTokenCount,
+    totalTokens: record.totalTokenCount,
+  });
+}
+
 export function buildChatCompletionResult(options: {
   content: string | null | undefined;
   toolCalls: ToolCall[];
   thinking?: string | null | undefined;
+  usage?: ChatCompletionResult["usage"];
 }): ChatCompletionResult {
   const content = options.content?.trim() ?? "";
   const thinking = options.thinking?.trim();
@@ -23,6 +88,7 @@ export function buildChatCompletionResult(options: {
     content,
     toolCalls: options.toolCalls,
     assistantMessage,
+    ...(options.usage ? { usage: options.usage } : {}),
   };
 }
 

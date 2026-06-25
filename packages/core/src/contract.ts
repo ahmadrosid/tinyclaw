@@ -1165,6 +1165,11 @@ export interface ChatCompletionResult {
   content: string;
   toolCalls: ToolCall[];
   assistantMessage: Extract<ChatMessage, { role: "assistant" }>;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
 }
 
 export interface ProviderChatOptions {

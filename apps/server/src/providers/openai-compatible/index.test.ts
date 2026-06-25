@@ -51,6 +51,7 @@ describe("OpenAI-compatible provider", () => {
     });
 
     expect(result.assistantMessage.thinking).toBe("Plan");
+    expect(result.usage).toBeUndefined();
   });
 
   test("omits reasoning config when the model does not support thinking", async () => {
@@ -163,6 +164,82 @@ describe("OpenAI-compatible provider", () => {
     expect(chunks).toEqual(["Hi"]);
     expect(thinking).toEqual(["Plan"]);
     expect(result.assistantMessage.thinking).toBe("Plan");
+  });
+
+  test("captures API-reported usage for non-streaming chat", async () => {
+    const fetchMock = mock(async () => {
+      return Response.json({
+        usage: {
+          prompt_tokens: 120,
+          completion_tokens: 30,
+          total_tokens: 150,
+        },
+        choices: [{ message: { content: "Answer" } }],
+      });
+    });
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = createOpenAICompatibleProvider({
+      apiKey: "",
+      baseUrl: "https://api.example.com/v1",
+      model: "qwen3.6-35b",
+      displayName: "NetraRuntime",
+      supportsThinking: false,
+    });
+
+    const result = await provider.generateChat({
+      system: "You are helpful.",
+      messages: [{ role: "user", content: "Hi" }],
+    });
+
+    expect(result.usage).toEqual({
+      inputTokens: 120,
+      outputTokens: 30,
+      totalTokens: 150,
+    });
+  });
+
+  test("captures API-reported usage for streaming chat", async () => {
+    const fetchMock = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        stream_options?: { include_usage?: boolean };
+      };
+      expect(body.stream_options).toEqual({ include_usage: true });
+
+      return new Response(
+        streamFromChunks([
+          'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n',
+          'data: {"usage":{"prompt_tokens":88,"completion_tokens":12,"total_tokens":100},"choices":[]}\n\n',
+          "data: [DONE]\n\n",
+        ]),
+        { status: 200, headers: { "Content-Type": "text/event-stream" } },
+      );
+    });
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const provider = createOpenAICompatibleProvider({
+      apiKey: "",
+      baseUrl: "https://api.example.com/v1",
+      model: "qwen3.6-35b",
+      displayName: "NetraRuntime",
+      supportsThinking: false,
+    });
+
+    const result = await provider.streamChat(
+      {
+        system: "You are helpful.",
+        messages: [{ role: "user", content: "Hi" }],
+      },
+      { onChunk: () => {} },
+    );
+
+    expect(result.usage).toEqual({
+      inputTokens: 88,
+      outputTokens: 12,
+      totalTokens: 100,
+    });
   });
 
   test("surfaces JSON provider errors on stream requests", async () => {

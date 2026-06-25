@@ -28,10 +28,11 @@ describe("Anthropic provider streaming", () => {
 
       return new Response(
         streamFromChunks([
+          'event: message_start\r\ndata:{"type":"message_start","message":{"usage":{"input_tokens":55}}}\r\n\r\n',
           'event: content_block_start\r\ndata:{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\r\n\r\n',
           'event: content_block_delta\r\ndata:{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hel"}}\r\n\r\n',
           'event: content_block_delta\r\ndata:{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"lo"}}\r\n\r\n',
-          'event: message_delta\r\ndata:{"type":"message_delta","delta":{"stop_reason":"end_turn"}}\r\n\r\n',
+          'event: message_delta\r\ndata:{"type":"message_delta","delta":{"stop_reason":"end_turn","usage":{"output_tokens":11}}}\r\n\r\n',
         ]),
         { status: 200, headers: { "Content-Type": "text/event-stream" } },
       );
@@ -56,6 +57,11 @@ describe("Anthropic provider streaming", () => {
     );
 
     expect(result.content).toBe("Hello");
+    expect(result.usage).toEqual({
+      inputTokens: 55,
+      outputTokens: 11,
+      totalTokens: 66,
+    });
     expect(chunks).toEqual(["Hel", "lo"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

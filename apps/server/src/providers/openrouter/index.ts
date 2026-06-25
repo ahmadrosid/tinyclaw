@@ -25,6 +25,7 @@ import type {
 import { toOpenAIMessages } from "../openai";
 import {
   buildChatCompletionResult,
+  extractOpenAITokenUsage,
   normalizeThinkingEffort,
   parseJsonRecord,
 } from "../shared";
@@ -192,6 +193,7 @@ function parseMessageReasoning(
 }
 
 function parseChatResult(result: {
+  usage?: Record<string, unknown>;
   choices?: Array<{
     message?: {
       content?: string | null;
@@ -209,7 +211,12 @@ function parseChatResult(result: {
     throw new Error(`${PROVIDER_LABEL} returned an empty response.`);
   }
 
-  return buildChatCompletionResult({ content, toolCalls, thinking });
+  return buildChatCompletionResult({
+    content,
+    toolCalls,
+    thinking,
+    usage: extractOpenAITokenUsage(result.usage),
+  });
 }
 
 async function buildChatRequestBase(options: {
@@ -292,9 +299,11 @@ async function readOpenRouterStream(
 ): Promise<ChatCompletionResult> {
   let content = "";
   let thinking = "";
+  let usage: ChatCompletionResult["usage"];
   const pending = new Map<number, PendingToolCall>();
 
   for await (const chunk of stream) {
+    usage = extractOpenAITokenUsage((chunk as { usage?: Record<string, unknown> }).usage) ?? usage;
     const delta = chunk.choices?.[0]?.delta;
 
     if (delta?.reasoning) {
@@ -325,6 +334,7 @@ async function readOpenRouterStream(
     content,
     toolCalls,
     thinking: thinkingText,
+    usage,
   });
 }
 

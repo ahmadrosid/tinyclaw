@@ -12,7 +12,12 @@ import type {
 } from "@tinyclaw/core";
 import { messagesIncludeUserDocuments, messagesIncludeUserImages, toOpenAIChatUserContent } from "@tinyclaw/core";
 import { generateOpenAIResponsesChat } from "./responses";
-import { buildChatCompletionResult, parseJsonRecord, readSseEvents } from "../shared";
+import {
+  buildChatCompletionResult,
+  extractOpenAITokenUsage,
+  parseJsonRecord,
+  readSseEvents,
+} from "../shared";
 import { openAIModelSupportsThinking, openAIModelRequiresResponsesApi } from "./thinking";
 
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
@@ -283,11 +288,13 @@ async function buildChatCompletionRequestBody(options: {
   messages: ChatMessage[];
   tools?: LlmToolDefinition[];
   stream?: boolean;
+  streamOptions?: { includeUsage: boolean };
   provider?: ProviderName;
 }) {
   return {
     model: options.model,
     ...(options.stream ? { stream: true } : {}),
+    ...(options.streamOptions ? { stream_options: { include_usage: options.streamOptions.includeUsage } } : {}),
     messages: await toOpenAIMessages(
       options.system,
       options.messages,
@@ -323,6 +330,7 @@ async function requestChatCompletion(
   }
 
   const payload = (await response.json()) as {
+    usage?: Record<string, unknown>;
     choices?: Array<{
       message?: {
         content?: string | null;
@@ -342,7 +350,11 @@ async function requestChatCompletion(
     throw new Error(`${client.label} returned an empty response.`);
   }
 
-  return buildChatCompletionResult({ content, toolCalls });
+  return buildChatCompletionResult({
+    content,
+    toolCalls,
+    usage: extractOpenAITokenUsage(payload.usage),
+  });
 }
 
 export * from "./responses";
@@ -367,6 +379,7 @@ async function streamChatCompletion(
         messages: options.messages,
         tools: options.tools,
         stream: true,
+        streamOptions: { includeUsage: true },
         provider: client.providerName,
       }),
     ),
@@ -487,10 +500,12 @@ async function readOpenAIStream(
   label = "OpenAI",
 ): Promise<ChatCompletionResult> {
   let content = "";
+  let usage: ChatCompletionResult["usage"];
   const pending = new Map<number, PendingToolCall>();
 
   await readSseEvents(body, ({ data }) => {
     const payload = JSON.parse(data) as {
+      usage?: Record<string, unknown>;
       choices?: Array<{
         delta?: {
           content?: string | null;
@@ -502,6 +517,8 @@ async function readOpenAIStream(
         };
       }>;
     };
+
+    usage = extractOpenAITokenUsage(payload.usage) ?? usage;
 
     const delta = payload.choices?.[0]?.delta;
 
@@ -523,5 +540,5 @@ async function readOpenAIStream(
     throw new Error(`${label} returned an empty response.`);
   }
 
-  return buildChatCompletionResult({ content, toolCalls });
+  return buildChatCompletionResult({ content, toolCalls, usage });
 }

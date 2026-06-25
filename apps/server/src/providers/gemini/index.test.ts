@@ -18,6 +18,7 @@ function generateContentResponse(options: {
   text?: string;
   thinking?: string;
   functionCalls?: unknown[];
+  usageMetadata?: Record<string, unknown>;
 }) {
   const parts: Array<Record<string, unknown>> = [];
 
@@ -34,6 +35,7 @@ function generateContentResponse(options: {
   }
 
   return JSON.stringify({
+    ...(options.usageMetadata ? { usageMetadata: options.usageMetadata } : {}),
     candidates: [
       {
         content: { role: "model", parts },
@@ -117,6 +119,37 @@ describe("createGeminiProvider", () => {
       expect(result.toolCalls).toEqual([
         { id: "fc1", name: "write_file", arguments: { path: "a.txt" } },
       ]);
+      expect(result.usage).toBeUndefined();
+    });
+  });
+
+  test("captures API-reported usage", async () => {
+    const fetchMock = mock(async () => {
+      return new Response(
+        generateContentResponse({
+          text: "Answer",
+          usageMetadata: {
+            promptTokenCount: 70,
+            candidatesTokenCount: 20,
+            totalTokenCount: 90,
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+
+    await withMockFetch(fetchMock as typeof fetch, async () => {
+      const provider = createGeminiProvider({ apiKey: "AIzaTest" });
+      const result = await provider.generateChat({
+        system: "system",
+        messages: [{ role: "user", content: "hi" }],
+      });
+
+      expect(result.usage).toEqual({
+        inputTokens: 70,
+        outputTokens: 20,
+        totalTokens: 90,
+      });
     });
   });
 
