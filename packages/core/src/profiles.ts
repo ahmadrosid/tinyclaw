@@ -99,6 +99,20 @@ export function resolveProfileInput(
   return findNearSlugProfileMatch(profiles, trimmed);
 }
 
+export function isProfileSelectionIndexInput(
+  input: string,
+  profileCount: number,
+): boolean {
+  const trimmed = input.trim();
+
+  if (!trimmed || trimmed.startsWith("/") || /\s/.test(trimmed)) {
+    return false;
+  }
+
+  const numeric = Number(trimmed);
+  return Number.isInteger(numeric) && numeric >= 1 && numeric <= profileCount;
+}
+
 function levenshtein(left: string, right: string): number {
   if (left === right) {
     return 0;
@@ -207,6 +221,7 @@ export function formatProfileSelectionPrompt(
     "",
     current ? `Current: ${current.name}` : "Current: none selected",
     "",
+    "Switch with /profile 2, /profile <id>, or /profile <name>",
     "/profile — show this list again",
   ].join("\n");
 }

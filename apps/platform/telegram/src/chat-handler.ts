@@ -11,7 +11,9 @@ import {
   filterProfilesForChatAccess,
   formatProfileSelectionPrompt,
   formatProfileSwitchConfirmation,
+  isProfileSelectionIndexInput,
   pickProfileForOrg,
+  resolveProfileInput,
   resolveProfileInScopes,
   type ProfileScope,
 } from "@tinyclaw/core/profiles";
@@ -414,8 +416,22 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       return;
     }
 
-    const scopes = await listProfileScopes(orgs, currentOrgId);
-    const resolved = resolveProfileInScopes(scopes, arg);
+    const currentOrgProfiles = currentOrgId ? await listSelectableProfiles() : [];
+    const currentOrgNumericPick =
+      currentOrgId && isProfileSelectionIndexInput(arg, currentOrgProfiles.length)
+        ? resolveProfileInput(currentOrgProfiles, arg)
+        : undefined;
+    const resolved =
+      currentOrgId && currentOrgNumericPick
+        ? {
+            scope: {
+              orgId: currentOrgId,
+              orgName: currentOrg?.name ?? "Current org",
+              profiles: currentOrgProfiles,
+            },
+            profile: currentOrgNumericPick,
+          }
+        : resolveProfileInScopes(await listProfileScopes(orgs, currentOrgId), arg);
 
     if (!resolved) {
       await ctx.reply("Unknown profile. Send /profile to see the list.");

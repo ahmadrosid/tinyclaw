@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ProfileSummary } from "./contract";
 import {
   filterProfilesForChatAccess,
+  formatProfileSelectionPrompt,
   resolveProfileInScopes,
   resolveProfileInput,
   slugifyProfileName,
@@ -75,5 +76,13 @@ describe("resolveProfileInScopes", () => {
     expect(result).not.toBeNull();
     expect(result && "scope" in result && result.scope.orgId).toBe("org_b");
     expect(result && "profile" in result && result.profile.name).toBe("Gary Vee");
+  });
+});
+
+describe("formatProfileSelectionPrompt", () => {
+  test("shows explicit switch examples", () => {
+    const prompt = formatProfileSelectionPrompt(profiles, "profile_a", "Personal");
+
+    expect(prompt).toContain("Switch with /profile 2, /profile <id>, or /profile <name>");
   });
 });
