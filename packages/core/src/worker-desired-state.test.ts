@@ -36,10 +36,11 @@ async function withConfigDir<T>(run: () => Promise<T>): Promise<T> {
 }
 
 describe("parseWorkerDesiredState", () => {
-  test("defaults missing keys to false", () => {
+  test("defaults missing keys to false except automation", () => {
     expect(parseWorkerDesiredState('{"telegram": true}')).toEqual({
       telegram: true,
       whatsapp: false,
+      automation: true,
     });
   });
 
@@ -47,6 +48,23 @@ describe("parseWorkerDesiredState", () => {
     expect(parseWorkerDesiredState("not-json")).toEqual({
       telegram: false,
       whatsapp: false,
+      automation: true,
+    });
+  });
+
+  test("backward compatible: missing automation key defaults to true", () => {
+    expect(parseWorkerDesiredState('{"telegram":false,"whatsapp":false}')).toEqual({
+      telegram: false,
+      whatsapp: false,
+      automation: true,
+    });
+  });
+
+  test("explicit automation false is honored", () => {
+    expect(parseWorkerDesiredState('{"telegram":false,"whatsapp":false,"automation":false}')).toEqual({
+      telegram: false,
+      whatsapp: false,
+      automation: false,
     });
   });
 });
@@ -57,6 +75,7 @@ describe("worker desired state persistence", () => {
       expect(await readWorkerDesiredState()).toEqual({
         telegram: false,
         whatsapp: false,
+        automation: true,
       });
     });
   });
@@ -67,18 +86,28 @@ describe("worker desired state persistence", () => {
       expect(await readWorkerDesiredState()).toEqual({
         telegram: true,
         whatsapp: false,
+        automation: true,
       });
 
       await setWorkerDesiredRunning("whatsapp", true);
       expect(await readWorkerDesiredState()).toEqual({
         telegram: true,
         whatsapp: true,
+        automation: true,
+      });
+
+      await setWorkerDesiredRunning("automation", false);
+      expect(await readWorkerDesiredState()).toEqual({
+        telegram: true,
+        whatsapp: true,
+        automation: false,
       });
 
       await setWorkerDesiredRunning("telegram", false);
       expect(await readWorkerDesiredState()).toEqual({
         telegram: false,
         whatsapp: true,
+        automation: false,
       });
     });
   });
@@ -95,6 +124,7 @@ describe("worker desired state persistence", () => {
       expect(await readWorkerDesiredState()).toEqual({
         telegram: true,
         whatsapp: false,
+        automation: true,
       });
     });
   });

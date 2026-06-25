@@ -1,8 +1,12 @@
 import type { HealthResponse, LlmUsageStatus, SystemStatusResponse, WorkerProcessInfo } from "@tinyclaw/core";
-import { getTelegramWorkerStatus, getWhatsAppWorkerStatus, TINYCLAW_API_VERSION } from "@tinyclaw/core";
+import {
+  getAutomationWorkerHeartbeatStatus,
+  getTelegramWorkerStatus,
+  getWhatsAppWorkerStatus,
+  TINYCLAW_API_VERSION,
+} from "@tinyclaw/core";
 import type { AgentService } from "./agent-service";
 import type { AutomationRunner } from "./automation-runner";
-import type { AutomationScheduler } from "./automation-scheduler";
 import type { McpService } from "./mcp-service";
 import type { TaskRunner } from "./task-runner";
 import type { WorkerManagerService } from "./worker-manager-service";
@@ -10,7 +14,6 @@ import type { WorkerManagerService } from "./worker-manager-service";
 export class SystemStatusService {
   constructor(
     private readonly agent: AgentService,
-    private readonly scheduler: AutomationScheduler,
     private readonly automationRunner: AutomationRunner,
     private readonly taskRunner: TaskRunner,
     private readonly workerManager: WorkerManagerService,
@@ -18,12 +21,16 @@ export class SystemStatusService {
   ) {}
 
   async getStatus(): Promise<SystemStatusResponse> {
-    const scheduler = this.scheduler.getStatus();
     const providerConfigured = this.agent.providerConfigured;
     const models = await this.agent.getModels();
     const usageFields = this.agent.getUsageStatusFields();
 
     const statuses = await this.workerManager.getAllWorkerStatuses();
+    const automationProcess = statuses.automation ?? null;
+    const automationHeartbeat = await getAutomationWorkerHeartbeatStatus();
+    const automationRunning = automationHeartbeat.running;
+    const automationManagedOnline =
+      automationProcess?.managed === true && automationProcess.status === "online";
 
     const [telegramStatus, whatsappStatus] = await Promise.all([
       this.resolveWorkerStatus("telegram", statuses.telegram),
@@ -33,11 +40,12 @@ export class SystemStatusService {
     return {
       server: this.getServerStatus(),
       automationWorker: {
-        ok: scheduler.running,
-        running: scheduler.running,
-        scheduledJobs: scheduler.scheduledJobs,
+        ok: automationManagedOnline && automationRunning,
+        running: automationRunning,
+        scheduledJobs: automationRunning ? automationHeartbeat.scheduledJobs : 0,
         activeRuns: this.automationRunner.getActiveRunCount(),
         providerConfigured,
+        process: automationProcess ?? undefined,
       },
       taskWorker: {
         ok: true,

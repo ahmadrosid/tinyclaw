@@ -3,7 +3,6 @@ import { fileURLToPath } from "node:url";
 import { createHonoApp } from "./http/app";
 import { AgentService } from "./services/agent-service";
 import { AutomationRunner } from "./services/automation-runner";
-import { AutomationScheduler } from "./services/automation-scheduler";
 import { AutomationService } from "./services/automation-service";
 import { TaskRunner } from "./services/task-runner";
 import { TaskService } from "./services/task-service";
@@ -89,16 +88,9 @@ const automationService = new AutomationService(database.adapter, {
   getUserTimezone: () => agent.getUserTimezone(),
 });
 const automationRunner = new AutomationRunner(automationService, agent);
-const automationScheduler = new AutomationScheduler(
-  automationService,
-  automationRunner,
-  () => agent.getUserTimezone(),
-);
 
 agent.setAutomationTools(createAutomationTools(automationService, automationRunner));
 agent.setAutomationRunner(automationRunner);
-automationService.setOnChange(() => automationScheduler.reload());
-await automationScheduler.start();
 
 const taskService = new TaskService(database.adapter);
 const taskRunner = new TaskRunner(taskService, agent);
@@ -111,7 +103,6 @@ const orgService = new OrgService(database.adapter, authService);
 
 const systemStatus = new SystemStatusService(
   agent,
-  automationScheduler,
   automationRunner,
   taskRunner,
   workerManager,
@@ -142,7 +133,7 @@ const serverUrl = writeRuntimeServerUrl(
   `http://${server.hostname}:${server.port}`,
 );
 
-registerRuntimeCleanup(server, serverUrl, database, automationScheduler, mcpClientManager);
+registerRuntimeCleanup(server, serverUrl, database, mcpClientManager);
 
 if (server.port !== requestedPort) {
   console.log(`Port ${requestedPort} is busy. Using ${server.port} instead.`);
@@ -219,7 +210,6 @@ function registerRuntimeCleanup(
   server: ReturnType<typeof Bun.serve>,
   serverUrl: string,
   database: Database,
-  scheduler: AutomationScheduler,
   mcpClientManager: McpClientManager,
 ): void {
   let cleanedUp = false;
@@ -230,7 +220,6 @@ function registerRuntimeCleanup(
     }
 
     cleanedUp = true;
-    scheduler.stop();
     void mcpClientManager.disconnectAll();
     clearRuntimeServerUrl(serverUrl);
     database.close();

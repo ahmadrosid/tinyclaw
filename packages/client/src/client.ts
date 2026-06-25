@@ -1,5 +1,6 @@
 import type {
   AgentChannel,
+  AutomationSchedule,
   BranchSessionRequest,
   BranchSessionResponse,
   AssignMcpServerRequest,
@@ -767,6 +768,16 @@ export class TinyClawClient {
       { method: "POST" },
     );
     return response.run;
+  }
+
+  async listAutomationSchedules(): Promise<AutomationSchedule[]> {
+    return this.request<AutomationSchedule[]>("/v1/internal/automations/schedules");
+  }
+
+  async runAutomationInternal(automationId: string): Promise<void> {
+    await this.request(`/v1/internal/automations/${encodeURIComponent(automationId)}/run`, {
+      method: "POST",
+    });
   }
 
   async listAutomationRuns(automationId: string): Promise<AutomationRunRecord[]> {

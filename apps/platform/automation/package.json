@@ -1,0 +1,15 @@
+{
+  "name": "@tinyclaw/automation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "NODE_ENV=production bun run src/index.ts",
+    "dev": "bun run src/index.ts",
+    "build": "bun build ./src/index.ts --outdir dist --target bun",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@tinyclaw/client": "workspace:*",
+    "@tinyclaw/core": "workspace:*"
+  }
+}

@@ -6,7 +6,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@tinyclaw/core": "workspace:*"
+    "@tinyclaw/core": "workspace:*",
+    "bcryptjs": "^3.0.3"
   },
   "scripts": {
     "build": "bun build ./src/index.ts --outdir dist --target bun"

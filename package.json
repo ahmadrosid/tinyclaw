@@ -10,6 +10,7 @@
     "dev:cli": "bun run apps/cli/src/index.ts",
     "dev:telegram": "bun run --filter @tinyclaw/telegram dev",
     "dev:whatsapp": "bun run --filter @tinyclaw/whatsapp dev",
+    "dev:automation": "bun run --filter @tinyclaw/automation dev",
     "dev:web": "bun run --filter @tinyclaw/web dev",
     "dev:docs": "bun run --cwd docs/website dev",
     "build:docs": "bun run --cwd docs/website build",

@@ -1,5 +1,9 @@
 import { LOCAL_CLIENT_EMAIL, LOCAL_CLIENT_USER_ID } from "@tinyclaw/core/local-auth";
+import bcrypt from "bcryptjs";
 import type { DatabaseAdapter } from "./types";
+
+const SALT_ROUNDS = 10;
+const PLACEHOLDER_HASH = "unused";
 
 export async function ensureLocalClientAccess(db: DatabaseAdapter): Promise<void> {
   const now = new Date().toISOString();
@@ -9,11 +13,17 @@ export async function ensureLocalClientAccess(db: DatabaseAdapter): Promise<void
     await db.createUser({
       id: LOCAL_CLIENT_USER_ID,
       email: LOCAL_CLIENT_EMAIL,
-      passwordHash: "unused",
+      passwordHash: await bcrypt.hash(generateRandomPassword(), SALT_ROUNDS),
       createdAt: now,
       updatedAt: now,
     });
     user = await db.getUserByEmail(LOCAL_CLIENT_EMAIL);
+  } else if (user.passwordHash === PLACEHOLDER_HASH) {
+    await db.updateUserPassword(
+      user.id,
+      await bcrypt.hash(generateRandomPassword(), SALT_ROUNDS),
+      now,
+    );
   }
 
   if (!user) {
@@ -33,4 +43,8 @@ export async function ensureLocalClientAccess(db: DatabaseAdapter): Promise<void
       createdAt: now,
     });
   }
+}
+
+function generateRandomPassword(): string {
+  return `${crypto.randomUUID()}${crypto.randomUUID()}`;
 }

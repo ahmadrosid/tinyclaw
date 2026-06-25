@@ -103,8 +103,22 @@ function StatusDashboard({ status }: { status: SystemStatusResponse }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      <div className="grid grid-cols-1 divide-y divide-border lg:grid-cols-3 lg:divide-x lg:divide-y-0">
         {services.map((service) => {
+          if (service.title === "Automation") {
+            return (
+              <WorkerServiceColumn
+                key={service.title}
+                icon={service.icon}
+                title={service.title}
+                status={service.status}
+                tone={service.tone}
+                worker={automationWorker}
+                workerName="automation"
+              />
+            );
+          }
+
           if (service.title === "Telegram") {
             return (
               <WorkerServiceColumn
@@ -544,7 +558,7 @@ function WorkerServiceColumn({
   title: string;
   status: string;
   tone: ServiceStatusTone;
-  worker: SystemStatusResponse["telegramWorker"];
+  worker: Pick<SystemStatusResponse["automationWorker"], "running" | "process">;
   workerName: string;
   footerLink?: { label: string; to: string };
 }) {
@@ -631,9 +645,14 @@ function StatusSkeleton() {
 }
 
 export function buildServiceColumns(status: SystemStatusResponse) {
-  const { telegramWorker, whatsappWorker } = status;
+  const { automationWorker, telegramWorker, whatsappWorker } = status;
 
   return [
+    {
+      icon: ClockIcon,
+      title: "Automation",
+      ...automationServiceStatus(automationWorker),
+    },
     {
       icon: MessageCircleIcon,
       title: "Telegram",
@@ -645,6 +664,24 @@ export function buildServiceColumns(status: SystemStatusResponse) {
       ...whatsappServiceStatus(whatsappWorker),
     },
   ];
+}
+
+function automationServiceStatus(
+  automationWorker: SystemStatusResponse["automationWorker"],
+): { status: string; tone: ServiceStatusTone } {
+  if (!automationWorker.process?.managed) {
+    return { status: "PM2 unavailable", tone: "warn" };
+  }
+
+  if (!automationWorker.running) {
+    return { status: "Offline", tone: "bad" };
+  }
+
+  if (automationWorker.activeRuns > 0) {
+    return { status: "Running jobs", tone: "ok" };
+  }
+
+  return { status: "Healthy", tone: "ok" };
 }
 
 function telegramServiceStatus(
@@ -700,7 +737,7 @@ export function deriveSummary(status: SystemStatusResponse): {
     return {
       tone: "bad",
       title: "Automation worker stopped",
-      description: "Restart the server to resume scheduled runs.",
+      description: "Start the automation worker to resume scheduled runs.",
     };
   }
 

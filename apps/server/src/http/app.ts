@@ -19,6 +19,7 @@ import { registerAutomationRoutes } from "./routes/automations";
 import { registerTaskRoutes } from "./routes/tasks";
 import { registerPlatformOrgRoutes } from "./routes/platform-orgs";
 import { registerOrgMemberRoutes } from "./routes/org-members";
+import { registerInternalAutomationRoutes } from "./routes/internal-automations";
 import { tryServeStaticWeb } from "../static-web";
 import { serializeHttpOpenApiSpec } from "./openapi";
 
@@ -49,6 +50,7 @@ export function createHonoApp(options: ServerOptions) {
   });
 
   app.use("*", createAuthMiddleware(options));
+  registerInternalAutomationRoutes(app, options);
   app.use("*", createOrgContextMiddleware(options));
   registerSystemRoutes(app, options);
   registerAuthRoutes(app, options);

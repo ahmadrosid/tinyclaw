@@ -21,6 +21,13 @@
         "@tinyclaw/core": "workspace:*",
       },
     },
+    "apps/platform/automation": {
+      "name": "@tinyclaw/automation",
+      "dependencies": {
+        "@tinyclaw/client": "workspace:*",
+        "@tinyclaw/core": "workspace:*",
+      },
+    },
     "apps/platform/telegram": {
       "name": "@tinyclaw/telegram",
       "dependencies": {
@@ -116,6 +123,7 @@
       "name": "@tinyclaw/core",
       "dependencies": {
         "@vscode/ripgrep": "^1.18.0",
+        "croner": "^10.0.1",
         "imapflow": "^1.4.2",
         "mailparser": "^3.9.11",
         "nanoid": "^5.1.11",
@@ -134,6 +142,7 @@
       "name": "@tinyclaw/db",
       "dependencies": {
         "@tinyclaw/core": "workspace:*",
+        "bcryptjs": "^3.0.3",
       },
     },
     "packages/skills": {
@@ -638,6 +647,8 @@
     "@thi.ng/errors": ["@thi.ng/errors@2.6.15", "", {}, "sha512-kkd42XRB+D1PVI9IRyEVK/URF0fgTE7SscoehHyuuZ6UHn/4N60ODiTwOONJHRHxLQVQLJ7EwM0t6AuxBufRUA=="],
 
     "@tinyclaw/agent": ["@tinyclaw/agent@workspace:packages/agent"],
+
+    "@tinyclaw/automation": ["@tinyclaw/automation@workspace:apps/platform/automation"],
 
     "@tinyclaw/cli": ["@tinyclaw/cli@workspace:apps/cli"],
 

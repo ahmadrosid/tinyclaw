@@ -16,6 +16,13 @@ const healthyStatus: SystemStatusResponse = {
     providerConfigured: true,
     scheduledJobs: 1,
     activeRuns: 0,
+    process: {
+      managed: true,
+      status: "online",
+      cpuPercent: 0,
+      memoryMb: 12,
+      uptimeSeconds: 30,
+    },
   },
   taskWorker: { ok: true, activeRuns: 0, providerConfigured: true },
   telegramWorker: { ok: true, configured: true, running: true, paired: true },
@@ -52,9 +59,42 @@ describe("StatusPage helpers", () => {
     });
   });
 
+  test("tells users to start the automation worker when it is stopped", () => {
+    const status = {
+      ...healthyStatus,
+      automationWorker: {
+        ...healthyStatus.automationWorker,
+        ok: false,
+        running: false,
+      },
+    };
+
+    expect(deriveSummary(status)).toEqual({
+      tone: "bad",
+      title: "Automation worker stopped",
+      description: "Start the automation worker to resume scheduled runs.",
+    });
+  });
+
   test("maps bridge health to service columns", () => {
     const columns = buildServiceColumns(healthyStatus);
-    expect(columns.map((column) => column.title)).toEqual(["Telegram", "WhatsApp"]);
-    expect(columns.map((column) => column.status)).toEqual(["Healthy", "Healthy"]);
+    expect(columns.map((column) => column.title)).toEqual(["Automation", "Telegram", "WhatsApp"]);
+    expect(columns.map((column) => column.status)).toEqual(["Healthy", "Healthy", "Healthy"]);
+  });
+
+  test("marks automation as PM2 unavailable when no managed process is present", () => {
+    const columns = buildServiceColumns({
+      ...healthyStatus,
+      automationWorker: {
+        ...healthyStatus.automationWorker,
+        process: undefined,
+      },
+    });
+
+    expect(columns[0]).toMatchObject({
+      title: "Automation",
+      status: "PM2 unavailable",
+      tone: "warn",
+    });
   });
 });
