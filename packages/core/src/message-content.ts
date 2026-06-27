@@ -366,7 +366,11 @@ async function mapResolvedUserContent(
       return mapDocument(part);
     }
 
-    return mapImage(part);
+    if (part.type === "image") {
+      return mapImage(part);
+    }
+
+    throw new Error(`Unsupported content part type: ${(part as { type: string }).type}`);
   });
 }
 
