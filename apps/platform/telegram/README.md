@@ -49,12 +49,14 @@ New users must paste a one-time pairing code from Integrations → Telegram in a
 ### Group chats
 
 1. Link your account in a private chat with the bot first (pairing code).
-2. Add the bot to a Telegram group.
-3. Trigger it with an @mention, a reply to one of its messages, or a slash command (e.g. `/status`).
+2. In `@BotFather`, open your bot settings and disable **Group Privacy** if you want `@mention` triggers to work reliably.
+3. If you changed Group Privacy, remove the bot from the group and add it back so Telegram applies the new setting.
+4. Add the bot to a Telegram group.
+5. Trigger it with an @mention, a reply to one of its messages, or a slash command (e.g. `/status`).
 
 Each group shares one conversation history and one org/profile selection (`/org` and `/profile` apply to the whole group). Pairing codes cannot be used in groups.
 
-Telegram’s default **Group Privacy** only delivers mentions, replies, and commands to the bot — which matches TinyClaw’s trigger rules. Disabling privacy in BotFather does not make the bot respond to every message.
+Telegram’s default **Group Privacy** limits what group messages reach the bot. TinyClaw still applies its own local filter, so even with privacy disabled it only responds when the message is a slash command, a reply to the bot, or a real bot mention.
 
 Session mapping is stored in `~/.tinyclaw/telegram/chat-sessions.json`.
 

@@ -56,8 +56,6 @@ const GROUP_MESSAGE_PREFIX =
 const LINK_IN_PRIVATE_REPLY =
   "Link your account in a private chat with this bot first.";
 
-const TELEGRAM_TRACE_PREFIX = "[telegram-trace]";
-
 const PAIRING_PROMPT =
   "Welcome to TinyClaw.\n\n" +
   "Paste your pairing code from Integrations → Telegram in the web dashboard. " +
@@ -83,7 +81,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
 
   return async function handleMessage(ctx: Context): Promise<void> {
     if (!ctx.chat) {
-      trace("ignored_update_without_chat", {});
       return;
     }
 
@@ -91,10 +88,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     const userId = ctx.from?.id;
 
     if (userId === undefined) {
-      trace("ignored_update_without_user", {
-        chatId,
-        chatType: ctx.chat.type,
-      });
       return;
     }
 
@@ -103,33 +96,13 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     const botInfo = resolveBotInfo(ctx, getBotInfo());
     const groupDecision = isGroup ? explainGroupMessageHandling(ctx, botInfo) : null;
 
-    trace("incoming_message", {
-      chatId,
-      userId,
-      chatType: ctx.chat.type,
-      isGroup,
-      text: previewText(text),
-      entityTypes: ctx.message?.entities?.map((entity) => entity.type) ?? [],
-      hasPhoto: Boolean(ctx.message?.photo?.length),
-      hasDocument: Boolean(ctx.message?.document),
-      isReply: Boolean(ctx.message?.reply_to_message),
-      botUsername: botInfo?.username ?? null,
-      groupReason: groupDecision?.reason ?? null,
-    });
-
     if (groupDecision && !groupDecision.shouldHandle) {
-      trace("ignored_group_message", {
-        chatId,
-        userId,
-        reason: groupDecision.reason,
-      });
       return;
     }
 
     const channelOrgKey = resolveChannelOrgKey(chatId, userId, isGroup);
 
     if (text && isStopCommand(text)) {
-      trace("stop_command_received", { chatId, userId });
       if (!stopActiveStream(chatId)) {
         await ctx.reply("Nothing to stop.");
       }
@@ -138,23 +111,11 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     }
 
     await withChatLock(chatId, async () => {
-      trace("chat_lock_acquired", { chatId, userId });
       await authStore.reload();
       const isAuthorized = authStore.isAuthorized(userId);
 
-      trace("auth_checked", {
-        chatId,
-        userId,
-        isGroup,
-        isAuthorized,
-      });
-
       if (!isAuthorized) {
         if (isGroup) {
-          trace("blocked_group_message_user_not_paired", {
-            chatId,
-            userId,
-          });
           await ctx.reply(LINK_IN_PRIVATE_REPLY);
           return;
         }
@@ -181,7 +142,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       }
 
       if (isGroup && text && looksLikeHandshakeAttempt(text)) {
-        trace("blocked_group_pairing_attempt", { chatId, userId });
         await ctx.reply(LINK_IN_PRIVATE_REPLY);
         return;
       }
@@ -194,19 +154,8 @@ export function createChatHandler(deps: ChatHandlerDeps) {
           isGroup && text && botInfo?.username
             ? stripBotMention(text, botInfo.username)
             : text;
-        trace("org_gate_check", {
-          chatId,
-          userId,
-          channelOrgKey,
-          text: previewText(orgGateText),
-        });
-        const orgReady = await ensureOrgReady(ctx, channelOrgKey, orgGateText, chatId);
+        const orgReady = await ensureOrgReady(ctx, channelOrgKey, orgGateText);
         if (!orgReady) {
-          trace("org_gate_blocked", {
-            chatId,
-            userId,
-            channelOrgKey,
-          });
           return;
         }
       }
@@ -214,7 +163,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       const imageInput = await tryBuildImageInput(ctx);
 
       if (imageInput) {
-        trace("handling_image_message", { chatId, userId });
         await handleChatMessage(ctx, withGroupContext(imageInput, isGroup), chatId);
         return;
       }
@@ -222,28 +170,20 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       const documentInput = await tryBuildDocumentInput(ctx);
 
       if (documentInput) {
-        trace("handling_document_message", { chatId, userId });
         await handleChatMessage(ctx, withGroupContext(documentInput, isGroup), chatId);
         return;
       }
 
       if (hasTelegramDocument(ctx)) {
-        trace("document_message_rejected", { chatId, userId });
         return;
       }
 
       if (!text) {
-        trace("unsupported_message_without_text", { chatId, userId });
         await ctx.reply(UNSUPPORTED_MEDIA_REPLY);
         return;
       }
 
       if (text.startsWith("/")) {
-        trace("handling_command", {
-          chatId,
-          userId,
-          command: parseTelegramCommand(text),
-        });
         await handleCommand(ctx, text, chatId, channelOrgKey);
         return;
       }
@@ -251,11 +191,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       const messageText =
         isGroup ? stripBotMention(text, botInfo?.username) : text;
 
-      trace("handling_text_message", {
-        chatId,
-        userId,
-        text: previewText(messageText),
-      });
       await handleChatMessage(
         ctx,
         withGroupContext({ message: messageText }, isGroup),
@@ -394,14 +329,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     const signal = registerActiveStream(chatId);
     let reply = "";
 
-    trace("chat_send_start", {
-      chatId,
-      sessionId: session.id,
-      hasMessage: Boolean(input.message?.trim()),
-      message: previewText(input.message),
-      hasImages: Boolean(input.images?.length),
-      hasDocuments: Boolean(input.documents?.length),
-    });
     typingLoop.start();
 
     try {
@@ -429,12 +356,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       );
 
       await todoStatus.complete();
-      trace("chat_send_complete", {
-        chatId,
-        sessionId: session.id,
-        replyLength: reply.length,
-        aborted: signal.aborted,
-      });
 
       if (signal.aborted) {
         if (reply.trim()) {
@@ -445,11 +366,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
         return;
       }
     } catch (error) {
-      trace("chat_send_error", {
-        chatId,
-        sessionId: session.id,
-        error: formatTraceError(error),
-      });
       if (isAbortError(error)) {
         await todoStatus.stop();
         if (reply.trim()) {
@@ -480,7 +396,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     ctx: Context,
     channelOrgKey: string,
     messageText: string | undefined,
-    chatId: string,
   ): Promise<boolean> {
     const orgContext = await prepareChannelOrgContext({
       listOrgs: () => client.listUserOrgs(),
@@ -490,14 +405,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
         await orgStore.save();
       },
       text: messageText?.startsWith("/") ? undefined : messageText,
-    });
-
-    trace("org_gate_result", {
-      chatId,
-      channelOrgKey,
-      status: orgContext.status,
-      orgId: "orgId" in orgContext ? orgContext.orgId : null,
-      justSelected: "justSelected" in orgContext ? orgContext.justSelected : null,
     });
 
     if (orgContext.status === "empty") {
@@ -697,30 +604,16 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     const existing = sessionStore.get(chatId);
 
     if (existing) {
-      trace("session_lookup_existing", {
-        chatId,
-        sessionId: existing.sessionId,
-        profileId: existing.profileId,
-      });
       const session = client.createChatSession(existing.sessionId, "telegram");
 
       try {
         await session.getMessages();
-        trace("session_reused", {
-          chatId,
-          sessionId: existing.sessionId,
-        });
         return session;
       } catch {
-        trace("session_missing_on_server", {
-          chatId,
-          sessionId: existing.sessionId,
-        });
         // Session missing on server; create a new one below
       }
     }
 
-    trace("session_create_needed", { chatId });
     return createAndBindSession(chatId);
   }
 
@@ -729,10 +622,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
     profileId?: string,
   ): Promise<RemoteChatSession> {
     const resolvedProfileId = profileId ?? (await resolveSessionProfileId(chatId));
-    trace("session_creating", {
-      chatId,
-      profileId: resolvedProfileId,
-    });
     const session = await client.createSession("telegram", {
       profileId: resolvedProfileId,
     });
@@ -743,12 +632,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
       updatedAt: new Date().toISOString(),
     });
     await sessionStore.save();
-
-    trace("session_created", {
-      chatId,
-      sessionId: session.id,
-      profileId: resolvedProfileId,
-    });
 
     return session;
   }
@@ -767,32 +650,6 @@ export function createChatHandler(deps: ChatHandlerDeps) {
 
     return pickProfileForOrg(profiles, config.profileId).id;
   }
-}
-
-function trace(event: string, details: Record<string, unknown>): void {
-  console.log(TELEGRAM_TRACE_PREFIX, event, JSON.stringify(details));
-}
-
-function previewText(text: string | null | undefined, maxLength = 120): string | null {
-  if (!text) {
-    return null;
-  }
-
-  const normalized = text.replace(/\s+/g, " ").trim();
-
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, maxLength)}...`;
-}
-
-function formatTraceError(error: unknown): string {
-  if (error instanceof Error) {
-    return `${error.name}: ${error.message}`;
-  }
-
-  return String(error);
 }
 
 function withGroupContext(input: SendMessageInput, isGroup: boolean): SendMessageInput {
