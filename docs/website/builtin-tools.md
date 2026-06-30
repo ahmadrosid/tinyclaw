@@ -247,13 +247,21 @@ Requires an OpenAI or Anthropic provider with a configured API key.
 
 ### Knowledge base
 
-Upload documents via the profile dashboard or API. Search only indexes extracted text from documents with `status: "ready"`. Upload path: `~/.tinyclaw/profiles/{profileId}/data/knowledge-base/`.
+Upload documents via the profile dashboard or API. Search only indexes extracted text from documents with `status: "ready"`. Upload path: `~/.tinyclaw/orgs/{orgId}/profiles/{profileId}/data/knowledge-base/`.
+
+### Data portability
+
+Platform admins can export and import the whole local TinyClaw data root from the dashboard System page.
+Exports are `.zip` backups and should be handled as sensitive files because they can include local auth, provider configuration, custom tools, skills, profile workspaces, and a local SQLite database.
+
+Import first previews the ZIP manifest and restore impact.
+Confirmed restore replaces the current local data root; selective merge, scheduled backups, cloud destinations, and encrypted archives are not part of the first version.
 
 ## Safety boundaries
 
 File tools (`read_file`, `write_file`, `delete_file`) are scoped to:
 
-- **Profile workspace:** `~/.tinyclaw/profiles/{profileId}/` (soul files, knowledge base, etc.)
+- **Profile workspace:** `~/.tinyclaw/orgs/{orgId}/profiles/{profileId}/` (soul files, knowledge base, etc.)
 - **Custom tools directory:** `~/.tinyclaw/tools/` (follows `TINYCLAW_CONFIG_DIR` if set)
 
 Path guards enforce:

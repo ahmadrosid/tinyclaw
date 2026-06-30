@@ -98,6 +98,9 @@ Profile-scoped skills are stored at:
 
 If you want richer personality and clearer long-term behavior, use soul files. If you only need a quick setup, the stored `systemPrompt` may be enough.
 
+Platform-admin data exports include these org/profile workspaces as part of the full TinyClaw data-root ZIP.
+Restoring an export replaces the local data root after preview and confirmation; it is not a per-profile merge.
+
 ### Default Bot soul stack
 
 New organizations receive a **pre-filled** soul stack for Default Bot — identity, voice, operating rules, and calibration examples — not blank placeholders. Customize files in the dashboard Soul tab. The database `systemPrompt` field is for optional operational overrides when it differs from `SOUL.md`; fresh installs leave it empty so identity lives in soul files alone.

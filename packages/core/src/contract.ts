@@ -173,6 +173,46 @@ export interface SystemStatusResponse {
   checkedAt: string;
 }
 
+export interface DataExportSkippedItem {
+  path: string;
+  reason: string;
+}
+
+export interface DataExportManifest {
+  kind: "tinyclaw-export";
+  version: number;
+  apiVersion: typeof TINYCLAW_API_VERSION;
+  createdAt: string;
+  sourceRootName: string;
+  topLevelPaths: string[];
+  fileCount: number;
+  totalBytes: number;
+  skipped: DataExportSkippedItem[];
+}
+
+export interface DataImportPreviewResponse {
+  manifest: DataExportManifest;
+  archiveFileCount: number;
+  archiveTotalBytes: number;
+  topLevelPaths: string[];
+  willReplaceRoot: boolean;
+}
+
+export interface RestoreDataImportRequest {
+  confirm: boolean;
+  data: string;
+}
+
+export interface PreviewDataImportRequest {
+  data: string;
+}
+
+export interface RestoreDataImportResponse {
+  manifest: DataExportManifest;
+  restoredRoot: string;
+  restoredFileCount: number;
+}
+
 export interface AuthCredentialsRequest {
   email: string;
   password: string;

@@ -20,6 +20,7 @@ import { registerTaskRoutes } from "./routes/tasks";
 import { registerPlatformOrgRoutes } from "./routes/platform-orgs";
 import { registerOrgMemberRoutes } from "./routes/org-members";
 import { registerInternalAutomationRoutes } from "./routes/internal-automations";
+import { registerDataPortabilityRoutes } from "./routes/data-portability";
 import { tryServeStaticWeb } from "../static-web";
 import { serializeHttpOpenApiSpec } from "./openapi";
 
@@ -69,6 +70,7 @@ export function createHonoApp(options: ServerOptions) {
   registerAutomationRoutes(app, options);
   registerTaskRoutes(app, options);
   registerPlatformOrgRoutes(app, options);
+  registerDataPortabilityRoutes(app, options);
   registerOrgMemberRoutes(app, options);
 
   app.get("/openapi.json", (c) => {

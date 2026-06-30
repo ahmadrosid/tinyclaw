@@ -9,6 +9,7 @@ export * from "./automation-scheduler";
 export * from "./automation-worker";
 export * from "./config";
 export * from "./contract";
+export * from "./data-portability";
 export * from "./fs";
 export * from "./message-content";
 export * from "./attachments/store";

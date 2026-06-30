@@ -42,6 +42,14 @@ bun run dev:server
 
 On first run, TinyClaw asks for your provider and API key if they are not configured yet. Settings are saved in `~/.tinyclaw/config.ini`.
 
+## Backup and restore
+
+Platform admins can export local TinyClaw data from the dashboard System page.
+The export is a `.zip` backup of the configured TinyClaw data root, which defaults to `~/.tinyclaw` and follows `TINYCLAW_CONFIG_DIR` when set.
+
+Importing is a whole-install restore: preview the ZIP first, then confirm restore to replace the current local data root.
+Treat export ZIPs as sensitive because they can include provider settings, auth data, org/profile workspaces, custom tools, skills, and the local SQLite database when it lives under the TinyClaw root.
+
 ## Docker
 
 If you want a simpler deployment path, run TinyClaw with Docker.

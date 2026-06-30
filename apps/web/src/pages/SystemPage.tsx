@@ -1,31 +1,39 @@
 import type { LucideIcon } from "lucide-react";
-import { BlocksIcon, PlugIcon } from "lucide-react";
+import { BlocksIcon, DatabaseBackupIcon, PlugIcon } from "lucide-react";
 import { useCallback } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { McpTab } from "@/components/soul-tools/McpTab";
 import { ToolsTab } from "@/components/soul-tools/ToolsTab";
+import { DataPortabilityPanel } from "@/components/system/DataPortabilityPanel";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/context/auth-context";
 import { canAccessSystemPage } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
-const TABS = [
+export const SYSTEM_TABS = [
   { id: "tools" as const, label: "Tools", icon: BlocksIcon },
   { id: "mcp" as const, label: "MCP", icon: PlugIcon },
+  { id: "data" as const, label: "Data", icon: DatabaseBackupIcon },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = (typeof SYSTEM_TABS)[number]["id"];
 
-function resolveTab(value: string | null, isPlatformAdmin: boolean): TabId {
+export function resolveSystemTab(value: string | null, isPlatformAdmin: boolean): TabId {
   if (!isPlatformAdmin) {
     return "tools";
   }
 
-  if (value === "mcp") {
-    return "mcp";
+  if (value === "mcp" || value === "data") {
+    return value;
   }
 
   return "tools";
+}
+
+export function visibleSystemTabs(isPlatformAdmin: boolean) {
+  return isPlatformAdmin
+    ? SYSTEM_TABS
+    : SYSTEM_TABS.filter((item) => item.id === "tools");
 }
 
 export function SystemPage() {
@@ -33,8 +41,8 @@ export function SystemPage() {
   const isPlatformAdmin = user?.isPlatformAdmin === true;
   const canAccess = canAccessSystemPage(isPlatformAdmin, activeOrg?.role);
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = resolveTab(searchParams.get("tab"), isPlatformAdmin);
-  const visibleTabs = isPlatformAdmin ? TABS : TABS.filter((item) => item.id === "tools");
+  const tab = resolveSystemTab(searchParams.get("tab"), isPlatformAdmin);
+  const visibleTabs = visibleSystemTabs(isPlatformAdmin);
 
   const setTab = useCallback(
     (nextTab: TabId) => {
@@ -91,7 +99,13 @@ export function SystemPage() {
         role="tabpanel"
         aria-labelledby={`system-tab-${tab}`}
       >
-        {tab === "tools" ? <ToolsTab embedded /> : <McpTab embedded />}
+        {tab === "tools" ? (
+          <ToolsTab embedded />
+        ) : tab === "mcp" ? (
+          <McpTab embedded />
+        ) : (
+          <DataPortabilityPanel />
+        )}
       </div>
     </section>
   );

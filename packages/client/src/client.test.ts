@@ -75,6 +75,74 @@ test("non-browser clients send local auth as a bearer token", async () => {
   expect(headers.get("Authorization")).toBe("Bearer local-auth-token");
 });
 
+test("data export downloads zip bytes with filename metadata", async () => {
+  const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const client = createClient({
+    baseUrl: "http://localhost:4310",
+    authToken: "local-auth-token",
+    fetch: async (input, init) => {
+      fetchCalls.push({ input, init });
+      return new Response(new Uint8Array([1, 2, 3]), {
+        headers: {
+          "Content-Disposition": 'attachment; filename="tinyclaw-export-test.zip"',
+          "Content-Type": "application/zip",
+        },
+      });
+    },
+  });
+
+  const result = await client.exportData();
+
+  expect(fetchCalls[0]!.input.toString()).toBe("http://localhost:4310/v1/platform/data/export");
+  const headers = new Headers(fetchCalls[0]!.init?.headers);
+  expect(headers.get("Authorization")).toBe("Bearer local-auth-token");
+  expect(headers.get("Content-Type")).toBeNull();
+  expect(result.filename).toBe("tinyclaw-export-test.zip");
+  expect(Array.from(new Uint8Array(result.data))).toEqual([1, 2, 3]);
+});
+
+test("data import helpers upload base64 archive data", async () => {
+  const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const client = createClient({
+    baseUrl: "http://localhost:4310",
+    authToken: "local-auth-token",
+    fetch: async (input, init) => {
+      fetchCalls.push({ input, init });
+      if (input.toString().endsWith("/preview")) {
+        return Response.json({
+          manifest: { kind: "tinyclaw-export" },
+          archiveFileCount: 1,
+          archiveTotalBytes: 3,
+          topLevelPaths: ["config.ini"],
+          willReplaceRoot: true,
+        });
+      }
+
+      return Response.json({
+        manifest: { kind: "tinyclaw-export" },
+        restoredRoot: "/tmp/tinyclaw",
+        restoredFileCount: 1,
+      });
+    },
+  });
+
+  await expect(client.previewDataImport(new Uint8Array([1, 2, 3]))).resolves.toMatchObject({
+    archiveFileCount: 1,
+  });
+  await expect(
+    client.restoreDataImport(new Uint8Array([4, 5, 6]), { confirm: true }),
+  ).resolves.toMatchObject({ restoredFileCount: 1 });
+
+  expect(JSON.parse(fetchCalls[0]!.init?.body as string)).toEqual({ data: "AQID" });
+  expect(JSON.parse(fetchCalls[1]!.init?.body as string)).toEqual({
+    confirm: true,
+    data: "BAUG",
+  });
+  expect(new Headers(fetchCalls[1]!.init?.headers).get("Authorization")).toBe(
+    "Bearer local-auth-token",
+  );
+});
+
 test("non-browser clients reload the local auth token once after a 401", async () => {
   const configDir = await mkdtemp(join(tmpdir(), "tinyclaw-client-auth-reload-"));
   process.env.TINYCLAW_CONFIG_DIR = configDir;

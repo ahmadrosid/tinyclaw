@@ -104,6 +104,10 @@ import type {
   CreateOrganizationResponse,
   ListOrganizationsResponse,
   ListUserOrgsResponse,
+  DataImportPreviewResponse,
+  PreviewDataImportRequest,
+  RestoreDataImportRequest,
+  RestoreDataImportResponse,
   SetActiveOrgRequest,
   AddOrgMemberRequest,
   AddOrgMemberResponse,
@@ -171,6 +175,41 @@ export class TinyClawClient {
 
   async getSystemStatus(): Promise<SystemStatusResponse> {
     return this.request<SystemStatusResponse>("/v1/system/status");
+  }
+
+  async exportData(): Promise<{
+    filename: string;
+    data: ArrayBuffer;
+  }> {
+    const response = await this.fetchRaw("/v1/platform/data/export");
+    return {
+      filename: readContentDispositionFilename(response.headers) ?? "tinyclaw-export.zip",
+      data: await response.arrayBuffer(),
+    };
+  }
+
+  async previewDataImport(data: Blob | BufferSource | string): Promise<DataImportPreviewResponse> {
+    const request: PreviewDataImportRequest = {
+      data: await encodeArchiveData(data),
+    };
+    return this.request<DataImportPreviewResponse>("/v1/platform/data/import/preview", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async restoreDataImport(
+    data: Blob | BufferSource | string,
+    options: { confirm: boolean },
+  ): Promise<RestoreDataImportResponse> {
+    const request: RestoreDataImportRequest = {
+      confirm: options.confirm,
+      data: await encodeArchiveData(data),
+    };
+    return this.request<RestoreDataImportResponse>("/v1/platform/data/import/restore", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
   }
 
   async startWorker(name: string): Promise<{ ok: boolean }> {
@@ -1191,6 +1230,32 @@ export class TinyClawClient {
     return (await response.json()) as T;
   }
 
+  private async fetchRaw(path: string, init?: RequestInit, retried = false): Promise<Response> {
+    const method = (init?.method ?? "GET").toUpperCase();
+    const headers = this.buildHeaders(method, init?.headers);
+    delete headers["Content-Type"];
+
+    const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      ...init,
+      headers,
+      credentials: this.credentials,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 && this.authToken && !retried) {
+        const freshToken = await loadLocalAuthToken();
+        if (freshToken && freshToken !== this.authToken) {
+          this.authToken = freshToken;
+          return this.fetchRaw(path, init, true);
+        }
+      }
+
+      throw await createApiError(response, path);
+    }
+
+    return response;
+  }
+
   private buildHeaders(method: string, headers?: HeadersInit): Record<string, string> {
     const merged: Record<string, string> = {
       "Content-Type": "application/json",
@@ -1238,4 +1303,39 @@ function readCookie(name: string): string | null {
   }
 
   return null;
+}
+
+async function encodeArchiveData(data: Blob | BufferSource | string): Promise<string> {
+  if (typeof data === "string") {
+    return data;
+  }
+
+  if (isBlobLike(data)) {
+    return encodeArchiveData(await data.arrayBuffer());
+  }
+
+  const bytes =
+    data instanceof ArrayBuffer
+      ? new Uint8Array(data)
+      : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+
+  if (typeof btoa === "function") {
+    let binary = "";
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+    return btoa(binary);
+  }
+
+  return Buffer.from(bytes).toString("base64");
+}
+
+function readContentDispositionFilename(headers: Headers): string | null {
+  const contentDisposition = headers.get("content-disposition");
+  const match = contentDisposition?.match(/filename="([^"]+)"/i);
+  return match?.[1] ?? null;
+}
+
+function isBlobLike(value: Blob | BufferSource): value is Blob {
+  return typeof Blob !== "undefined" && value instanceof Blob;
 }
