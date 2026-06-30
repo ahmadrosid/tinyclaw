@@ -308,7 +308,47 @@ function ChatComposerFullFooter({
         className={composerToolbarClass}
       >
         <PromptInputTools className="gap-1.5">
-          <ChatAttachmentButton disabled={disabled} />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={
+                    props.activeProfile
+                      ? `Switch profile (${props.activeProfile.name})`
+                      : "Switch profile"
+                  }
+                  title={props.activeProfile?.name ?? "Switch profile"}
+                  className={cn(composerIconButtonClass, "p-0")}
+                />
+              }
+            >
+              {props.activeProfile ? (
+                <ProfileAvatar profile={props.activeProfile} size="sm" className="size-7" />
+              ) : (
+                <span className="text-xs font-medium">?</span>
+              )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-52 w-auto">
+              {props.profiles.map((profile) => (
+                <DropdownMenuItem
+                  key={profile.id}
+                  disabled={profile.id === props.profileId}
+                  onClick={() => void props.onProfileSwitch(profile.id)}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <ProfileAvatar profile={profile} size="sm" />
+                    <span className="whitespace-nowrap">
+                      {profile.name}
+                      {profile.isSuper ? " (super)" : ""}
+                    </span>
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </PromptInputTools>
 
         <span className="hidden h-5 w-px bg-border sm:block" aria-hidden />
@@ -389,47 +429,7 @@ function ChatComposerFullFooter({
         aria-label="Composer actions"
         className="ml-auto flex shrink-0 items-center gap-1.5"
       >
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={
-                  props.activeProfile
-                    ? `Switch profile (${props.activeProfile.name})`
-                    : "Switch profile"
-                }
-                title={props.activeProfile?.name ?? "Switch profile"}
-                className={cn(composerIconButtonClass, "p-0")}
-              />
-            }
-          >
-            {props.activeProfile ? (
-              <ProfileAvatar profile={props.activeProfile} size="sm" className="size-7" />
-            ) : (
-              <span className="text-xs font-medium">?</span>
-            )}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-52 w-auto">
-            {props.profiles.map((profile) => (
-              <DropdownMenuItem
-                key={profile.id}
-                disabled={profile.id === props.profileId}
-                onClick={() => void props.onProfileSwitch(profile.id)}
-              >
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <ProfileAvatar profile={profile} size="sm" />
-                  <span className="whitespace-nowrap">
-                    {profile.name}
-                    {profile.isSuper ? " (super)" : ""}
-                  </span>
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ChatAttachmentButton disabled={disabled} />
 
         <span className="h-5 w-px bg-border" aria-hidden />
 
@@ -577,7 +577,7 @@ function ChatAttachmentButton({ disabled }: { disabled: boolean }) {
         />
         <TooltipContent side="top">Add attachment</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="start" className="min-w-40">
+      <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem
           disabled={disabled}
           onClick={() => openPicker(IMAGE_ACCEPT)}
