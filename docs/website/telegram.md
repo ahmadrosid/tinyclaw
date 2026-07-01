@@ -1,184 +1,237 @@
 # Telegram
 
-Use Telegram when you want the same TinyClaw agent available in chat without opening the web dashboard.
+TinyClaw can run as a Telegram bot so you can chat with the same agent from your phone, desktop Telegram, or a shared group.
 
-## Good use cases
+The mental model is simple:
 
-Telegram works well for:
+- Telegram is a **channel** for TinyClaw
+- The bridge talks to the same TinyClaw server as the web app
+- Pairing links a real Telegram user to your TinyClaw access
 
-- quick questions while away from your desk
-- lightweight team coordination in a shared group
-- sending text, photos, and supported documents to an agent
-- using the same profile from web and chat channels
-
-The Telegram bridge talks to the same TinyClaw server as the web app and CLI. It is a chat channel, not a separate agent system.
-
-## What Telegram can do
+## What Telegram supports
 
 With Telegram enabled, users can:
 
-- chat with a TinyClaw profile in a private Telegram chat
-- use TinyClaw in a Telegram group
-- receive rich text replies with formatting such as emphasis, code, headings, and links
-- switch org and profile with Telegram commands
-- send photos
-- send supported documents such as `pdf`, `docx`, `txt`, and `csv`
+- chat with a TinyClaw profile in a private chat
+- use the bot in Telegram groups
+- switch org and profile with commands
+- send text, photos, voice notes, and supported documents
+- receive Markdown-style rich replies when Telegram accepts the formatting
 
-## Rich Markdown replies
+## Step 1: Create a bot with BotFather
 
-Agents can write normal Markdown in Telegram replies. TinyClaw converts a safe Markdown subset into Telegram rich text.
-
-Supported formatting includes:
-
-- `**bold**`, `*italic*`, and `__underline__`
-- inline code and fenced code blocks
-- headings, short lists, and simple links
-
-Avoid raw HTML, Markdown tables, deeply nested lists, and very long code blocks. If Telegram rejects a rich message, TinyClaw falls back to a plain text reply.
-
-## Setup
-
-### 1. Create a bot
-
-1. Open `@BotFather`
-2. Create a bot
-3. Copy the bot token
-
-### How to create the bot in BotFather
-
-If you have never made a Telegram bot before, the simplest flow is:
+Every Telegram setup starts with a bot token from `@BotFather`.
 
 1. Open Telegram and search for `@BotFather`
-2. Start a chat with BotFather
-3. Send `/newbot`
-4. Enter a display name for your bot
-5. Enter a username for your bot that ends with `bot`
-6. Copy the bot token BotFather gives you
+2. Send `/newbot`
+3. Choose a display name
+4. Choose a username that ends with `bot`
+5. Copy the bot token
 
-Keep that token private. It is the secret TinyClaw uses to control your Telegram bot.
+Keep the token secret. Anyone with the token can control your Telegram bot.
 
-### 2. Save Telegram settings in TinyClaw
+## Step 2: Save Telegram settings in TinyClaw
 
-1. Open **Integrations → Telegram** in the TinyClaw web app
-2. Paste the bot token
-3. Choose which profile should reply
-4. Save
+Open **Integrations → Telegram** in the TinyClaw web app, then:
 
-### 3. Pair your Telegram account
+1. Paste the bot token
+2. Choose the default TinyClaw profile for Telegram replies
+3. Save
 
-Pair your own Telegram account first before testing group chats or sharing the bot with others.
+When you save for the first time, TinyClaw can generate a pairing code for linking your Telegram account.
 
-1. Generate or copy the pairing code from **Integrations → Telegram**
-2. Open the bot in a private Telegram chat
-3. Send the pairing code as a message
+## Step 3: Pair your Telegram account
 
-After that, your Telegram user is linked to TinyClaw.
+Pairing is required so random Telegram users cannot talk to your internal TinyClaw bot.
 
-### Why pairing is required
+1. Copy the pairing code from **Integrations → Telegram**
+2. Start a private chat with your bot
+3. Send the pairing code as a normal text message
 
-Pairing is how TinyClaw knows which real Telegram user is allowed to use the bot.
+After a successful match, that Telegram user is linked and the pairing code is cleared.
 
-The simple reason:
+### Why pairing exists
 
-- the bot token only connects TinyClaw to Telegram
-- pairing connects **your Telegram account** to TinyClaw
-- this stops random Telegram users from talking to your internal bot
+The bot token only connects TinyClaw to Telegram.
 
-Think of it like a one-time login for your Telegram account.
+Pairing connects **your Telegram user account** to TinyClaw permissions.
 
-Once paired:
+That means TinyClaw can:
 
-- TinyClaw knows who you are
-- it can apply the right org and profile access
-- your private chat and commands work normally
+- identify which Telegram user is talking
+- allow private chat safely
+- apply the right org and profile access
 
-## Running the bridge
+## Step 4: Start the Telegram bridge
 
-From the repo root:
+For local development, start it from the repo root:
 
 ```bash
 bun run dev:telegram
 ```
 
-The bridge uses long polling and forwards Telegram messages to the TinyClaw server.
+The bridge uses long polling and forwards Telegram messages to your TinyClaw server.
+
+If the TinyClaw server is not already running, the bridge will try to start it.
+
+For production, start the Telegram bridge worker from the **Integrations** page in the TinyClaw web app instead of using the dev command.
+
+## Optional: Direct allowlist instead of pairing
+
+TinyClaw also supports allowlisting Telegram user IDs directly.
+
+This is useful when you want to pre-authorize specific users without the one-time pairing flow.
+
+You can configure allowed Telegram user IDs in the Telegram settings file or through environment-based config.
 
 ## Private chat behavior
 
-Private chat is the simplest setup.
+Private chat is the simplest mode.
 
-- paired users can send normal messages directly to the bot
-- the bot keeps a Telegram session history
-- `/status`, `/profile`, `/org`, `/clear`, and `/new` are available
+Once paired or allowlisted:
 
-## Group chat setup
+- normal messages go to the TinyClaw agent
+- the bot keeps a Telegram chat session
+- Telegram commands work immediately
 
-Group chat needs one extra Telegram-specific setup step.
+If an unlinked user opens the bot, TinyClaw asks for the pairing code instead of sending the message to the agent.
 
-1. Link your account with the bot in a private chat first
-2. In `@BotFather`, disable **Group Privacy** for the bot if you want `@mentions` to work reliably
-3. If you changed Group Privacy, remove the bot from the group and add it back
-4. Add the bot to the group
+## Group chat behavior
 
-Without that re-add step, Telegram may keep sending only limited group updates such as slash commands and replies.
+TinyClaw supports Telegram groups, but it is intentionally conservative about when it replies.
 
-## How group triggering works
-
-TinyClaw does **not** reply to every group message.
-
-Even when Telegram group privacy is disabled, TinyClaw only responds when a message is:
+In a group, the bot responds only when the message is:
 
 - a slash command like `/status`
 - a reply to one of the bot's messages
-- a real bot mention like `@your_bot_name hello`
+- a direct mention like `@your_bot_name hello`
 
-This keeps the bot usable in groups without becoming noisy.
+This keeps group chats usable without making the bot noisy.
 
-## Commands
+## Step 5: Configure Telegram privacy mode for groups
 
-Useful Telegram commands:
+Telegram bots start with **Group Privacy** enabled. This is the most common reason a bot seems fine in private chat but not in groups.
+
+If you want mention-based group usage to work reliably:
+
+1. Open `@BotFather`
+2. Open your bot settings
+3. Disable **Group Privacy**
+4. Remove the bot from the Telegram group
+5. Add it back again
+
+That re-add step matters because Telegram may keep the old delivery behavior for bots already in the group.
+
+## Telegram commands
+
+These commands are available in Telegram:
 
 | Command | What it does |
 | --- | --- |
-| `/start` | Shows the welcome or help flow |
-| `/help` | Lists available Telegram commands |
-| `/status` | Shows bridge, provider, and profile status |
-| `/org` | Lists or switches the active organization |
-| `/profile` | Lists or switches the active replying profile |
-| `/clear` | Clears the current chat history |
-| `/new` | Starts a fresh conversation |
-| `/compact` | Compacts the current conversation history |
-| `/stop` | Stops an in-progress reply |
+| `/start` | Welcome and help |
+| `/help` | Show command help |
+| `/stop` | Stop the current in-progress reply |
+| `/clear` | Clear chat history |
+| `/compact` | Compact conversation history |
+| `/new` | Start a new conversation |
+| `/org` | Choose or switch organization |
+| `/profile` | Choose or switch profile |
+| `/status` | Show server and model status |
+
+## Supported message types
+
+Telegram can send more than plain text into TinyClaw.
+
+Supported inputs include:
+
+- text messages
+- photos
+- voice notes and audio messages
+- supported documents such as `pdf`, `docx`, `txt`, and `csv`
+
+Small supported documents are downloaded and forwarded into the TinyClaw chat flow. Unsupported media gets a friendly rejection message instead of silently failing.
+
+## Rich Markdown replies
+
+Agents can reply in normal Markdown-style text. TinyClaw converts a safe subset into Telegram rich formatting.
+
+Supported formatting includes:
+
+- `**bold**`
+- `*italic*`
+- `__underline__`
+- inline code
+- fenced code blocks
+- headings
+- simple links
+
+If Telegram rejects the rich rendering, TinyClaw falls back to plain text.
+
+## Configuration notes
+
+TinyClaw stores Telegram bridge settings under its local config directory.
+
+Important values include:
+
+- bot token
+- default Telegram profile
+- pairing code
+- paired user IDs
+- allowed user IDs
+
+Environment-based setup is also supported. The main env var is:
+
+```text
+TELEGRAM_BOT_TOKEN
+```
+
+TinyClaw also supports:
+
+```text
+TELEGRAM_ALLOWED_USER_IDS
+TINYCLAW_TELEGRAM_PROFILE_ID
+```
 
 ## Troubleshooting
 
-### Mentions do not work in groups
+### The bot does not answer at all
 
 Check these first:
 
-1. Disable **Group Privacy** in `@BotFather`
-2. Remove the bot from the group and add it back
-3. Make sure only one Telegram bridge worker is running
-
-If replies and slash commands work but mentions do not, the issue is usually Telegram group delivery settings, not TinyClaw's handler logic.
+1. The bot token is saved correctly
+2. `bun run dev:telegram` is running
+3. The TinyClaw server is running
+4. The Telegram user is paired or allowlisted
 
 ### Private chat works but group chat does not
 
 Usually one of these is true:
 
-- the user is not paired yet
+- Group Privacy is still enabled
 - the bot was added before Group Privacy was changed
-- the wrong bridge worker is running
+- the bot was not removed and re-added
+- the message was not a command, reply, or direct mention
 
-### The bot does not answer any Telegram messages
+### Mentions do not work in groups
 
-Check:
+Check these:
 
-1. the bot token is saved
-2. the bridge worker is running
-3. the TinyClaw server is running
-4. the Telegram user is paired
+1. Disable **Group Privacy** in `@BotFather`
+2. Remove the bot from the group and add it again
+3. Make sure only one Telegram bridge worker is running
+
+### Telegram says the chat is not linked
+
+This usually means:
+
+- the user never sent the pairing code
+- the pairing code expired or was replaced
+- the message was sent in a group instead of a private chat
+
+Generate a new pairing code from **Integrations → Telegram** and send it to the bot in a private chat.
 
 ## Next steps
 
 - [Getting Started](/getting-started)
 - [Profiles](/profiles)
+- [WhatsApp](/whatsapp)
