@@ -14,19 +14,19 @@ export default withMermaid(
       ],
       sidebar: [
         {
-          text: 'Concepts',
-          items: [
-            { text: 'Overview', link: '/overview' },
-            { text: 'How Multi-tenancy Works', link: '/multi-tenancy' },
-            { text: 'Profiles', link: '/profiles' },
-            { text: 'How Agent Prompts Work', link: '/agent-prompt' },
-          ],
-        },
-        {
           text: 'Guides',
           items: [
             { text: 'Getting Started', link: '/getting-started' },
             { text: 'Telegram', link: '/telegram' },
+          ],
+        },
+        {
+          text: 'Concepts',
+          items: [
+            { text: 'Overview', link: '/overview' },
+            { text: 'Multi-tenancy', link: '/multi-tenancy' },
+            { text: 'Profiles', link: '/profiles' },
+            { text: 'Agent Prompts', link: '/agent-prompt' },
           ],
         },
         {
