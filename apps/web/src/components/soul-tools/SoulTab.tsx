@@ -239,19 +239,19 @@ export function SoulTab({ profileId: controlledProfileId }: { profileId?: string
   if (!embedded && profiles.length === 0 && !profilesFetching) {
     return (
       <div className={cn(sectionClass, "p-8 text-sm text-muted-foreground")}>
-        Create a profile first to configure soul files.
+        Create a profile first to configure prompt files.
       </div>
     );
   }
 
   if (embedded && !profileId) {
     return (
-      <p className="text-sm text-muted-foreground">Select a profile to edit soul files.</p>
+      <p className="text-sm text-muted-foreground">Select a profile to edit prompt files.</p>
     );
   }
 
   if (loading && !status) {
-    return <PageState message="Loading soul stack…" embedded={embedded} />;
+    return <PageState message="Loading prompt stack…" embedded={embedded} />;
   }
 
   const soulPanel = (
@@ -260,14 +260,14 @@ export function SoulTab({ profileId: controlledProfileId }: { profileId?: string
         <div className="min-w-0">
           {!embedded ? (
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="type-section-title">{selectedProfile?.name ?? "Profile soul"}</h2>
+              <h2 className="type-section-title">{selectedProfile?.name ?? "Profile prompt"}</h2>
               {selectedProfile?.soulActive ? (
                 <span className="scope-badge scope-badge-active">active</span>
               ) : null}
             </div>
           ) : null}
           <p className={cn("type-body text-xs", !embedded && "mt-1")}>
-            Profile soul · one stack per bot
+            Profile prompt · one stack per bot
           </p>
           {status ? (
             <p
@@ -325,7 +325,7 @@ export function SoulTab({ profileId: controlledProfileId }: { profileId?: string
         <div className="type-body mt-5 rounded-md border border-border bg-muted/40 p-3 text-xs lg:hidden dark:bg-muted/30">
           <p className="font-medium text-foreground">How it works</p>
           <p className="mt-2">
-            Soul files shape the agent&apos;s identity and voice. Start a new chat session
+            Prompt files shape the agent&apos;s identity and voice. Start a new chat session
             after editing so changes take effect.
           </p>
         </div>

@@ -92,17 +92,21 @@ function slugifyProfileName(name: string): string {
 
 const sectionClass = "rounded-md border border-border bg-card";
 const identityBoxClass = "p-3";
-const profilesTagline = "Separate prompt, tools, and soul for each bot.";
+const profilesTagline = "Separate prompt, tools, and knowledge for each bot.";
 const profileTextSaveDelayMs = 1000;
 const profileModelSaveDelayMs = 400;
 
 type ProfileSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
 
-type ProfileDetailTab = "profile" | "soul" | "knowledge";
+type ProfileDetailTab = "profile" | "prompt" | "knowledge";
 
 function resolveProfileDetailTab(value: string | null): ProfileDetailTab {
-  if (value === "soul" || value === "knowledge") {
+  if (value === "prompt" || value === "knowledge") {
     return value;
+  }
+
+  if (value === "soul") {
+    return "prompt";
   }
 
   return "profile";
@@ -1098,10 +1102,10 @@ export function ProfilesPage() {
                       Profile
                     </ProfileDetailTabButton>
                     <ProfileDetailTabButton
-                      id="profile-detail-tab-soul"
-                      active={detailTab === "soul"}
-                      controls="profile-detail-panel-soul"
-                      onSelect={() => setDetailTab("soul")}
+                      id="profile-detail-tab-prompt"
+                      active={detailTab === "prompt"}
+                      controls="profile-detail-panel-prompt"
+                      onSelect={() => setDetailTab("prompt")}
                     >
                       Prompt
                     </ProfileDetailTabButton>
@@ -1428,11 +1432,11 @@ export function ProfilesPage() {
                       )}
                     </div>
                       </div>
-                    ) : detailTab === "soul" ? (
+                    ) : detailTab === "prompt" ? (
                       <div
-                        id="profile-detail-panel-soul"
+                        id="profile-detail-panel-prompt"
                         role="tabpanel"
-                        aria-labelledby="profile-detail-tab-soul"
+                        aria-labelledby="profile-detail-tab-prompt"
                       >
                         <SoulTab profileId={selectedId} />
                       </div>
