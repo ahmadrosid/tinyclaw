@@ -44,6 +44,19 @@ Avoid raw HTML, Markdown tables, deeply nested lists, and very long code blocks.
 2. Create a bot
 3. Copy the bot token
 
+### How to create the bot in BotFather
+
+If you have never made a Telegram bot before, the simplest flow is:
+
+1. Open Telegram and search for `@BotFather`
+2. Start a chat with BotFather
+3. Send `/newbot`
+4. Enter a display name for your bot
+5. Enter a username for your bot that ends with `bot`
+6. Copy the bot token BotFather gives you
+
+Keep that token private. It is the secret TinyClaw uses to control your Telegram bot.
+
 ### 2. Save Telegram settings in TinyClaw
 
 1. Open **Integrations → Telegram** in the TinyClaw web app
@@ -53,11 +66,31 @@ Avoid raw HTML, Markdown tables, deeply nested lists, and very long code blocks.
 
 ### 3. Pair your Telegram account
 
+Pair your own Telegram account first before testing group chats or sharing the bot with others.
+
 1. Generate or copy the pairing code from **Integrations → Telegram**
 2. Open the bot in a private Telegram chat
 3. Send the pairing code as a message
 
 After that, your Telegram user is linked to TinyClaw.
+
+### Why pairing is required
+
+Pairing is how TinyClaw knows which real Telegram user is allowed to use the bot.
+
+The simple reason:
+
+- the bot token only connects TinyClaw to Telegram
+- pairing connects **your Telegram account** to TinyClaw
+- this stops random Telegram users from talking to your internal bot
+
+Think of it like a one-time login for your Telegram account.
+
+Once paired:
+
+- TinyClaw knows who you are
+- it can apply the right org and profile access
+- your private chat and commands work normally
 
 ## Running the bridge
 
