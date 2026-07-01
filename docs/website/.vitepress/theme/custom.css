@@ -35,24 +35,3 @@
 
   --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #f59e0b 30%, #fbbf24);
 }
-
-.tinyclaw-agent-summary {
-  margin: 0;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--vp-c-divider);
-  background: linear-gradient(90deg, rgba(217, 119, 6, 0.08), rgba(251, 191, 36, 0.04));
-  color: var(--vp-c-text-2);
-  font-size: 0.92rem;
-}
-
-.tinyclaw-agent-summary p {
-  margin: 0;
-}
-
-.tinyclaw-agent-summary p + p {
-  margin-top: 0.35rem;
-}
-
-.tinyclaw-agent-summary strong {
-  color: var(--vp-c-text-1);
-}

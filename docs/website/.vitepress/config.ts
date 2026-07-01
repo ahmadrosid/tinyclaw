@@ -54,14 +54,6 @@ function getMarkdownUrl(relativePath: string) {
   return `${SITE_URL}/${relativePath}`
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-}
-
 function buildJsonLd(relativePath: string, title: string, description: string) {
   return JSON.stringify({
     '@context': 'https://schema.org',
@@ -149,20 +141,6 @@ export default defineConfig({
       ['meta', { name: 'author', content: `${AUTHOR_NAME}, ${AUTHOR_ROLE}` }],
       ['script', { type: 'application/ld+json' }, buildJsonLd(pageData.relativePath, title, description)],
     ]
-  },
-  transformHtml(code, _id, ctx) {
-    const description = escapeHtml(getPageDescription(ctx.pageData.relativePath))
-    const markdownUrl = escapeHtml(getMarkdownUrl(ctx.pageData.relativePath))
-    const title = escapeHtml(getPageTitle(ctx.pageData.relativePath, ctx.pageData.title))
-
-    const summary = [
-      '<section class="tinyclaw-agent-summary" aria-label="AI page summary">',
-      `<p><strong>${title}</strong>: ${description}</p>`,
-      `<p>Author: ${AUTHOR_NAME}, ${AUTHOR_ROLE}. Markdown version: <a href="${markdownUrl}">${markdownUrl}</a></p>`,
-      '</section>',
-    ].join('')
-
-    return code.replace('<body>', `<body>${summary}`)
   },
   async buildEnd(siteConfig) {
     const pages = [...siteConfig.pages].sort()
