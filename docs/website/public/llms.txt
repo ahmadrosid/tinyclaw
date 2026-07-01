@@ -1,0 +1,28 @@
+# TinyClaw
+
+> Deploy your own AI agent platform as easily as spinning up WordPress.
+
+TinyClaw is a self-hosted, multi-tenant AI agent platform for teams. It supports organizations, profiles, soul files, builtin tools, skills, MCP servers, and channels like web, CLI, Telegram, and WhatsApp.
+
+Maintainer: Ahmad Rosid (Creator and maintainer of TinyClaw)
+Website: https://ahmadrosid.github.io/tinyclaw/
+Repository: https://github.com/ahmadrosid/tinyclaw
+
+## AI-friendly access
+
+- Markdown mirrors are available for docs pages at the same path with a `.md` suffix.
+- Canonical HTML pages are available under the main docs site.
+
+## Docs
+
+- [Home](https://ahmadrosid.github.io/tinyclaw/index.md): Self-hosted AI agents for teams with profiles, tools, channels, and multi-tenant workspaces.
+- [Getting Started](https://ahmadrosid.github.io/tinyclaw/getting-started.md): Install TinyClaw with Bun or Docker, run the server, and complete first-time setup.
+- [Overview](https://ahmadrosid.github.io/tinyclaw/overview.md): Understand the TinyClaw mental model: organizations, profiles, tools, and channels.
+- [Multi Tenancy](https://ahmadrosid.github.io/tinyclaw/multi-tenancy.md): Learn how organizations, roles, and tenant isolation work in TinyClaw.
+- [Profiles](https://ahmadrosid.github.io/tinyclaw/profiles.md): See how TinyClaw profiles define bot behavior, soul files, tools, and model selection.
+- [Agent Prompt](https://ahmadrosid.github.io/tinyclaw/agent-prompt.md): Understand how TinyClaw builds the final system prompt from soul files, tools, and runtime context.
+- [Builtin Tools](https://ahmadrosid.github.io/tinyclaw/builtin-tools.md): Review the builtin tools that TinyClaw profiles can use and how access is controlled.
+- [Skills](https://ahmadrosid.github.io/tinyclaw/skills.md): Learn how reusable skills extend TinyClaw profiles with focused workflows.
+- [MCP Servers](https://ahmadrosid.github.io/tinyclaw/mcp.md): Connect external MCP servers to TinyClaw profiles and expose new tools safely.
+- [Telegram](https://ahmadrosid.github.io/tinyclaw/telegram.md): Set up TinyClaw as a Telegram bot with pairing, commands, and group behavior.
+- [WhatsApp](https://ahmadrosid.github.io/tinyclaw/whatsapp.md): Set up TinyClaw on WhatsApp with linking, commands, and troubleshooting.
