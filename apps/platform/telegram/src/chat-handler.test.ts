@@ -78,7 +78,7 @@ describe("createChatHandler group chats", () => {
         getBotInfo: () => TEST_BOT_INFO,
       });
 
-      const { ctx, replies } = createMessageContext({
+      const { ctx, replies, replyOptions } = createMessageContext({
         userId: 42,
         chatId: -100123,
         text: "@mybot hello",
@@ -91,6 +91,7 @@ describe("createChatHandler group chats", () => {
       expect(calls.createSession).toBe(1);
       expect(calls.sendStream).toBe(1);
       expect(replies.at(-1)).toBe("Agent reply");
+      expect(replyOptions.at(-1)).toEqual({ parse_mode: "HTML" });
     });
   });
 

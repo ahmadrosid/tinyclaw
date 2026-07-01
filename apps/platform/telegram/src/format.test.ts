@@ -36,9 +36,19 @@ describe("renderTelegramRichText", () => {
     );
   });
 
+  test("renders headings as bold text", () => {
+    expect(renderTelegramRichText("## Status")).toBe("<b>Status</b>");
+  });
+
   test("does not italicize underscores or double-escape query params in links", () => {
     expect(renderTelegramRichText("[docs](https://example.com/a_b?x=1&y=2)")).toBe(
       '<a href="https://example.com/a_b?x=1&amp;y=2">docs</a>',
+    );
+  });
+
+  test("leaves links with parentheses in the url unrendered", () => {
+    expect(renderTelegramRichText("[docs](https://example.com/path_(draft))")).toBe(
+      "[docs](https://example.com/path_(draft))",
     );
   });
 
@@ -49,8 +59,8 @@ describe("renderTelegramRichText", () => {
   });
 
   test("escapes raw html while preserving fenced code blocks", () => {
-    expect(renderTelegramRichText("Before <tag>\n```js\nconst x = 1 < 2;\n```")).toBe(
-      "Before &lt;tag&gt;\n<pre><code>const x = 1 &lt; 2;</code></pre>",
+    expect(renderTelegramRichText("Before <tag>\n```js\n  const x = 1 < 2;\n```")).toBe(
+      "Before &lt;tag&gt;\n<pre><code>  const x = 1 &lt; 2;</code></pre>",
     );
   });
 });

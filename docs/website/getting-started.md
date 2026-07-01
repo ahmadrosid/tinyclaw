@@ -100,6 +100,8 @@ TinyClaw can expose the same agent runtime through:
 
 Enable Telegram or WhatsApp from the web app settings when you are ready.
 
+Telegram replies support normal Markdown for emphasis, code, headings, short lists, and simple links.
+
 ### Telegram group setup
 
 If you want to use TinyClaw in Telegram groups:

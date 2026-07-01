@@ -134,7 +134,8 @@ test("buildChatSystemPrompt adds private chat guidance for telegram and whatsapp
 
   expect(telegram).toContain("private Telegram chat");
   expect(telegram).toContain("Write like texting a friend");
-  expect(telegram).toContain("plain text only");
+  expect(telegram).toContain("Write in normal Markdown");
+  expect(telegram).toContain("safe rich subset");
 
   expect(whatsapp).toContain("private WhatsApp chat");
   expect(whatsapp).toContain("Write like texting a friend");
@@ -146,5 +147,5 @@ test("buildChatSystemPrompt adds group chat guidance for telegram", () => {
 
   expect(prompt).toContain("Telegram group chat");
   expect(prompt).toContain("Everyone in the group");
-  expect(prompt).toContain("plain text only");
+  expect(prompt).toContain("Write in normal Markdown");
 });

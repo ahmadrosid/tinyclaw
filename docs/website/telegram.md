@@ -24,6 +24,18 @@ With Telegram enabled, users can:
 - send photos
 - send supported documents such as `pdf`, `docx`, `txt`, and `csv`
 
+## Rich Markdown replies
+
+Agents can write normal Markdown in Telegram replies. TinyClaw converts a safe Markdown subset into Telegram rich text.
+
+Supported formatting includes:
+
+- `**bold**`, `*italic*`, and `__underline__`
+- inline code and fenced code blocks
+- headings, short lists, and simple links
+
+Avoid raw HTML, Markdown tables, deeply nested lists, and very long code blocks. If Telegram rejects a rich message, TinyClaw falls back to a plain text reply.
+
 ## Setup
 
 ### 1. Create a bot

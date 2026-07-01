@@ -32,6 +32,8 @@ export function createMessageContext(options: {
   entities?: Array<{ type: "mention"; offset: number; length: number }>;
   replyToBot?: boolean;
   replyToBotId?: number;
+  failRichReply?: boolean;
+  failRichEdit?: boolean;
 }): MockMessageContext {
   const replies: string[] = [];
   const replyOptions: unknown[] = [];
@@ -55,9 +57,13 @@ export function createMessageContext(options: {
       ...(options.entities ? { entities: options.entities } : {}),
       ...(replyFrom ? { reply_to_message: { from: replyFrom } } : {}),
     },
-    reply: async (text: string, options?: unknown) => {
+    reply: async (text: string, replyOptionsArg?: unknown) => {
+      if (isHtmlParseMode(replyOptionsArg) && options.failRichReply) {
+        throw new Error("Rich reply failed");
+      }
+
       replies.push(text);
-      replyOptions.push(options);
+      replyOptions.push(replyOptionsArg);
       return { message_id: nextMessageId++ };
     },
     replyWithChatAction: async () => {},
@@ -66,15 +72,28 @@ export function createMessageContext(options: {
         chatId: number,
         messageId: number,
         text: string,
-        options?: unknown,
+        editOptionsArg?: unknown,
       ) => {
+        if (isHtmlParseMode(editOptionsArg) && options.failRichEdit) {
+          throw new Error("Rich edit failed");
+        }
+
         edits.push({ chatId, messageId, text });
-        editOptions.push(options);
+        editOptions.push(editOptionsArg);
       },
     },
   } as unknown as Context;
 
   return { ctx, replies, replyOptions, edits, editOptions };
+}
+
+function isHtmlParseMode(options: unknown): options is { parse_mode: "HTML" } {
+  return Boolean(
+    options &&
+      typeof options === "object" &&
+      "parse_mode" in options &&
+      options.parse_mode === "HTML",
+  );
 }
 
 export interface MockStreamControl {

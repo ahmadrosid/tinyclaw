@@ -7,6 +7,7 @@ interface TelegramReplyMessage {
 
 export interface TelegramRichMessenger {
   send(text: string): Promise<TelegramReplyMessage | undefined>;
+  sendPlain(text: string): Promise<TelegramReplyMessage | undefined>;
   edit(messageId: number, text: string): Promise<void>;
 }
 
@@ -14,12 +15,15 @@ export function createTelegramRichMessenger(ctx: Context): TelegramRichMessenger
   return {
     async send(text: string): Promise<TelegramReplyMessage | undefined> {
       return sendRichMessage(ctx, text).catch(async () => {
-        return (await ctx.reply(prepareTelegramFallbackReply(text))) as TelegramReplyMessage;
+        return sendPlainMessage(ctx, text);
       });
+    },
+    async sendPlain(text: string): Promise<TelegramReplyMessage | undefined> {
+      return sendPlainMessage(ctx, text);
     },
     async edit(messageId: number, text: string): Promise<void> {
       await editRichMessage(ctx, messageId, text).catch(async () => {
-        await ctx.api.editMessageText(getChatId(ctx), messageId, prepareTelegramFallbackReply(text));
+        await editPlainMessage(ctx, messageId, text);
       });
     },
   };
@@ -42,6 +46,21 @@ async function editRichMessage(
   await ctx.api.editMessageText(getChatId(ctx), messageId, renderTelegramRichText(text), {
     parse_mode: "HTML",
   });
+}
+
+async function sendPlainMessage(
+  ctx: Context,
+  text: string,
+): Promise<TelegramReplyMessage> {
+  return (await ctx.reply(prepareTelegramFallbackReply(text))) as TelegramReplyMessage;
+}
+
+async function editPlainMessage(
+  ctx: Context,
+  messageId: number,
+  text: string,
+): Promise<void> {
+  await ctx.api.editMessageText(getChatId(ctx), messageId, prepareTelegramFallbackReply(text));
 }
 
 function getChatId(ctx: Context): number {

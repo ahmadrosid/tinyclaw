@@ -1,4 +1,4 @@
-import { prepareTelegramReply, splitIntoChatBubbles } from "./format";
+import { prepareTelegramReply, splitTelegramMessage } from "./format";
 import type { TelegramRichMessenger } from "./rich-message";
 
 const DEFAULT_BUBBLE_DELAY_MS = 400;
@@ -18,7 +18,7 @@ export async function replyAsChat(
     return;
   }
 
-  const bubbles = splitIntoChatBubbles(prepared);
+  const bubbles = splitTelegramMessage(prepared);
   const delayMs = options.delayMs ?? DEFAULT_BUBBLE_DELAY_MS;
 
   for (let index = 0; index < bubbles.length; index++) {

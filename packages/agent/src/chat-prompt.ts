@@ -113,9 +113,9 @@ function appendMessagingChannelPrompt(
 
   if (channel === "telegram") {
     sections.push(
-      "Telegram does not render Markdown.",
-      "Use plain text only: no markdown, no HTML, no formatting syntax.",
-      "Do not use **bold**, *italic*, # headings, bullet lists with - or *, numbered markdown lists, tables, or ``` code fences.",
+      "Write in normal Markdown when formatting helps; Telegram delivery will render a safe rich subset.",
+      "Use simple Markdown: **bold**, *italic*, __underline__, inline code, fenced code blocks, headings, links, and short lists.",
+      "Avoid raw HTML, Markdown tables, deeply nested lists, and very long code blocks because Telegram is best for compact chat messages.",
     );
   } else {
     sections.push(

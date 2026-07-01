@@ -16,6 +16,10 @@ function createMessenger(): TelegramRichMessenger & {
       sent.push(text);
       return { message_id: 1 };
     },
+    async sendPlain(text: string) {
+      sent.push(text);
+      return { message_id: 1 };
+    },
     async edit(messageId: number, text: string) {
       edited.push({ messageId, text });
     },
