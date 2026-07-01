@@ -17,6 +17,7 @@ import { ArtifactsTab } from "@/components/soul-tools/ArtifactsTab";
 import { KnowledgeTab } from "@/components/soul-tools/KnowledgeTab";
 import { SoulTab } from "@/components/soul-tools/SoulTab";
 import { McpServerAssignPicker } from "@/components/McpServerAssignPicker";
+import { ProfileCreateDialog } from "@/components/ProfileCreateDialog";
 import { McpServerDialog } from "@/components/soul-tools/mcp-tab/McpServerDialog";
 import { SkillAssignPicker } from "@/components/SkillAssignPicker";
 import { SkillCreateDialog } from "@/components/SkillCreateDialog";
@@ -55,7 +56,6 @@ import {
   useAssignSkillMutation,
   useAssignToolMutation,
   useCreateMcpServerMutation,
-  useCreateProfileMutation,
   useCreateSkillMutation,
   useDeleteProfileMutation,
   useDeleteSkillMutation,
@@ -76,20 +76,6 @@ import {
   profileModelLabel,
   profileModelSelectionValue,
 } from "@/lib/models";
-
-const defaultCreatePrompt = "You are a helpful assistant.";
-const PROFILE_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
-
-function slugifyProfileName(name: string): string {
-  return (
-    name
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 64) || "profile"
-  );
-}
 
 const sectionClass = "rounded-md border border-border bg-card";
 const identityBoxClass = "p-3";
@@ -160,7 +146,6 @@ export function ProfilesPage() {
     error: detailError,
     refetch: refetchDetail,
   } = useProfileQuery(selectedId);
-  const createMutation = useCreateProfileMutation();
   const updateMutation = useUpdateProfileMutation();
   const deleteMutation = useDeleteProfileMutation();
   const uploadAvatarMutation = useUploadProfileAvatarMutation();
@@ -174,7 +159,6 @@ export function ProfilesPage() {
   const unassignSkillMutation = useUnassignSkillMutation();
   const deleteSkillMutation = useDeleteSkillMutation();
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const createAvatarInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -184,14 +168,6 @@ export function ProfilesPage() {
   const [skillCreateOpen, setSkillCreateOpen] = useState(false);
   const [detailSkillId, setDetailSkillId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [createName, setCreateName] = useState("");
-  const [createId, setCreateId] = useState("");
-  const [createIdEdited, setCreateIdEdited] = useState(false);
-  const [createPrompt, setCreatePrompt] = useState(defaultCreatePrompt);
-  const [createAvatarFile, setCreateAvatarFile] = useState<File | null>(null);
-  const [createAvatarPreview, setCreateAvatarPreview] = useState<string | null>(null);
-  const [createToolIds, setCreateToolIds] = useState<string[]>([]);
-  const [createAssignToolId, setCreateAssignToolId] = useState("");
   const [editName, setEditName] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
   const [editModel, setEditModel] = useState<string | null>(null);
@@ -248,10 +224,8 @@ export function ProfilesPage() {
   }, [editModel, providerModelGroups]);
 
   const busy =
-    createMutation.isPending ||
     updateMutation.isPending ||
     deleteMutation.isPending ||
-    uploadAvatarMutation.isPending ||
     assignMutation.isPending ||
     unassignMutation.isPending ||
     assignMcpMutation.isPending ||
@@ -552,14 +526,6 @@ export function ProfilesPage() {
     };
   }, [clearScheduledSave]);
 
-  useEffect(() => {
-    return () => {
-      if (createAvatarPreview) {
-        URL.revokeObjectURL(createAvatarPreview);
-      }
-    };
-  }, [createAvatarPreview]);
-
   const filteredProfiles = useMemo(() => {
     const query = trimmedSearch.toLowerCase();
     if (!query) {
@@ -583,8 +549,6 @@ export function ProfilesPage() {
     () => new Set(detail?.skills.map((skill) => skill.id) ?? []),
     [detail?.skills],
   );
-
-  const createAvailableTools = allTools.filter((tool) => !createToolIds.includes(tool.id));
 
   async function handleSelectProfile(profileId: string) {
     if (profileId === selectedId) {
@@ -615,98 +579,6 @@ export function ProfilesPage() {
 
     setSelectedId(profileId);
   }
-
-  function resetCreateAvatar() {
-    setCreateAvatarPreview((current) => {
-      if (current) {
-        URL.revokeObjectURL(current);
-      }
-      return null;
-    });
-    setCreateAvatarFile(null);
-  }
-
-  function handleCreateAvatarSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    resetCreateAvatar();
-    setCreateAvatarFile(file);
-    setCreateAvatarPreview(URL.createObjectURL(file));
-  }
-
-  function handleAddCreateTool() {
-    if (!createAssignToolId || createToolIds.includes(createAssignToolId)) {
-      return;
-    }
-
-    setCreateToolIds((current) => [...current, createAssignToolId]);
-    setCreateAssignToolId("");
-  }
-
-  function handleRemoveCreateTool(toolId: string) {
-    setCreateToolIds((current) => current.filter((id) => id !== toolId));
-  }
-
-  const createIdTrimmed = createId.trim();
-  const createIdValid = Boolean(createIdTrimmed) && PROFILE_ID_PATTERN.test(createIdTrimmed);
-
-  useEffect(() => {
-    if (!createOpen || createIdEdited) {
-      return;
-    }
-
-    setCreateId(createName.trim() ? slugifyProfileName(createName) : "");
-  }, [createName, createIdEdited, createOpen]);
-
-  async function handleCreate(event: React.FormEvent) {
-    event.preventDefault();
-
-    if (!createName.trim() || !createIdValid) {
-      return;
-    }
-
-    setError(null);
-
-    try {
-      const response = await createMutation.mutateAsync({
-        id: createIdTrimmed,
-        name: createName.trim(),
-        systemPrompt: createPrompt.trim() || undefined,
-      });
-
-      if (createAvatarFile) {
-        const attachment = await fileToImageAttachment(createAvatarFile);
-
-        if (!attachment) {
-          setError("Profile created, but the selected image could not be read.");
-        } else {
-          await uploadAvatarMutation.mutateAsync({
-            profileId: response.profile.id,
-            attachment,
-          });
-        }
-      }
-
-      for (const toolId of createToolIds) {
-        await assignMutation.mutateAsync({
-          profileId: response.profile.id,
-          toolId,
-        });
-      }
-
-      handleCreateOpenChange(false);
-      setSelectedId(response.profile.id);
-    } catch (err) {
-      setError(formatError(err));
-    }
-  }
-
 
   function openDeleteDialog(profileId: string) {
     setDeleteTargetId(profileId);
@@ -904,16 +776,6 @@ export function ProfilesPage() {
 
   function handleCreateOpenChange(open: boolean) {
     setCreateOpen(open);
-
-    if (!open) {
-      setCreateName("");
-      setCreateId("");
-      setCreateIdEdited(false);
-      setCreatePrompt(defaultCreatePrompt);
-      setCreateToolIds([]);
-      setCreateAssignToolId("");
-      resetCreateAvatar();
-    }
   }
 
   if (profilesLoading && profiles.length === 0) {
@@ -1474,191 +1336,12 @@ export function ProfilesPage() {
         </section>
       </div>
 
-      <Dialog open={createOpen} onOpenChange={handleCreateOpenChange}>
-        <DialogContent className="gap-6 p-6 sm:max-w-md">
-          <form className="space-y-6" onSubmit={(event) => void handleCreate(event)}>
-            <DialogHeader className="gap-2">
-              <DialogTitle>Create profile</DialogTitle>
-              <DialogDescription>
-                Name, profile id, and system prompt for the new bot profile.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <Field label="Avatar">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted">
-                    {createAvatarPreview ? (
-                      <img
-                        src={createAvatarPreview}
-                        alt=""
-                        className="size-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-lg font-medium text-muted-foreground">
-                        {createName.trim().charAt(0).toUpperCase() || "?"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      ref={createAvatarInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/gif,image/webp"
-                      className="hidden"
-                      disabled={busy}
-                      onChange={handleCreateAvatarSelected}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => createAvatarInputRef.current?.click()}
-                    >
-                      Choose image
-                    </Button>
-                    {createAvatarPreview ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy}
-                        onClick={resetCreateAvatar}
-                      >
-                        Remove
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </Field>
-              <Field label="Name" htmlFor="create-profile-name">
-                <Input
-                  id="create-profile-name"
-                  placeholder="Research assistant"
-                  value={createName}
-                  disabled={busy}
-                  autoFocus
-                  onChange={(event) => setCreateName(event.target.value)}
-                />
-              </Field>
-              <Field label="Profile id" htmlFor="create-profile-id">
-                <Input
-                  id="create-profile-id"
-                  placeholder="research-assistant"
-                  value={createId}
-                  disabled={busy}
-                  className="font-mono text-sm"
-                  aria-invalid={!createIdValid}
-                  onChange={(event) => {
-                    setCreateIdEdited(true);
-                    setCreateId(event.target.value);
-                  }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Defaults to a slug from the profile name. Edit to customize.
-                </p>
-              </Field>
-              <ExpandableTextarea
-                label="System prompt"
-                htmlFor="create-profile-prompt"
-                value={createPrompt}
-                disabled={busy}
-                onChange={(event) => setCreatePrompt(event.target.value)}
-              />
-              <Field label="Tools">
-                {allTools.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No tools available.</p>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Select
-                        value={createAssignToolId}
-                        disabled={busy || createAvailableTools.length === 0}
-                        onValueChange={(value) =>
-                          setCreateAssignToolId(value != null ? String(value) : "")
-                        }
-                      >
-                        <SelectTrigger className="w-full" aria-label="Tool to assign">
-                          <SelectValue placeholder="Assign tool…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {createAvailableTools.map((tool) => (
-                            <SelectItem key={tool.id} value={tool.id}>
-                              {tool.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        disabled={busy || !createAssignToolId}
-                        onClick={handleAddCreateTool}
-                      >
-                        Add
-                      </Button>
-                    </div>
-                    {createToolIds.length > 0 ? (
-                      <ul className="divide-y divide-border rounded-md border border-border">
-                        {createToolIds.map((toolId) => {
-                          const tool = allTools.find((entry) => entry.id === toolId);
-                          if (!tool) {
-                            return null;
-                          }
-
-                          return (
-                            <li
-                              key={toolId}
-                              className="flex items-center justify-between gap-2 px-3 py-2"
-                            >
-                              <span className="min-w-0 truncate text-sm text-foreground">
-                                {tool.name}
-                              </span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="shrink-0 text-muted-foreground"
-                                disabled={busy}
-                                onClick={() => handleRemoveCreateTool(toolId)}
-                              >
-                                Remove
-                              </Button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : null}
-                  </div>
-                )}
-              </Field>
-            </div>
-
-            <DialogFooter className="gap-3 border-t-0 bg-transparent p-0 pt-2 pb-2 sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => handleCreateOpenChange(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={busy || !createName.trim() || !createIdValid}>
-                {createMutation.isPending ||
-                uploadAvatarMutation.isPending ||
-                assignMutation.isPending ? (
-                  <Spinner className="size-4" />
-                ) : (
-                  "Create"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ProfileCreateDialog
+        open={createOpen}
+        tools={allTools}
+        onOpenChange={handleCreateOpenChange}
+        onCreated={(profileId) => setSelectedId(profileId)}
+      />
 
       <SkillCreateDialog
         open={skillCreateOpen}
