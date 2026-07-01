@@ -17,6 +17,39 @@ interface McpEmailDeliveryDependencies {
   loadConfig?: typeof loadEmailConfig;
 }
 
+const RECIPIENT_FIELD_ALIASES = [
+  "to",
+  "recipient",
+  "recipientEmail",
+  "recipient_email",
+  "toEmail",
+  "to_email",
+  "email",
+  "emailAddress",
+  "email_address",
+  "address",
+  "recipients",
+  "emails",
+];
+
+const SUBJECT_FIELD_ALIASES = ["subject", "title"];
+
+const BODY_FIELD_ALIASES = [
+  "body",
+  "text",
+  "message",
+  "content",
+  "plainText",
+  "plain_text",
+  "messageBody",
+  "message_body",
+  "bodyText",
+  "body_text",
+  "html",
+  "htmlBody",
+  "html_body",
+];
+
 export async function hasAutomationEmailDeliveryPath(
   db: DatabaseAdapter,
   profileId: string,
@@ -118,6 +151,7 @@ function findBestMcpEmailTarget(servers: StoredMcpServerRecord[]): McpEmailTarge
 function scoreEmailTool(server: StoredMcpServerRecord, tool: CachedMcpTool): number {
   const serverText = `${server.name} ${server.transport}`.toLowerCase();
   const toolText = `${tool.name} ${tool.description}`.toLowerCase();
+  const properties = readSchemaProperties(tool.inputSchema);
 
   const sendLike = /(send|draft|compose)/.test(toolText);
   const emailLike = /(email|gmail|mail)/.test(toolText);
@@ -138,6 +172,24 @@ function scoreEmailTool(server: StoredMcpServerRecord, tool: CachedMcpTool): num
 
   if (toolText.includes("send_email") || toolText.includes("send email")) {
     score += 10;
+  }
+
+  if (properties) {
+    const recipientField = findSchemaKey(properties, RECIPIENT_FIELD_ALIASES);
+    const bodyField = findSchemaKey(properties, BODY_FIELD_ALIASES);
+    const subjectField = findSchemaKey(properties, SUBJECT_FIELD_ALIASES);
+
+    if (recipientField) {
+      score += 15;
+    }
+
+    if (bodyField) {
+      score += 15;
+    }
+
+    if (subjectField) {
+      score += 5;
+    }
   }
 
   return score;
@@ -172,14 +224,9 @@ function buildToolArguments(
   if (properties) {
     const args: Record<string, unknown> = {};
 
-    assignSchemaValue(args, properties, ["to", "recipient", "recipientEmail", "toEmail"], input.to);
-    assignSchemaValue(args, properties, ["subject", "title"], input.subject);
-    assignSchemaValue(
-      args,
-      properties,
-      ["body", "text", "message", "content", "plainText"],
-      input.text,
-    );
+    assignSchemaValue(args, properties, RECIPIENT_FIELD_ALIASES, input.to);
+    assignSchemaValue(args, properties, SUBJECT_FIELD_ALIASES, input.subject);
+    assignSchemaValue(args, properties, BODY_FIELD_ALIASES, input.text);
 
     if (Object.keys(args).length > 0) {
       return args;
@@ -208,22 +255,26 @@ function assignSchemaValue(
   candidates: string[],
   value: string,
 ): void {
-  for (const candidate of candidates) {
-    const match = Object.keys(properties).find(
-      (key) => key.toLowerCase() === candidate.toLowerCase(),
-    );
+  const match = findSchemaKey(properties, candidates);
 
-    if (!match) {
-      continue;
-    }
-
-    target[match] = schemaExpectsArray(properties[match]) ? [value] : value;
+  if (!match) {
     return;
   }
+
+  target[match] = schemaExpectsArray(properties[match]) ? [value] : value;
 }
 
 function schemaExpectsArray(schema: unknown): boolean {
   return isRecord(schema) && schema.type === "array";
+}
+
+function findSchemaKey(
+  properties: Record<string, unknown>,
+  candidates: string[],
+): string | undefined {
+  const normalizedCandidates = candidates.map(normalizeKey);
+
+  return Object.keys(properties).find((key) => normalizedCandidates.includes(normalizeKey(key)));
 }
 
 function isErrorResult(value: unknown): value is { error: string } {
@@ -232,4 +283,8 @@ function isErrorResult(value: unknown): value is { error: string } {
 
 function isRecord(value: unknown): value is Record<string, any> {
   return typeof value === "object" && value !== null;
+}
+
+function normalizeKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 }

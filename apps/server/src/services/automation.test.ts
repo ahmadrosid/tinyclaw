@@ -41,6 +41,7 @@ async function createTestDb() {
 async function assignComposeioGmailSender(
   db: ReturnType<typeof createInMemoryDatabaseAdapter>,
   profileId: string,
+  inputSchema?: Record<string, unknown>,
 ) {
   const now = new Date().toISOString();
   const serverId = "mcp_composeio";
@@ -57,14 +58,16 @@ async function assignComposeioGmailSender(
       {
         name: "send_email",
         description: "Send an email with Gmail",
-        inputSchema: {
-          type: "object",
-          properties: {
-            to: { type: "string" },
-            subject: { type: "string" },
-            body: { type: "string" },
+        inputSchema:
+          inputSchema ??
+          {
+            type: "object",
+            properties: {
+              to: { type: "string" },
+              subject: { type: "string" },
+              body: { type: "string" },
+            },
           },
-        },
       },
     ],
     orgId: ORG_ID,
@@ -566,5 +569,48 @@ describe("AutomationRunner", () => {
 
     const runs = await service.listRuns("automation_email_delivery_test");
     expect(runs[0]?.deliveryStatus).toBe("sent");
+  });
+
+  test("maps composeio-style schema aliases when calling MCP email tools", async () => {
+    const db = await createTestDb();
+    await assignComposeioGmailSender(db, PROFILE_ID, {
+      type: "object",
+      properties: {
+        recipient_email: { type: "string" },
+        title: { type: "string" },
+        message_body: { type: "string" },
+      },
+    });
+
+    const sent: Record<string, unknown>[] = [];
+    const adapter = createMcpAwareEmailOutboundAdapter(
+      db,
+      {
+        isConnected: () => true,
+        connect: async () => [],
+        ensureConnected: async () => undefined,
+        callTool: async (_serverId: string, _transport: string, _toolName: string, input: unknown) => {
+          sent.push(input as Record<string, unknown>);
+          return { ok: true };
+        },
+      } as never,
+      { loadConfig: async () => null },
+    );
+
+    await adapter.send({
+      to: "hey@ahmadrosid.com",
+      subject: "Daily digest",
+      text: "Hello world",
+      profileId: PROFILE_ID,
+      orgId: ORG_ID,
+    });
+
+    expect(sent).toEqual([
+      {
+        recipient_email: "hey@ahmadrosid.com",
+        title: "Daily digest",
+        message_body: "Hello world",
+      },
+    ]);
   });
 });
