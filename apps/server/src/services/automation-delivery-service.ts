@@ -69,6 +69,8 @@ export class AutomationDeliveryService {
         to: delivery.to!.trim(),
         subject: formatted.subject,
         text: formatted.text,
+        profileId: automation.profileId,
+        orgId: automation.orgId,
       });
     } else if (delivery.channel === "telegram") {
       result = await this.telegram.send({

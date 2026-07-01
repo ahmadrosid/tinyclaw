@@ -4,7 +4,13 @@ export interface ChannelSendResult {
 }
 
 export interface EmailOutboundAdapter {
-  send(input: { to: string; subject: string; text: string }): Promise<ChannelSendResult>;
+  send(input: {
+    to: string;
+    subject: string;
+    text: string;
+    profileId?: string;
+    orgId?: string | null;
+  }): Promise<ChannelSendResult>;
 }
 
 export interface TelegramOutboundAdapter {

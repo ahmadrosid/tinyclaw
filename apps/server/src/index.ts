@@ -14,6 +14,10 @@ import { ensureProviderConfigured } from "./setup";
 import { resolveWebDistDir } from "./static-web";
 import { McpClientManager } from "./services/mcp-client-manager";
 import { McpService } from "./services/mcp-service";
+import {
+  createMcpAwareEmailOutboundAdapter,
+  hasAutomationEmailDeliveryPath,
+} from "./services/mcp-email-delivery";
 import { SkillsService } from "./services/skills-service";
 import { AuthService } from "./services/auth-service";
 import { OrgService } from "./services/org-service";
@@ -99,8 +103,12 @@ try {
 
 const automationService = new AutomationService(database.adapter, {
   getUserTimezone: () => agent.getUserTimezone(),
+  canSendEmail: (profileId, _orgId) =>
+    hasAutomationEmailDeliveryPath(database.adapter, profileId),
 });
-const automationDeliveryService = new AutomationDeliveryService(automationService);
+const automationDeliveryService = new AutomationDeliveryService(automationService, {
+  email: createMcpAwareEmailOutboundAdapter(database.adapter, mcpClientManager),
+});
 const automationRunner = new AutomationRunner(
   automationService,
   agent,

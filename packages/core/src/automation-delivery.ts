@@ -77,8 +77,13 @@ export function shouldDeliverForRun(
   return status === "completed";
 }
 
+export interface ValidateAutomationDeliveryOptions {
+  isEmailConfigured?: () => Promise<boolean> | boolean;
+}
+
 export async function validateAutomationDelivery(
   delivery: AutomationDelivery | undefined,
+  options: ValidateAutomationDeliveryOptions = {},
 ): Promise<void> {
   if (!delivery) {
     return;
@@ -112,9 +117,11 @@ export async function validateAutomationDelivery(
     return;
   }
 
-  const emailConfig = await loadEmailConfig();
+  const emailConfigured = options.isEmailConfigured
+    ? await options.isEmailConfigured()
+    : isEmailConfigComplete(await loadEmailConfig());
 
-  if (!isEmailConfigComplete(emailConfig)) {
+  if (!emailConfigured) {
     throw new Error("Email is not configured. Set up mailbox settings first.");
   }
 

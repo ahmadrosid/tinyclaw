@@ -3,6 +3,10 @@ import { createInMemoryDatabaseAdapter } from "@tinyclaw/db";
 import { AutomationService } from "./automation-service";
 import { AutomationRunner } from "./automation-runner";
 import { AutomationDeliveryService } from "./automation-delivery-service";
+import {
+  createMcpAwareEmailOutboundAdapter,
+  hasAutomationEmailDeliveryPath,
+} from "./mcp-email-delivery";
 
 const ORG_ID = "org_test";
 const PROFILE_ID = "profile_default";
@@ -34,7 +38,73 @@ async function createTestDb() {
   return db;
 }
 
+async function assignComposeioGmailSender(
+  db: ReturnType<typeof createInMemoryDatabaseAdapter>,
+  profileId: string,
+) {
+  const now = new Date().toISOString();
+  const serverId = "mcp_composeio";
+
+  await db.upsertMcpServer({
+    id: serverId,
+    name: "composeio-gmail",
+    transport: "http",
+    config: { url: "https://example.com/mcp" },
+    enabled: true,
+    status: "connected",
+    lastError: null,
+    cachedTools: [
+      {
+        name: "send_email",
+        description: "Send an email with Gmail",
+        inputSchema: {
+          type: "object",
+          properties: {
+            to: { type: "string" },
+            subject: { type: "string" },
+            body: { type: "string" },
+          },
+        },
+      },
+    ],
+    orgId: ORG_ID,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.assignMcpServerToProfile(profileId, serverId);
+}
+
 describe("AutomationService", () => {
+  test("accepts email delivery when composeio MCP email sending is assigned", async () => {
+    const db = await createTestDb();
+    await assignComposeioGmailSender(db, PROFILE_ID);
+
+    const service = new AutomationService(db, {
+      getUserTimezone: async () => "UTC",
+      canSendEmail: (profileId) =>
+        hasAutomationEmailDeliveryPath(db, profileId, {
+          loadConfig: async () => null,
+        }),
+    });
+
+    const automation = await service.create(
+      ORG_ID,
+      {
+        name: "Digest",
+        description: "Daily digest",
+        prompt: "Summarize news",
+        trigger: { type: "manual" },
+        delivery: { channel: "email", to: "hey@ahmadrosid.com" },
+      },
+      PROFILE_ID,
+    );
+
+    expect(automation.delivery).toEqual({
+      channel: "email",
+      to: "hey@ahmadrosid.com",
+    });
+  });
+
   test("defaults schedule timezone from user config", async () => {
     const db = await createTestDb();
     const service = new AutomationService(db, {
@@ -426,6 +496,75 @@ describe("AutomationRunner", () => {
     await runner.run("automation_delivery_test");
 
     const runs = await service.listRuns("automation_delivery_test");
+    expect(runs[0]?.deliveryStatus).toBe("sent");
+  });
+
+  test("delivers automation email through composeio MCP when SMTP is unavailable", async () => {
+    const db = await createTestDb();
+    await assignComposeioGmailSender(db, PROFILE_ID);
+
+    const service = new AutomationService(db, {
+      getUserTimezone: async () => "UTC",
+    });
+    const now = new Date().toISOString();
+    const sent: Record<string, unknown>[] = [];
+
+    await db.upsertAutomation({
+      id: "automation_email_delivery_test",
+      name: "Digest",
+      version: 1,
+      definition: {
+        description: "Daily digest",
+        prompt: "Summarize news",
+        trigger: { type: "manual" },
+        steps: [],
+        version: 1,
+        delivery: { channel: "email", to: "hey@ahmadrosid.com" },
+      },
+      profileId: PROFILE_ID,
+      orgId: ORG_ID,
+      enabled: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const manager = {
+      isConnected: () => true,
+      connect: async () => [],
+      ensureConnected: async () => undefined,
+      callTool: async (_serverId: string, _transport: string, _toolName: string, input: unknown) => {
+        sent.push(input as Record<string, unknown>);
+        return { ok: true };
+      },
+    };
+
+    const deliveryService = new AutomationDeliveryService(service, {
+      email: createMcpAwareEmailOutboundAdapter(
+        db,
+        manager as never,
+        { loadConfig: async () => null },
+      ),
+    });
+
+    const agentService = {
+      runAutomationPrompt: async () => "News summary",
+    };
+
+    const runner = new AutomationRunner(
+      service,
+      agentService as never,
+      deliveryService,
+    );
+    await runner.run("automation_email_delivery_test");
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({
+      to: "hey@ahmadrosid.com",
+      subject: "[TinyClaw] Digest — completed",
+      body: expect.stringContaining("News summary"),
+    });
+
+    const runs = await service.listRuns("automation_email_delivery_test");
     expect(runs[0]?.deliveryStatus).toBe("sent");
   });
 });

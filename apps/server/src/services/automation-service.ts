@@ -23,6 +23,7 @@ import { DatabaseAutomationStore, type DatabaseAdapter } from "@tinyclaw/db";
 
 export interface AutomationServiceOptions {
   getUserTimezone: () => Promise<string>;
+  canSendEmail?: (profileId: string, orgId: string) => Promise<boolean>;
   onChange?: () => void | Promise<void>;
 }
 
@@ -30,12 +31,14 @@ export class AutomationService {
   private readonly store: DatabaseAutomationStore;
   private readonly db: DatabaseAdapter;
   private readonly getUserTimezone: () => Promise<string>;
+  private readonly canSendEmail?: (profileId: string, orgId: string) => Promise<boolean>;
   private onChange?: () => void | Promise<void>;
 
   constructor(db: DatabaseAdapter, options: AutomationServiceOptions) {
     this.db = db;
     this.store = new DatabaseAutomationStore(db);
     this.getUserTimezone = options.getUserTimezone;
+    this.canSendEmail = options.canSendEmail;
     this.onChange = options.onChange;
   }
 
@@ -85,13 +88,16 @@ export class AutomationService {
       trigger,
     });
 
-    const delivery = normalizeAutomationDelivery(input.delivery);
-    await validateAutomationDelivery(delivery);
-
     const profileId = await this.resolveProfileId(
       orgId,
       profileIdOverride ?? input.profileId,
     );
+    const delivery = normalizeAutomationDelivery(input.delivery);
+    await validateAutomationDelivery(delivery, {
+      isEmailConfigured: this.canSendEmail
+        ? () => this.canSendEmail!(profileId, orgId)
+        : undefined,
+    });
 
     const now = new Date().toISOString();
     const automation: StoredAutomation = {
@@ -145,7 +151,11 @@ export class AutomationService {
       delivery = normalizeAutomationDelivery(input.delivery);
     }
 
-    await validateAutomationDelivery(delivery);
+    await validateAutomationDelivery(delivery, {
+      isEmailConfigured: this.canSendEmail
+        ? () => this.canSendEmail!(existing.profileId, orgId)
+        : undefined,
+    });
 
     const updated: StoredAutomation = {
       ...existing,
