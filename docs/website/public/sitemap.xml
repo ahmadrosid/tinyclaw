@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://ahmadrosid.github.io/tinyclaw/</loc>
+  </url>
+  <url>
+    <loc>https://ahmadrosid.github.io/tinyclaw/getting-started</loc>
+  </url>
+  <url>
+    <loc>https://ahmadrosid.github.io/tinyclaw/overview</loc>
+  </url>
+  <url>
+    <loc>https://ahmadrosid.github.io/tinyclaw/multi-tenancy</loc>
+  </url>
+  <url>
+    <loc>https://ahmadrosid.github.io/tinyclaw/profiles</loc>
+  </url>
+  <url>
+    <loc>https://ahmadrosid.github.io/tinyclaw/builtin-tools</loc>
+  </url>
+  <url>
+    <loc>https://ahmadrosid.github.io/tinyclaw/mcp</loc>
+  </url>
+  <url>
+    <loc>https://ahmadrosid.github.io/tinyclaw/telegram</loc>
+  </url>
+</urlset>
