@@ -308,7 +308,7 @@ function SidebarNavButton({
         />
         {showBadge && collapsed ? (
           <span
-            className="absolute right-0 top-0 inline-flex min-w-4 translate-x-1/3 -translate-y-1/3 items-center justify-center rounded-full border-2 border-sidebar bg-primary px-1 text-[9px] font-semibold leading-4 text-primary-foreground"
+            className="absolute right-0 top-0 inline-flex h-[18px] min-w-[18px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-sidebar bg-primary px-1.5 text-[10px] font-bold leading-none tabular-nums text-primary-foreground shadow-sm"
             aria-hidden
           >
             {badgeLabel}
